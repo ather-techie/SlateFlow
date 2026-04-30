@@ -3,5 +3,8 @@ dist/
 .env
 .env.local
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
+*.tsbuildinfo
 .DS_Store
