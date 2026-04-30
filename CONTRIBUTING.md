@@ -1,4 +1,4 @@
-# Contributing to Liteboard
+# Contributing to SlateFlow
 
 Thank you for your interest in contributing! This guide covers everything you need to get started.
 
@@ -7,15 +7,15 @@ Thank you for your interest in contributing! This guide covers everything you ne
 **Prerequisites:** Node.js 20+, Git
 
 ```bash
-git clone https://github.com/your-org/liteboard.git
-cd liteboard
+git clone https://github.com/your-org/slateflow.git
+cd slateflow
 npm install
 npm run dev
 ```
 
-The app starts at http://localhost:5173 (client) and http://localhost:3000 (API). The SQLite database is created and seeded automatically on first boot at `server/liteboard.db`.
+The app starts at http://localhost:5173 (client) and http://localhost:3000 (API). The SQLite database is created and seeded automatically on first boot at `server/slateflow.db`.
 
-To reset the database, delete `server/liteboard.db` and restart the server.
+To reset the database, delete `server/slateflow.db` and restart the server.
 
 ## Branch Naming
 
@@ -51,7 +51,7 @@ Before requesting review, confirm:
 ## Project Structure
 
 ```
-liteboard/
+slateflow/
   client/       # React 18 + Vite frontend
   server/       # Hono 4 + SQLite backend
   docs/         # API reference

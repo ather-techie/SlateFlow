@@ -2,7 +2,23 @@ CREATE TABLE IF NOT EXISTS projects (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT    NOT NULL,
   description TEXT    NOT NULL DEFAULT '',
+  color       TEXT    NOT NULL DEFAULT '#6366f1',
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS lane_presets (
+  id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  name  TEXT    NOT NULL,
+  lanes TEXT    NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS swim_lanes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name        TEXT    NOT NULL,
+  position    INTEGER NOT NULL DEFAULT 0,
+  color       TEXT    NOT NULL DEFAULT '#6366f1',
+  is_done_col INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS sprints (
@@ -25,7 +41,7 @@ CREATE TABLE IF NOT EXISTS columns (
 
 CREATE TABLE IF NOT EXISTS cards (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  column_id    INTEGER NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+  column_id    INTEGER REFERENCES columns(id) ON DELETE CASCADE,
   sprint_id    INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
   title        TEXT    NOT NULL,
   description  TEXT    NOT NULL DEFAULT '',

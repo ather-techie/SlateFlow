@@ -5,7 +5,7 @@ import { dirname, join } from 'path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-const DB_PATH = process.env.DATABASE_PATH ?? join(__dirname, '..', '..', 'liteboard.db')
+const DB_PATH = process.env.DATABASE_PATH ?? join(__dirname, '..', '..', 'slateflow.db')
 const SCHEMA_PATH = join(__dirname, 'schema.sql')
 
 export const db = new Database(DB_PATH)
@@ -20,11 +20,57 @@ db.exec(schema)
 
 // Additive column migrations for databases created before position was added
 try { db.exec('ALTER TABLE cards ADD COLUMN position INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
+try { db.exec("ALTER TABLE projects ADD COLUMN color TEXT NOT NULL DEFAULT '#6366f1'") } catch { /* already exists */ }
+// swim_lane_id links cards to swim_lanes once projects adopt the new lane system
+try { db.exec('ALTER TABLE cards ADD COLUMN swim_lane_id INTEGER') } catch { /* already exists */ }
+
+// Make column_id nullable so swim_lane-based cards don't require a columns row
+try {
+  const colInfo = (db.prepare('PRAGMA table_info(cards)').all() as { name: string; notnull: number }[])
+    .find(c => c.name === 'column_id')
+  if (colInfo?.notnull === 1) {
+    db.pragma('foreign_keys = OFF')
+    db.exec('DROP TABLE IF EXISTS _cards_mig')
+    db.transaction(() => {
+      db.exec(`CREATE TABLE _cards_mig (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        column_id    INTEGER REFERENCES columns(id) ON DELETE CASCADE,
+        swim_lane_id INTEGER REFERENCES swim_lanes(id) ON DELETE CASCADE,
+        sprint_id    INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
+        title        TEXT    NOT NULL,
+        description  TEXT    NOT NULL DEFAULT '',
+        priority     TEXT    NOT NULL DEFAULT 'p2' CHECK (priority IN ('p0','p1','p2','p3')),
+        story_points INTEGER,
+        assignee     TEXT,
+        position     INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+        updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+      )`)
+      db.exec(`INSERT INTO _cards_mig
+        SELECT id, column_id, swim_lane_id, sprint_id, title, description,
+               priority, story_points, assignee, position, created_at, updated_at
+        FROM cards`)
+      db.exec('DROP TABLE cards')
+      db.exec('ALTER TABLE _cards_mig RENAME TO cards')
+    })()
+    db.pragma('foreign_keys = ON')
+  }
+} catch { /* already nullable */ }
 
 // Seed only when the database is empty
 const projectCount = (db.prepare('SELECT COUNT(*) as n FROM projects').get() as { n: number }).n
 if (projectCount === 0) {
   seed()
+}
+
+// Seed lane presets once
+const presetCount = (db.prepare('SELECT COUNT(*) as n FROM lane_presets').get() as { n: number }).n
+if (presetCount === 0) {
+  const ins = db.prepare('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)')
+  ins.run('Basic Kanban',   JSON.stringify(['To Do', 'In Progress', 'Done']))
+  ins.run('Software Dev',   JSON.stringify(['Backlog', 'Design', 'Development', 'Code Review', 'Testing', 'Done']))
+  ins.run('Bug Tracking',   JSON.stringify(['New', 'Triaged', 'In Progress', 'Fixed', 'Closed']))
+  ins.run('Content Pipeline', JSON.stringify(['Ideas', 'Drafting', 'Review', 'Approved', 'Published']))
 }
 
 function seed() {
@@ -41,7 +87,7 @@ function seed() {
 
   const run = db.transaction(() => {
     const { lastInsertRowid: projectId } = insertProject.run(
-      'Liteboard Demo',
+      'SlateFlow Demo',
       'Default project — delete or rename to get started.'
     )
 

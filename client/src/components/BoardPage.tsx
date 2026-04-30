@@ -153,7 +153,7 @@ export default function BoardPage() {
 
     if (card.column_id !== prev.column_id || card.position !== prev.position) {
       api
-        .moveCard(card.id, { column_id: card.column_id, position: card.position })
+        .moveCard(card.id, { column_id: card.column_id!, position: card.position })
         .catch(() => setAllCards(prevCardsRef.current))
     }
   }
@@ -170,6 +170,7 @@ export default function BoardPage() {
     const optimistic: CardType = {
       id: tempId,
       column_id: columnId,
+      swim_lane_id: null,
       sprint_id: null,
       title,
       description: '',

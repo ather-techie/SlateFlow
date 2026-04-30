@@ -42,7 +42,7 @@ comments.post('/cards/:id/comments', async (c) => {
     .run(cardId, author, text)
 
   db
-    .prepare("INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'comment', ?)")
+    .prepare("INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'comment_added', ?)")
     .run(cardId, JSON.stringify({ author }))
 
   const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(lastInsertRowid)

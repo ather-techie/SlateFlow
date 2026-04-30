@@ -1,4 +1,4 @@
-import type { ActivityLog, BacklogCard, Card, Column, Comment, Label, Project, Sprint } from './types'
+import type { ActivityLog, ActivityItem, BacklogCard, Card, Column, Comment, DashboardStats, Label, Lane, LanePreset, Project, ProjectSummary, Sprint } from './types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init)
@@ -55,4 +55,38 @@ export const api = {
   updateSprint: (sprintId: number, data: Partial<Pick<Sprint, 'name' | 'goal' | 'start_date' | 'end_date' | 'status'>>) =>
     request<Sprint>(`/sprints/${sprintId}`, { method: 'PATCH', ...json(data) }),
   completeSprint: (sprintId: number) => request<Sprint>(`/sprints/${sprintId}/complete`, { method: 'POST' }),
+  deleteSprint: (sprintId: number) => request<{ id: number }>(`/sprints/${sprintId}`, { method: 'DELETE' }),
+
+  getDashboardStats: () => request<DashboardStats>('/dashboard/stats'),
+  getDashboardProjects: () => request<ProjectSummary[]>('/dashboard/projects'),
+  getDashboardActivity: () => request<ActivityItem[]>('/dashboard/activity'),
+
+  updateProject: (id: number, data: { name?: string; description?: string; color?: string }) =>
+    request<Project>(`/projects/${id}`, { method: 'PATCH', ...json(data) }),
+  deleteProject: (id: number) => request<{ id: number }>(`/projects/${id}`, { method: 'DELETE' }),
+
+  getLanes: (projectId: number) => request<Lane[]>(`/projects/${projectId}/lanes`),
+  getLaneCards: (laneId: number) => request<Card[]>(`/lanes/${laneId}/cards`),
+  createLaneCard: (
+    laneId: number,
+    data: { title: string; priority?: Card['priority']; assignee?: string | null },
+  ) => request<Card>(`/lanes/${laneId}/cards`, { method: 'POST', ...json(data) }),
+  moveLaneCard: (cardId: number, data: { lane_id: number; position?: number }) =>
+    request<Card>(`/cards/${cardId}/move`, { method: 'PATCH', ...json(data) }),
+  createLane: (projectId: number, data: { name: string; color?: string }) =>
+    request<Lane>(`/projects/${projectId}/lanes`, { method: 'POST', ...json(data) }),
+  updateLane: (laneId: number, data: { name?: string; color?: string; is_done_col?: boolean }) =>
+    request<Lane>(`/lanes/${laneId}`, { method: 'PATCH', ...json(data) }),
+  deleteLane: (laneId: number) => request<{ id: number }>(`/lanes/${laneId}`, { method: 'DELETE' }),
+  reorderLanes: (projectId: number, ordered_ids: number[]) =>
+    request<Lane[]>(`/projects/${projectId}/lanes/reorder`, { method: 'POST', ...json({ ordered_ids }) }),
+
+  getLanePresets: () => request<LanePreset[]>('/lane-presets'),
+  createProject: (data: {
+    name: string
+    description?: string
+    color?: string
+    preset_id?: number
+    custom_lanes?: string[]
+  }) => request<Project>('/projects', { method: 'POST', ...json(data) }),
 }

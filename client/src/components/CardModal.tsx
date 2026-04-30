@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { ActivityLog, Card, Comment, Label } from '../types'
+import type { ActivityLog, Card, Comment, Label, Lane, Sprint } from '../types'
 import { api } from '../api'
 
 interface Props {
   card: Card
   projectId: number
+  lanes?: Lane[]
+  sprints?: Sprint[]
   onClose: () => void
   onUpdate: (updated: Card) => void
   onDelete: (id: number) => void
@@ -85,7 +87,7 @@ function renderMarkdown(md: string): string {
   return out.join('')
 }
 
-export default function CardModal({ card, projectId, onClose, onUpdate, onDelete }: Props) {
+export default function CardModal({ card, projectId, lanes, sprints, onClose, onUpdate, onDelete }: Props) {
   const [title, setTitle] = useState(card.title)
   const [editingTitle, setEditingTitle] = useState(false)
   const [description, setDescription] = useState(card.description)
@@ -93,6 +95,10 @@ export default function CardModal({ card, projectId, onClose, onUpdate, onDelete
   const [priority, setPriority] = useState(card.priority)
   const [storyPoints, setStoryPoints] = useState(card.story_points?.toString() ?? '')
   const [assignee, setAssignee] = useState(card.assignee ?? '')
+
+  const [currentLaneId, setCurrentLaneId] = useState<number | null>(card.swim_lane_id ?? null)
+  const [movingLane, setMovingLane] = useState(false)
+  const [currentSprintId, setCurrentSprintId] = useState<number | null>(card.sprint_id ?? null)
 
   const [allLabels, setAllLabels] = useState<Label[]>([])
   const [cardLabels, setCardLabels] = useState<Label[]>([])
@@ -145,13 +151,38 @@ export default function CardModal({ card, projectId, onClose, onUpdate, onDelete
   }, [editingTitle])
 
   async function saveField(
-    updates: Partial<Pick<Card, 'title' | 'description' | 'priority' | 'story_points' | 'assignee'>>,
+    updates: Partial<Pick<Card, 'title' | 'description' | 'priority' | 'story_points' | 'assignee' | 'sprint_id'>>,
   ) {
     try {
       const updated = await api.updateCard(card.id, updates)
       onUpdate(updated)
     } catch {
       // silently fail — optimistic value already displayed
+    }
+  }
+
+  async function handleMoveLane(laneId: number) {
+    const prev = currentLaneId
+    setCurrentLaneId(laneId)
+    setMovingLane(true)
+    try {
+      const updated = await api.moveLaneCard(card.id, { lane_id: laneId })
+      onUpdate(updated)
+    } catch {
+      setCurrentLaneId(prev)
+    } finally {
+      setMovingLane(false)
+    }
+  }
+
+  async function handleSprintChange(sprintId: number | null) {
+    const prev = currentSprintId
+    setCurrentSprintId(sprintId)
+    try {
+      const updated = await api.updateCard(card.id, { sprint_id: sprintId })
+      onUpdate(updated)
+    } catch {
+      setCurrentSprintId(prev)
     }
   }
 
@@ -502,6 +533,45 @@ export default function CardModal({ card, projectId, onClose, onUpdate, onDelete
                 className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
+
+            {lanes && lanes.length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">
+                  Lane
+                </label>
+                <select
+                  value={currentLaneId ?? ''}
+                  onChange={e => handleMoveLane(Number(e.target.value))}
+                  disabled={movingLane}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:opacity-60"
+                >
+                  {!currentLaneId && <option value="">— unassigned —</option>}
+                  {lanes.map(l => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {sprints && sprints.length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">
+                  Sprint
+                </label>
+                <select
+                  value={currentSprintId ?? ''}
+                  onChange={e => handleSprintChange(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                >
+                  <option value="">— No sprint —</option>
+                  {sprints.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}{s.status === 'active' ? ' ●' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="pt-2 border-t border-slate-100">
               <p className="text-xs text-slate-400">

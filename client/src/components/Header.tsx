@@ -1,4 +1,6 @@
-import { NavLink, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { api } from '../api'
 import type { Project, Sprint } from '../types'
 
 interface Props {
@@ -14,6 +16,25 @@ function fmt(dateStr: string) {
 
 export default function Header({ project, sprints, selectedSprintId, onSprintChange }: Props) {
   const { projectId } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [projects, setProjects] = useState<Project[]>([])
+
+  useEffect(() => {
+    api.getProjects().then(setProjects).catch(() => {})
+  }, [])
+
+  function getPageSlug() {
+    if (location.pathname.endsWith('/backlog')) return 'backlog'
+    if (location.pathname.endsWith('/sprints')) return 'sprints'
+    return 'board'
+  }
+
+  function handleProjectChange(newId: number) {
+    onSprintChange(null)
+    navigate(`/projects/${newId}/${getPageSlug()}`)
+  }
+
   const activeSprint = sprints.find(s => s.status === 'active')
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -32,7 +53,7 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
       <span className="text-slate-700 select-none">|</span>
 
       <nav className="flex items-center gap-5">
-        <NavLink to={`/projects/${projectId}`} end className={navClass}>
+        <NavLink to={`/projects/${projectId}/board`} end className={navClass}>
           Board
         </NavLink>
         <NavLink to={`/projects/${projectId}/backlog`} className={navClass}>
@@ -54,6 +75,24 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
               </span>
             )}
           </span>
+        </>
+      )}
+
+      {projects.length > 1 && (
+        <>
+          <span className="text-slate-700 select-none">|</span>
+          <label className="flex items-center gap-2 text-sm">
+            <span className="text-slate-400">Project</span>
+            <select
+              value={project.id}
+              onChange={e => handleProjectChange(Number(e.target.value))}
+              className="bg-slate-800 text-slate-200 text-sm rounded-md px-2 py-1 border border-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+            >
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </label>
         </>
       )}
 

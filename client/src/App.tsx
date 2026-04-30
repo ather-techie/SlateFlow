@@ -1,45 +1,56 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { api } from './api'
-import BoardPage from './components/BoardPage'
-import BacklogPage from './components/BacklogPage'
-import SprintsPage from './components/SprintsPage'
+import { Toaster } from 'react-hot-toast'
+import { api } from './api/index'
+import Layout from './components/Layout'
+import DashboardPage from './pages/DashboardPage'
+import BoardPage from './pages/BoardPage'
+import BacklogPage from './pages/BacklogPage'
+import SprintsPage from './pages/SprintsPage'
+import ProjectSetupPage from './pages/ProjectSetupPage'
+import NotFoundPage from './pages/NotFoundPage'
 
 function RootRedirect() {
-  const [firstId, setFirstId] = useState<number | null>(null)
-  const [checked, setChecked] = useState(false)
+  const [hasProjects, setHasProjects] = useState<boolean | null>(null)
 
   useEffect(() => {
-    api
-      .getProjects()
-      .then(projects => setFirstId(projects[0]?.id ?? null))
-      .catch(() => setFirstId(null))
-      .finally(() => setChecked(true))
+    api.projects
+      .list()
+      .then(projects => setHasProjects(projects.length > 0))
+      .catch(() => setHasProjects(false))
   }, [])
 
-  if (!checked) {
+  if (hasProjects === null) {
     return (
       <div className="h-screen bg-slate-900 flex items-center justify-center">
         <span className="text-slate-500 text-sm animate-pulse">Loading…</span>
       </div>
     )
   }
-  if (firstId) return <Navigate to={`/projects/${firstId}`} replace />
-  return (
-    <div className="h-screen bg-slate-100 flex items-center justify-center">
-      <p className="text-slate-500 text-sm">No projects found. Create one via the API.</p>
-    </div>
-  )
+  if (hasProjects) return <Navigate to="/dashboard" replace />
+  return <Navigate to="/projects/new" replace />
 }
 
 export default function App() {
   return (
     <BrowserRouter>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: { background: '#1e293b', color: '#f1f5f9', fontSize: '14px' },
+          error: { style: { background: '#7f1d1d', color: '#fecaca' } },
+        }}
+      />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
-        <Route path="/projects/:projectId" element={<BoardPage />} />
-        <Route path="/projects/:projectId/backlog" element={<BacklogPage />} />
-        <Route path="/projects/:projectId/sprints" element={<SprintsPage />} />
+        <Route path="/projects/new" element={<ProjectSetupPage />} />
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/projects/:projectId/board" element={<BoardPage />} />
+          <Route path="/projects/:projectId/backlog" element={<BacklogPage />} />
+          <Route path="/projects/:projectId/sprints" element={<SprintsPage />} />
+        </Route>
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   )

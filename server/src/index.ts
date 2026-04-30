@@ -7,6 +7,10 @@ import cards from './routes/cards.js'
 import sprints from './routes/sprints.js'
 import comments from './routes/comments.js'
 import labels from './routes/labels.js'
+import presets from './routes/presets.js'
+import lanes from './routes/lanes.js'
+import activity from './routes/activity.js'
+import dashboard from './routes/dashboard.js'
 
 // Ensure the DB is initialised (runs schema + seed on first boot)
 import './db/index.js'
@@ -16,7 +20,7 @@ const app = new Hono()
 app.use('*', logger())
 app.use('/api/*', cors({ origin: 'http://localhost:5173' }))
 
-app.get('/api/health', (c) => c.json({ data: { status: 'ok', service: 'liteboard' }, error: null }))
+app.get('/api/health', (c) => c.json({ data: { status: 'ok', service: 'slateflow' }, error: null }))
 
 app.route('/api', projects)
 app.route('/api', columns)
@@ -24,6 +28,10 @@ app.route('/api', cards)
 app.route('/api', sprints)
 app.route('/api', comments)
 app.route('/api', labels)
+app.route('/api', presets)
+app.route('/api', lanes)
+app.route('/api', activity)
+app.route('/api', dashboard)
 
 // In production, serve the built React client and handle SPA routing
 if (process.env.NODE_ENV === 'production' && !process.versions.bun) {

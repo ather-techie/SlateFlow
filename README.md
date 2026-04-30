@@ -1,4 +1,4 @@
-# Liteboard
+# SlateFlow
 
 A lightweight, self-hostable Kanban board for agile teams — sprints, backlog management, and drag-and-drop in a single deployable container.
 
@@ -8,9 +8,11 @@ A lightweight, self-hostable Kanban board for agile teams — sprints, backlog m
 
 ## Features
 
-- **Kanban board** — columns and cards with full drag-and-drop reordering (cards and columns)
+- **Dashboard** — project overview with stats (open cards, active sprints) and a cross-project activity feed
+- **Kanban board** — swim lanes and cards with full drag-and-drop reordering; manage lanes inline
+- **Lane presets** — pick a workflow template (e.g. Scrum, Kanban) when creating a project, or define custom lanes
 - **Sprint management** — create, activate, and complete sprints; burndown charts per sprint
-- **Backlog** — unassigned cards grouped by column; move to any sprint in one click
+- **Backlog** — full CRUD on unassigned cards (create, click-to-edit via modal, delete); cards grouped by swim lane; move to any sprint in one click
 - **Drag-and-drop** — powered by `@dnd-kit` with pointer sensor support
 - **Activity log** — automatic `create`, `update`, and `move` events per card
 - **Labels & comments** — tag cards and leave threaded comments
@@ -21,8 +23,8 @@ A lightweight, self-hostable Kanban board for agile teams — sprints, backlog m
 **Prerequisites:** Node.js 20+
 
 ```bash
-git clone https://github.com/your-org/liteboard.git
-cd liteboard
+git clone https://github.com/your-org/slateflow.git
+cd slateflow
 npm install
 npm run dev
 ```
@@ -32,7 +34,7 @@ npm run dev
 | http://localhost:5173 | Kanban board (React + Vite HMR) |
 | http://localhost:3000 | REST API (Hono) |
 
-The SQLite database (`server/liteboard.db`) is created and seeded with a demo project on first boot.
+The SQLite database (`server/slateflow.db`) is created and seeded with a demo project on first boot.
 
 ## Docker Quick Start
 
@@ -46,11 +48,31 @@ cp .env.example .env
 docker-compose up -d
 ```
 
-Open http://localhost:3000. The database is stored in the `liteboard-data` Docker volume and survives container restarts.
+Open http://localhost:3000. The database is stored in the `slateflow-data` Docker volume and survives container restarts.
 
 ```bash
 docker-compose down          # stop
 docker-compose build         # rebuild after source changes
+```
+
+## Freeing Port 3000
+
+If the server port is already in use, kill the process before starting:
+
+**PowerShell:**
+```powershell
+Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process -Force
+```
+
+Or find the PID manually and kill it:
+```powershell
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+```
+
+**Bash (Git Bash / WSL):**
+```bash
+npx kill-port 3000
 ```
 
 ## Scripts
@@ -68,6 +90,8 @@ docker-compose build         # rebuild after source changes
 | Layer | Tech |
 |-------|------|
 | Frontend | React 18, Vite 5, TypeScript, Tailwind CSS v3, react-router-dom v7, recharts |
+| State | Zustand, react-hot-toast |
+| HTTP client | axios |
 | Drag-and-drop | @dnd-kit/core + @dnd-kit/sortable |
 | Backend | Node.js, Hono 4, TypeScript, tsx |
 | Database | SQLite (better-sqlite3), WAL mode |

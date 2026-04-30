@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams } from 'react-router-dom'
 import {
   CartesianGrid,
@@ -162,6 +163,137 @@ function CreateSprintForm({ projectId, onCreated }: CreateFormProps) {
   )
 }
 
+// ── Edit sprint modal ──────────────────────────────────────────────────────
+
+interface EditSprintModalProps {
+  sprint: Sprint
+  onSave: (updated: Sprint) => void
+  onClose: () => void
+}
+
+function EditSprintModal({ sprint, onSave, onClose }: EditSprintModalProps) {
+  const [name, setName] = useState(sprint.name)
+  const [goal, setGoal] = useState(sprint.goal ?? '')
+  const [start, setStart] = useState(sprint.start_date ?? '')
+  const [end, setEnd] = useState(sprint.end_date ?? '')
+  const [status, setStatus] = useState<Sprint['status']>(sprint.status)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return setErr('Name is required')
+    setSaving(true)
+    setErr(null)
+    try {
+      const updated = await api.updateSprint(sprint.id, {
+        name: name.trim(),
+        goal: goal.trim(),
+        start_date: start,
+        end_date: end,
+        status,
+      })
+      onSave(updated)
+      onClose()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to update sprint')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col"
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="text-lg font-semibold text-slate-900">Edit Sprint</h2>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 transition-colors text-xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-500 mb-1">Name *</label>
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-500 mb-1">Goal</label>
+              <input
+                value={goal}
+                onChange={e => setGoal(e.target.value)}
+                placeholder="What will this sprint achieve?"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Start date</label>
+              <input
+                type="date"
+                value={start}
+                onChange={e => setStart(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">End date</label>
+              <input
+                type="date"
+                value={end}
+                onChange={e => setEnd(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Status</label>
+              <select
+                value={status}
+                onChange={e => setStatus(e.target.value as Sprint['status'])}
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              >
+                <option value="planned">Planned</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+          </div>
+          {err && <p className="text-xs text-red-500 mt-3">{err}</p>}
+          <div className="flex gap-2 mt-5">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 // ── Sprint card ────────────────────────────────────────────────────────────
 
 interface SprintCardProps {
@@ -169,9 +301,11 @@ interface SprintCardProps {
   columns: Column[]
   onComplete: (id: number) => void
   onActivate: (id: number) => void
+  onEdit: (sprint: Sprint) => void
+  onDelete: (id: number) => void
 }
 
-function SprintCard({ sprint, columns, onComplete, onActivate }: SprintCardProps) {
+function SprintCard({ sprint, columns, onComplete, onActivate, onEdit, onDelete }: SprintCardProps) {
   const [cards, setCards] = useState<Card[]>([])
   const [loadingCards, setLoadingCards] = useState(true)
   const [completing, setCompleting] = useState(false)
@@ -283,6 +417,25 @@ function SprintCard({ sprint, columns, onComplete, onActivate }: SprintCardProps
               {completing ? 'Completing…' : 'Complete Sprint'}
             </button>
           )}
+          <button
+            onClick={e => { e.stopPropagation(); onEdit(sprint) }}
+            className="px-3 py-1 text-xs font-medium bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors"
+            title="Edit sprint"
+          >
+            Edit
+          </button>
+          <button
+            onClick={e => {
+              e.stopPropagation()
+              if (window.confirm(`Delete "${sprint.name}"? This cannot be undone.`)) {
+                onDelete(sprint.id)
+              }
+            }}
+            className="px-3 py-1 text-xs font-medium bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+            title="Delete sprint"
+          >
+            Delete
+          </button>
           <svg
             className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
@@ -393,6 +546,7 @@ export default function SprintsPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [editingSprint, setEditingSprint] = useState<Sprint | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -427,10 +581,25 @@ export default function SprintsPage() {
     setSprints(prev => prev.map(s => (s.id === id ? { ...s, status: 'active' } : s)))
   }
 
+  function handleSaved(updated: Sprint) {
+    setSprints(prev => prev.map(s => (s.id === updated.id ? updated : s)))
+    setEditingSprint(null)
+  }
+
+  async function handleDelete(id: number) {
+    try {
+      await api.deleteSprint(id)
+      setSprints(prev => prev.filter(s => s.id !== id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete sprint')
+    }
+  }
+
   const sorted = [...sprints].sort((a, b) => {
     const order = { active: 0, planned: 1, completed: 2 }
     return order[a.status] - order[b.status]
   })
+  const displayed = selectedSprintId ? sorted.filter(s => s.id === selectedSprintId) : sorted
 
   return (
     <div className="flex flex-col h-screen bg-slate-100">
@@ -450,7 +619,7 @@ export default function SprintsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-slate-800">Sprints</h1>
-              <p className="text-sm text-slate-500 mt-0.5">{sprints.length} sprint{sprints.length !== 1 ? 's' : ''}</p>
+              <p className="text-sm text-slate-500 mt-0.5">{displayed.length} sprint{displayed.length !== 1 ? 's' : ''}</p>
             </div>
             <button
               onClick={() => setShowForm(p => !p)}
@@ -476,26 +645,38 @@ export default function SprintsPage() {
                 <div key={i} className="h-20 bg-slate-200 animate-pulse rounded-xl" />
               ))}
             </div>
-          ) : sorted.length === 0 ? (
+          ) : displayed.length === 0 ? (
             <div className="text-center py-20 text-slate-400">
               <p className="text-lg">No sprints yet</p>
-              <p className="text-sm mt-1">Create your first sprint to get started.</p>
+              <p className="text-sm mt-1">
+                {selectedSprintId ? 'Sprint not found.' : 'Create your first sprint to get started.'}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {sorted.map(sprint => (
+              {displayed.map(sprint => (
                 <SprintCard
                   key={sprint.id}
                   sprint={sprint}
                   columns={columns}
                   onComplete={handleComplete}
                   onActivate={handleActivate}
+                  onEdit={setEditingSprint}
+                  onDelete={handleDelete}
                 />
               ))}
             </div>
           )}
         </div>
       </main>
+
+      {editingSprint && (
+        <EditSprintModal
+          sprint={editingSprint}
+          onSave={handleSaved}
+          onClose={() => setEditingSprint(null)}
+        />
+      )}
     </div>
   )
 }

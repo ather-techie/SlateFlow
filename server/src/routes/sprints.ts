@@ -83,6 +83,21 @@ sprints.patch('/sprints/:id', async (c) => {
   return ok(c, db.prepare('SELECT * FROM sprints WHERE id = ?').get(id))
 })
 
+sprints.delete('/sprints/:id', (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return err(c, 'invalid id', 400)
+
+  const sprint = db.prepare('SELECT id FROM sprints WHERE id = ?').get(id)
+  if (!sprint) return err(c, 'sprint not found', 404)
+
+  db.transaction(() => {
+    db.prepare("UPDATE cards SET sprint_id = NULL, updated_at = datetime('now') WHERE sprint_id = ?").run(id)
+    db.prepare('DELETE FROM sprints WHERE id = ?').run(id)
+  })()
+
+  return ok(c, { id })
+})
+
 sprints.post('/sprints/:id/complete', (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
@@ -121,13 +136,18 @@ sprints.get('/projects/:id/backlog', (c) => {
   const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
   if (!project) return err(c, 'project not found', 404)
 
+  // Support both new cards (swim_lane_id) and legacy cards (column_id)
   const rows = db.prepare(`
-    SELECT cards.*, columns.name AS column_name, columns.color AS column_color
+    SELECT cards.*,
+      COALESCE(sl.name, col.name, 'Uncategorized') AS column_name,
+      COALESCE(sl.color, col.color, '#94a3b8') AS column_color
     FROM cards
-    JOIN columns ON cards.column_id = columns.id
-    WHERE columns.project_id = ? AND cards.sprint_id IS NULL
-    ORDER BY columns.position, cards.position, cards.id
-  `).all(projectId)
+    LEFT JOIN swim_lanes sl ON cards.swim_lane_id = sl.id
+    LEFT JOIN columns col ON cards.column_id = col.id
+    WHERE cards.sprint_id IS NULL
+      AND (sl.project_id = ? OR col.project_id = ?)
+    ORDER BY COALESCE(sl.position, col.position, 999), cards.position, cards.id
+  `).all(projectId, projectId)
   return ok(c, rows)
 })
 

@@ -1,18 +1,18 @@
 services:
-  liteboard:
+  slateflow:
     build:
       context: .
       dockerfile: Dockerfile.server
     ports:
       - "${PORT:-3000}:3000"
     volumes:
-      - liteboard-data:/data
+      - slateflow-data:/data
     environment:
       PORT: ${PORT:-3000}
-      DATABASE_PATH: ${DATABASE_PATH:-/data/liteboard.db}
+      DATABASE_PATH: ${DATABASE_PATH:-/data/slateflow.db}
       SECRET: ${SECRET:-}
       NODE_ENV: production
     restart: unless-stopped
 
 volumes:
-  liteboard-data:
+  slateflow-data:
