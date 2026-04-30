@@ -1,0 +1,18 @@
+services:
+  liteboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - liteboard-data:/data
+    environment:
+      PORT: ${PORT:-3000}
+      DATABASE_PATH: ${DATABASE_PATH:-/data/liteboard.db}
+      SECRET: ${SECRET:-}
+      NODE_ENV: production
+    restart: unless-stopped
+
+volumes:
+  liteboard-data:

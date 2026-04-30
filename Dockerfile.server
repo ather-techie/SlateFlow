@@ -1,0 +1,50 @@
+# ── Stage 1: full install (build tools needed for better-sqlite3 native addon) ─
+FROM node:20-alpine AS all-deps
+WORKDIR /build
+RUN apk add --no-cache python3 make g++
+COPY package.json package-lock.json ./
+COPY client/package.json ./client/
+COPY server/package.json ./server/
+RUN npm ci
+
+# ── Stage 2: production-only deps (same build tools, smaller node_modules) ────
+FROM node:20-alpine AS prod-deps
+WORKDIR /build
+RUN apk add --no-cache python3 make g++
+COPY package.json package-lock.json ./
+COPY client/package.json ./client/
+COPY server/package.json ./server/
+RUN npm ci --omit=dev
+
+# ── Stage 3: build the React client ───────────────────────────────────────────
+FROM node:20-alpine AS client-build
+WORKDIR /build
+COPY --from=all-deps /build/node_modules ./node_modules
+COPY package.json ./
+COPY server/package.json ./server/package.json
+COPY client/ ./client/
+RUN npm run build -w client
+
+# ── Stage 4: compile the Hono server (TypeScript → JavaScript) ────────────────
+FROM node:20-alpine AS server-build
+WORKDIR /build
+COPY --from=all-deps /build/node_modules ./node_modules
+COPY package.json ./
+COPY client/package.json ./client/package.json
+COPY server/ ./server/
+RUN npm run build -w server
+# tsc does not copy non-TS assets; bring schema.sql into dist so the runtime can find it
+RUN cp server/src/db/schema.sql server/dist/db/schema.sql
+
+# ── Stage 5: production image ──────────────────────────────────────────────────
+FROM node:20-alpine
+WORKDIR /app
+# Pre-compiled node_modules (includes the better-sqlite3 native binary)
+COPY --from=prod-deps /build/node_modules ./node_modules
+# Compiled server and built client
+COPY --from=server-build /build/server/dist ./server/dist/
+COPY --from=client-build /build/client/dist ./client/dist/
+
+EXPOSE 3000
+ENV NODE_ENV=production
+CMD ["node", "server/dist/index.js"]
