@@ -15,6 +15,7 @@ A lightweight, self-hostable Kanban board for agile teams — sprints, backlog m
 - **Backlog** — full CRUD on unassigned cards (create, click-to-edit via modal, delete); cards grouped by swim lane; move to any sprint in one click
 - **Drag-and-drop** — powered by `@dnd-kit` with pointer sensor support
 - **Activity log** — automatic `create`, `update`, and `move` events per card
+- **Test management** — attach test cases to cards; group into test suites; record pass/fail/blocked runs; track status with a per-card summary bar
 - **Labels & comments** — tag cards and leave threaded comments
 - **Self-host** — single Docker container, SQLite database on a named volume; no external services required
 

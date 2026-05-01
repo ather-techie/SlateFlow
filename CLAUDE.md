@@ -53,6 +53,7 @@ SlateFlow is a Kanban board app — a full-stack monorepo using **npm workspaces
 | `/projects/:id/board` | `BoardPage` | Kanban board with DnD; shows sprint sub-banner |
 | `/projects/:id/backlog` | `BacklogPage` | Cards with no sprint, grouped by column; "Move to sprint" per card |
 | `/projects/:id/sprints` | `SprintsPage` | Sprint list, create form, progress bars, burndown chart, complete sprint |
+| `/projects/:id/tests` | `TestSuitePage` | Test case management — suites, cases, run history, bulk status updates |
 | `*` | `NotFoundPage` | 404 fallback |
 
 ### Components
@@ -64,12 +65,14 @@ SlateFlow is a Kanban board app — a full-stack monorepo using **npm workspaces
 - **`BoardPage`** — Kanban with DnD; dark sub-banner shows selected/active sprint name, dates, goal, and status.
 - **`BacklogPage`** — fetches `GET /projects/:id/backlog`; groups cards by column; each card has a "Move to sprint…" select that calls `PATCH /cards/:id { sprint_id }`.
 - **`SprintsPage`** — fetches sprints and columns; renders collapsible `SprintCard` components each showing progress bar (done cards = lane with `is_done_col = 1`), burndown chart (ideal vs. remaining story points), card list, Activate/Complete Sprint buttons; includes `CreateSprintForm`.
+- **`TestSuitePage`** — test case management UI; lists test suites and their cases, records test runs, shows pass/fail/blocked/skipped status, supports bulk status updates and drag-to-reorder.
+- **`CardModal`** — full card detail editor; handles title/description/priority/story points/assignee, labels, comments, and an inline test case panel with a summary bar.
 
 ### Backend (`server/`)
 
 - **Hono 4.5** on Node.js via `@hono/node-server`, listening on port 3000.
 - Entry: `server/src/index.ts` — registers all route groups and enables CORS for `http://localhost:5173`. When `NODE_ENV=production`, also serves `client/dist/` as static files and adds an SPA fallback so React Router works.
-- Routes live in `server/src/routes/` (one file per resource: projects, sprints, columns, cards, comments, labels, lanes, presets, activity, dashboard).
+- Routes live in `server/src/routes/` (one file per resource: projects, sprints, columns, cards, comments, labels, lanes, presets, activity, dashboard, testcases).
 - All responses use the `{ data, error }` envelope from `server/src/lib/response.ts`.
 - Request body validation uses **Zod** in each route handler.
 
@@ -77,7 +80,7 @@ SlateFlow is a Kanban board app — a full-stack monorepo using **npm workspaces
 
 - **SQLite** via `better-sqlite3` with WAL mode and foreign keys enabled.
 - `index.ts` initializes the DB, runs `schema.sql`, and seeds demo data on first boot.
-- Schema: `projects → swim_lanes`, `projects → sprints`, `projects → columns` (legacy), `swim_lanes → cards`, `cards ↔ labels` (join: `card_labels`), `cards → comments`, `cards → activity_log`, `lane_presets` (global presets for project setup).
+- Schema: `projects → swim_lanes`, `projects → sprints`, `projects → columns` (legacy), `swim_lanes → cards`, `cards ↔ labels` (join: `card_labels`), `cards → comments`, `cards → activity_log`, `lane_presets` (global presets for project setup), `projects → test_suites`, `cards → test_cases` (optionally grouped under a suite), `test_cases → test_runs`.
 - `cards` has both `swim_lane_id` (primary) and `column_id` (legacy). New cards are created in swim lanes; the columns table is retained for backward compatibility.
 - `swim_lanes.is_done_col` (0/1) flags the "done" lane for burndown/progress calculations; replaces the old convention of "last column by position = done".
 - Projects have a `color` field (hex, default `#6366f1`).
@@ -97,6 +100,7 @@ SlateFlow is a Kanban board app — a full-stack monorepo using **npm workspaces
 | Dashboard | `dashboard.ts` | `GET /dashboard/stats`, `/dashboard/projects`, `/dashboard/activity` |
 | Comments | `comments.ts` | CRUD on card comments |
 | Labels | `labels.ts` | Project labels; attach/detach on cards |
+| Test cases | `testcases.ts` | Test suites (project-level), test cases (card-level), test runs; bulk status + reorder |
 | Columns (legacy) | `columns.ts` | Retained for backward compatibility |
 
 ### API Reference
