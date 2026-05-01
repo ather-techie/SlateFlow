@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import BoardPage from './pages/BoardPage'
 import BacklogPage from './pages/BacklogPage'
 import SprintsPage from './pages/SprintsPage'
+import TestSuitePage from './pages/TestSuitePage'
 import ProjectSetupPage from './pages/ProjectSetupPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/projects/:projectId/board" element={<BoardPage />} />
           <Route path="/projects/:projectId/backlog" element={<BacklogPage />} />
           <Route path="/projects/:projectId/sprints" element={<SprintsPage />} />
+          <Route path="/projects/:projectId/tests" element={<TestSuitePage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

@@ -81,3 +81,43 @@ CREATE TABLE IF NOT EXISTS activity_log (
   meta       TEXT    NOT NULL DEFAULT '{}',
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS test_suites (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name        TEXT    NOT NULL,
+  description TEXT,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS test_cases (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  suite_id        INTEGER REFERENCES test_suites(id) ON DELETE SET NULL,
+  card_id         INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  project_id      INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  title           TEXT    NOT NULL,
+  description     TEXT,
+  status          TEXT    NOT NULL DEFAULT 'untested'
+                  CHECK(status IN ('untested','passed','failed','blocked','skipped')),
+  priority        TEXT    NOT NULL DEFAULT 'medium'
+                  CHECK(priority IN ('critical','high','medium','low')),
+  test_type       TEXT    NOT NULL DEFAULT 'manual'
+                  CHECK(test_type IN ('manual','automated')),
+  steps           TEXT,
+  preconditions   TEXT,
+  expected_result TEXT,
+  assigned_to     TEXT,
+  position        INTEGER NOT NULL DEFAULT 0,
+  created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS test_runs (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  test_case_id INTEGER NOT NULL REFERENCES test_cases(id) ON DELETE CASCADE,
+  card_id      INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  status       TEXT    NOT NULL CHECK(status IN ('passed','failed','blocked','skipped')),
+  notes        TEXT,
+  run_by       TEXT,
+  run_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+);

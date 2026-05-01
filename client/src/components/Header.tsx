@@ -62,6 +62,9 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
         <NavLink to={`/projects/${projectId}/sprints`} className={navClass}>
           Sprints
         </NavLink>
+        <NavLink to={`/projects/${projectId}/tests`} className={navClass}>
+          Tests
+        </NavLink>
       </nav>
 
       {activeSprint && (

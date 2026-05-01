@@ -14,9 +14,16 @@ export const db = new Database(DB_PATH)
 db.pragma('journal_mode = WAL')
 db.pragma('foreign_keys = ON')
 
+// Detect new tables before running schema so we can log their creation
+const testTablesNew = (db.prepare(
+  "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name='test_cases'"
+).get() as { n: number }).n === 0
+
 // Run schema migrations on startup
 const schema = readFileSync(SCHEMA_PATH, 'utf8')
 db.exec(schema)
+
+if (testTablesNew) console.info('[db] Test case tables migrated')
 
 // Additive column migrations for databases created before position was added
 try { db.exec('ALTER TABLE cards ADD COLUMN position INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }

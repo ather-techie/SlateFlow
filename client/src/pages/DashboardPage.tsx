@@ -27,6 +27,8 @@ function formatAction(action: string, meta: string): string {
         return `${m.field} updated`
       case 'move':
         return `moved to ${m.to_lane ?? m.to_col ?? 'lane'}`
+      case 'test_run':
+        return `— marked as ${m.status}${m.run_by ? ` by ${m.run_by}` : ''}`
       default:
         return action
     }
@@ -35,9 +37,18 @@ function formatAction(action: string, meta: string): string {
   }
 }
 
+function parseTestRunMeta(meta: string): { title: string; status: string; run_by: string | null } | null {
+  try {
+    const m = JSON.parse(meta) as Record<string, string>
+    return m.title && m.status ? { title: m.title, status: m.status, run_by: m.run_by ?? null } : null
+  } catch {
+    return null
+  }
+}
+
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+function StatCard({ label, value, icon, sub }: { label: string; value: number; icon: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-center gap-4">
       <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 flex-shrink-0">
@@ -46,6 +57,7 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
       <div>
         <div className="text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
         <div className="text-sm text-slate-500">{label}</div>
+        {sub && <div className="mt-0.5">{sub}</div>}
       </div>
     </div>
   )
@@ -75,6 +87,24 @@ function LaneBar({ project }: { project: ProjectSummary }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Test health bar ──────────────────────────────────────────────────────────
+
+function TestHealthBar({ project }: { project: ProjectSummary }) {
+  const { test_cases_total: total, test_cases_passed: passed, test_cases_failed: failed, test_cases_untested: untested } = project
+  if (!total) return null
+  const tooltip = `${total} ${total === 1 ? 'test' : 'tests'}: ${passed} passed, ${failed} failed, ${untested} untested`
+  return (
+    <div
+      className="flex h-1 rounded-full overflow-hidden mb-2 gap-px bg-slate-100"
+      title={tooltip}
+    >
+      {passed > 0 && <div className="h-full bg-emerald-400 transition-all" style={{ width: `${(passed / total) * 100}%` }} />}
+      {failed > 0 && <div className="h-full bg-red-400 transition-all" style={{ width: `${(failed / total) * 100}%` }} />}
+      {untested > 0 && <div className="h-full bg-slate-300 transition-all" style={{ width: `${(untested / total) * 100}%` }} />}
     </div>
   )
 }
@@ -283,6 +313,7 @@ function ProjectCard({
         </div>
 
         <LaneBar project={project} />
+        <TestHealthBar project={project} />
 
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-3 flex-wrap">
           <span>{project.total_cards} {project.total_cards === 1 ? 'card' : 'cards'}</span>
@@ -327,36 +358,68 @@ function ActivityPanel({ items }: { items: ActivityItem[] }) {
         <p className="text-sm text-slate-400 py-4 text-center">No activity yet.</p>
       ) : (
         <div className="space-y-4">
-          {items.map(item => (
-            <div key={item.id} className="flex items-start gap-3">
-              <div className="w-6 h-6 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-700 leading-snug">
-                  <span className="font-medium">{item.card_title}</span>
-                  {' '}
-                  <span className="text-slate-500">{formatAction(item.action, item.meta)}</span>
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-xs text-slate-400">{timeAgo(item.created_at)}</span>
-                  {item.project_id && (
-                    <>
-                      <span className="text-xs text-slate-300">·</span>
-                      <Link
-                        to={`/projects/${item.project_id}`}
-                        className="text-xs text-slate-400 hover:text-indigo-600 transition truncate"
-                      >
-                        {item.project_name}
-                      </Link>
-                    </>
+          {items.map(item => {
+            const isTestRun = item.action === 'test_run'
+            const testMeta = isTestRun ? parseTestRunMeta(item.meta) : null
+            const testPassed = testMeta?.status === 'passed'
+            const testFailed = testMeta?.status === 'failed'
+
+            return (
+              <div key={item.id} className="flex items-start gap-3">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                  isTestRun && testMeta
+                    ? testPassed ? 'bg-emerald-50' : testFailed ? 'bg-red-50' : 'bg-slate-100'
+                    : 'bg-slate-100'
+                }`}>
+                  {isTestRun && testMeta ? (
+                    <svg
+                      className={`w-3 h-3 ${testPassed ? 'text-emerald-500' : testFailed ? 'text-red-500' : 'text-slate-400'}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                  ) : (
+                    <svg className="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
                   )}
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-700 leading-snug">
+                    {isTestRun && testMeta ? (
+                      <>
+                        <span className="font-medium">{testMeta.title}</span>
+                        {' '}
+                        <span className={testPassed ? 'text-emerald-600' : testFailed ? 'text-red-600' : 'text-slate-500'}>
+                          — marked as {testMeta.status}{testMeta.run_by ? ` by ${testMeta.run_by}` : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-medium">{item.card_title}</span>
+                        {' '}
+                        <span className="text-slate-500">{formatAction(item.action, item.meta)}</span>
+                      </>
+                    )}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-xs text-slate-400">{timeAgo(item.created_at)}</span>
+                    {item.project_id && (
+                      <>
+                        <span className="text-xs text-slate-300">·</span>
+                        <Link
+                          to={`/projects/${item.project_id}`}
+                          className="text-xs text-slate-400 hover:text-indigo-600 transition truncate"
+                        >
+                          {item.project_name}
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -392,7 +455,7 @@ function EmptyState() {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const [stats, setStats] = useState<DashboardStats>({ total_projects: 0, active_sprints: 0, open_cards: 0 })
+  const [stats, setStats] = useState<DashboardStats>({ total_projects: 0, active_sprints: 0, open_cards: 0, test_cases_total: 0, test_cases_passed: 0, test_cases_failed: 0, test_cases_untested: 0 })
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [activity, setActivity] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -488,7 +551,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-slate-900 mb-6">Dashboard</h1>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <StatCard
             label="Total Projects"
             value={stats.total_projects}
@@ -514,6 +577,24 @@ export default function DashboardPage() {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
+            }
+          />
+          <StatCard
+            label="Test Cases"
+            value={stats.test_cases_total}
+            icon={
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+            }
+            sub={
+              <div className="flex items-center gap-1 text-xs flex-wrap">
+                <span className="text-emerald-600 font-medium">{stats.test_cases_passed} passed</span>
+                <span className="text-slate-300">·</span>
+                <span className="text-red-500 font-medium">{stats.test_cases_failed} failed</span>
+                <span className="text-slate-300">·</span>
+                <span className="text-slate-400">{stats.test_cases_untested} untested</span>
+              </div>
             }
           />
         </div>

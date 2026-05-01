@@ -12,8 +12,9 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import type { Card as CardType, Lane, Project, Sprint } from '../types'
+import type { Card as CardType, Lane, Project, Sprint, TestCaseSummary } from '../types'
 import { api } from '../api'
+import { useBoardStore } from '../store/boardStore'
 import Header from '../components/Header'
 import Column from '../components/Board/Column'
 import CardContent from '../components/CardContent'
@@ -28,6 +29,7 @@ function fmtDate(d: string) {
 export default function BoardPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const pid = Number(projectId)
+  const setTestCaseSummary = useBoardStore(s => s.setTestCaseSummary)
 
   const [project, setProject] = useState<Project | null>(null)
   const [lanes, setLanes] = useState<Lane[]>([])
@@ -82,6 +84,17 @@ export default function BoardPage() {
         setSprints(sps)
         const cardArrays = await Promise.all(ls.map(l => api.getLaneCards(l.id)))
         setAllCards(cardArrays.flat())
+
+        // Populate test case indicators for card tiles
+        api.getProjectTestCases(pid).then(cases => {
+          const byCard: Record<number, TestCaseSummary> = {}
+          for (const tc of cases) {
+            if (!byCard[tc.card_id]) byCard[tc.card_id] = { total: 0, passed: 0, failed: 0, untested: 0, blocked: 0, skipped: 0 }
+            byCard[tc.card_id].total++
+            byCard[tc.card_id][tc.status as keyof TestCaseSummary]++
+          }
+          Object.entries(byCard).forEach(([cardId, s]) => setTestCaseSummary(Number(cardId), s))
+        }).catch(() => {})
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load board')
       } finally {

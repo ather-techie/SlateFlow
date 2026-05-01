@@ -8,6 +8,10 @@ import type {
   Lane,
   Project,
   ProjectSummary,
+  TestCase,
+  TestCaseSummary,
+  TestRun,
+  TestSuite,
 } from '../types'
 
 export const http = axios.create({ baseURL: '/api' })
@@ -80,5 +84,37 @@ export const api = {
     stats: () => unwrap<DashboardStats>(http.get('/dashboard/stats')),
     projects: () => unwrap<ProjectSummary[]>(http.get('/dashboard/projects')),
     activity: () => unwrap<ActivityItem[]>(http.get('/dashboard/activity')),
+  },
+  testSuites: {
+    listByProject: (projectId: number) =>
+      unwrap<TestSuite[]>(http.get(`/projects/${projectId}/test-suites`)),
+    create: (projectId: number, data: { name: string; description?: string }) =>
+      unwrap<TestSuite>(http.post(`/projects/${projectId}/test-suites`, data)),
+    update: (id: number, data: { name?: string; description?: string }) =>
+      unwrap<TestSuite>(http.patch(`/test-suites/${id}`, data)),
+    delete: (id: number) => unwrap<{ id: number }>(http.delete(`/test-suites/${id}`)),
+  },
+  testCases: {
+    listByCard: (cardId: number) =>
+      unwrap<{ cases: TestCase[]; summary: TestCaseSummary }>(http.get(`/cards/${cardId}/test-cases`)),
+    listByProject: (projectId: number, params?: { suite_id?: number; status?: string; priority?: string; test_type?: string }) =>
+      unwrap<TestCase[]>(http.get(`/projects/${projectId}/test-cases`, { params })),
+    create: (cardId: number, data: {
+      title: string; description?: string; suite_id?: number | null
+      priority?: string; test_type?: string
+      steps?: { step: string; expected: string }[]
+      preconditions?: string; expected_result?: string; assigned_to?: string
+    }) => unwrap<TestCase>(http.post(`/cards/${cardId}/test-cases`, data)),
+    get: (id: number) => unwrap<TestCase & { runs: TestRun[] }>(http.get(`/test-cases/${id}`)),
+    update: (id: number, data: Partial<Pick<TestCase, 'title' | 'description' | 'suite_id' | 'status' | 'priority' | 'test_type' | 'preconditions' | 'expected_result' | 'assigned_to'>> & { steps?: { step: string; expected: string }[] | null }) =>
+      unwrap<TestCase>(http.patch(`/test-cases/${id}`, data)),
+    delete: (id: number) => unwrap<{ id: number }>(http.delete(`/test-cases/${id}`)),
+    reorder: (cardId: number, ordered_ids: number[]) =>
+      unwrap<TestCase[]>(http.post(`/cards/${cardId}/test-cases/reorder`, { ordered_ids })),
+    bulkStatus: (cardId: number, ids: number[], status: string) =>
+      unwrap<TestCase[]>(http.patch(`/cards/${cardId}/test-cases/bulk-status`, { ids, status })),
+    listRuns: (id: number) => unwrap<TestRun[]>(http.get(`/test-cases/${id}/runs`)),
+    addRun: (id: number, data: { status: string; notes?: string; run_by?: string }) =>
+      unwrap<TestRun>(http.post(`/test-cases/${id}/runs`, data)),
   },
 }

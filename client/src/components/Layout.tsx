@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useParams } from 'react-router-dom'
+import { api } from '../api'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,14 @@ function SprintsIcon() {
   )
 }
 
+function TestsIcon() {
+  return (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  )
+}
+
 function SettingsIcon() {
   return (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -52,9 +61,17 @@ interface NavItemProps {
   label: string
   expanded: boolean
   disabled?: boolean
+  badge?: boolean
 }
 
-function NavItem({ to, icon, label, expanded, disabled }: NavItemProps) {
+function NavItem({ to, icon, label, expanded, disabled, badge }: NavItemProps) {
+  const wrappedIcon = badge ? (
+    <div className="relative flex-shrink-0">
+      {icon}
+      <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full ring-1 ring-slate-900" />
+    </div>
+  ) : icon
+
   const labelSpan = (
     <span
       className={`text-sm font-medium whitespace-nowrap transition-all duration-200 overflow-hidden ${
@@ -71,7 +88,7 @@ function NavItem({ to, icon, label, expanded, disabled }: NavItemProps) {
         title={disabled && !expanded ? label : undefined}
         className="flex items-center px-[18px] py-2.5 mx-1 rounded-lg text-slate-500 cursor-not-allowed select-none"
       >
-        {icon}
+        {wrappedIcon}
         {labelSpan}
       </div>
     )
@@ -89,7 +106,7 @@ function NavItem({ to, icon, label, expanded, disabled }: NavItemProps) {
         }`
       }
     >
-      {icon}
+      {wrappedIcon}
       {labelSpan}
     </NavLink>
   )
@@ -100,6 +117,14 @@ function NavItem({ to, icon, label, expanded, disabled }: NavItemProps) {
 export default function Layout() {
   const { projectId } = useParams<{ projectId?: string }>()
   const [expanded, setExpanded] = useState(false)
+  const [hasFailedTests, setHasFailedTests] = useState(false)
+
+  useEffect(() => {
+    if (!projectId) { setHasFailedTests(false); return }
+    api.getProjectTestCases(parseInt(projectId, 10), { status: 'failed' })
+      .then(cases => setHasFailedTests(cases.length > 0))
+      .catch(() => setHasFailedTests(false))
+  }, [projectId])
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -150,6 +175,14 @@ export default function Layout() {
             label="Sprints"
             expanded={expanded}
             disabled={!projectId}
+          />
+          <NavItem
+            to={projectId ? `/projects/${projectId}/tests` : undefined}
+            icon={<TestsIcon />}
+            label="Tests"
+            expanded={expanded}
+            disabled={!projectId}
+            badge={hasFailedTests}
           />
         </nav>
 

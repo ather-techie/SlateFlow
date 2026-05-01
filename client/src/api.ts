@@ -1,4 +1,4 @@
-import type { ActivityLog, ActivityItem, BacklogCard, Card, Column, Comment, DashboardStats, Label, Lane, LanePreset, Project, ProjectSummary, Sprint } from './types'
+import type { ActivityLog, ActivityItem, BacklogCard, Card, Column, Comment, DashboardStats, Label, Lane, LanePreset, Project, ProjectSummary, Sprint, TestCase, TestCaseSummary, TestRun, TestSuite } from './types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init)
@@ -44,6 +44,7 @@ export const api = {
     request<{ card_id: number; label_id: number }>(`/cards/${cardId}/labels/${labelId}`, { method: 'DELETE' }),
 
   getActivityLog: (cardId: number) => request<ActivityLog[]>(`/cards/${cardId}/activity`),
+  getCard: (cardId: number) => request<Card>(`/cards/${cardId}`),
   deleteCard: (cardId: number) => request<{ id: number }>(`/cards/${cardId}`, { method: 'DELETE' }),
 
   getBacklog: (projectId: number) => request<BacklogCard[]>(`/projects/${projectId}/backlog`),
@@ -89,4 +90,43 @@ export const api = {
     preset_id?: number
     custom_lanes?: string[]
   }) => request<Project>('/projects', { method: 'POST', ...json(data) }),
+
+  // ── Test Suites ──────────────────────────────────────────────────────────────
+  getTestSuites: (projectId: number) =>
+    request<TestSuite[]>(`/projects/${projectId}/test-suites`),
+  createTestSuite: (projectId: number, data: { name: string; description?: string }) =>
+    request<TestSuite>(`/projects/${projectId}/test-suites`, { method: 'POST', ...json(data) }),
+
+  // ── Test Cases ───────────────────────────────────────────────────────────────
+  getTestCases: (cardId: number) =>
+    request<{ cases: TestCase[]; summary: TestCaseSummary }>(`/cards/${cardId}/test-cases`),
+  getProjectTestCases: (projectId: number, params?: { suite_id?: number; status?: string; priority?: string; test_type?: string }) => {
+    const qs = params ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])).toString() : ''
+    return request<TestCase[]>(`/projects/${projectId}/test-cases${qs}`)
+  },
+  createTestCase: (cardId: number, data: {
+    title: string
+    description?: string
+    suite_id?: number | null
+    priority?: string
+    test_type?: string
+    steps?: { step: string; expected: string }[]
+    preconditions?: string
+    expected_result?: string
+    assigned_to?: string
+  }) => request<TestCase>(`/cards/${cardId}/test-cases`, { method: 'POST', ...json(data) }),
+  updateTestCase: (id: number, data: Partial<Omit<TestCase, 'id' | 'card_id' | 'project_id' | 'created_at'>> & { steps?: { step: string; expected: string }[] | null }) =>
+    request<TestCase>(`/test-cases/${id}`, { method: 'PATCH', ...json(data) }),
+  deleteTestCase: (id: number) =>
+    request<{ id: number }>(`/test-cases/${id}`, { method: 'DELETE' }),
+  reorderTestCases: (cardId: number, ordered_ids: number[]) =>
+    request<TestCase[]>(`/cards/${cardId}/test-cases/reorder`, { method: 'POST', ...json({ ordered_ids }) }),
+  bulkStatusTestCases: (cardId: number, ids: number[], status: string) =>
+    request<TestCase[]>(`/cards/${cardId}/test-cases/bulk-status`, { method: 'PATCH', ...json({ ids, status }) }),
+
+  // ── Test Runs ────────────────────────────────────────────────────────────────
+  addTestRun: (testCaseId: number, data: { status: string; notes?: string; run_by?: string }) =>
+    request<TestRun>(`/test-cases/${testCaseId}/runs`, { method: 'POST', ...json(data) }),
+  getTestRuns: (testCaseId: number) =>
+    request<TestRun[]>(`/test-cases/${testCaseId}/runs`),
 }

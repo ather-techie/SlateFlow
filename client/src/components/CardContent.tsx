@@ -1,5 +1,6 @@
 import type { Card } from '../types'
 import PriorityBadge from './PriorityBadge'
+import { useBoardStore } from '../store/boardStore'
 
 interface Props {
   card: Card
@@ -8,6 +9,20 @@ interface Props {
 }
 
 export default function CardContent({ card, className = '', style }: Props) {
+  const summary = useBoardStore(s => s.testCaseSummary[card.id])
+
+  const indicatorColor = summary && summary.total > 0
+    ? summary.failed > 0
+      ? 'text-red-500'
+      : summary.passed === summary.total
+        ? 'text-green-600'
+        : 'text-slate-400'
+    : ''
+
+  const tooltip = summary && summary.total > 0
+    ? `${summary.total} test case${summary.total !== 1 ? 's' : ''}: ${summary.passed} passed, ${summary.failed} failed, ${summary.untested} untested`
+    : ''
+
   return (
     <div
       style={style}
@@ -33,6 +48,19 @@ export default function CardContent({ card, className = '', style }: Props) {
           </span>
         )}
       </div>
+
+      {summary && summary.total > 0 && (
+        <div
+          className={`mt-2 flex items-center gap-1 text-xs ${indicatorColor}`}
+          title={tooltip}
+        >
+          <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M6 2h4M5 2a1 1 0 00-1 1v1H3a1 1 0 00-1 1v9a1 1 0 001 1h10a1 1 0 001-1V5a1 1 0 00-1-1h-1V3a1 1 0 00-1-1H6z" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5.5 9l1.5 1.5 3-3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span>{summary.passed}/{summary.total} passed</span>
+        </div>
+      )}
     </div>
   )
 }

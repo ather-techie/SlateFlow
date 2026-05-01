@@ -41,8 +41,12 @@ dashboard.get('/dashboard/stats', (c) => {
     LEFT JOIN swim_lanes sl ON sl.id = c.swim_lane_id
     WHERE sl.is_done_col IS NULL OR sl.is_done_col = 0
   `).get() as { n: number }).n
+  const test_cases_total    = (db.prepare('SELECT COUNT(*) as n FROM test_cases').get() as { n: number }).n
+  const test_cases_passed   = (db.prepare("SELECT COUNT(*) as n FROM test_cases WHERE status = 'passed'").get() as { n: number }).n
+  const test_cases_failed   = (db.prepare("SELECT COUNT(*) as n FROM test_cases WHERE status = 'failed'").get() as { n: number }).n
+  const test_cases_untested = (db.prepare("SELECT COUNT(*) as n FROM test_cases WHERE status = 'untested'").get() as { n: number }).n
 
-  return ok(c, { total_projects, active_sprints, open_cards })
+  return ok(c, { total_projects, active_sprints, open_cards, test_cases_total, test_cases_passed, test_cases_failed, test_cases_untested })
 })
 
 // GET /dashboard/projects — all projects with lane card counts and active sprint
@@ -79,6 +83,15 @@ dashboard.get('/dashboard/projects', (c) => {
     "SELECT * FROM sprints WHERE project_id = ? AND status = 'active' LIMIT 1",
   )
 
+  const testStatsStmt = db.prepare(`
+    SELECT
+      COUNT(*) as test_cases_total,
+      SUM(CASE WHEN status = 'passed'   THEN 1 ELSE 0 END) as test_cases_passed,
+      SUM(CASE WHEN status = 'failed'   THEN 1 ELSE 0 END) as test_cases_failed,
+      SUM(CASE WHEN status = 'untested' THEN 1 ELSE 0 END) as test_cases_untested
+    FROM test_cases WHERE project_id = ?
+  `)
+
   const result = projects.map(project => {
     let lanes = swimLanesStmt.all(project.id) as LaneRow[]
     if (lanes.length === 0) {
@@ -91,8 +104,12 @@ dashboard.get('/dashboard/projects', (c) => {
       .reduce((sum, l) => sum + l.card_count, 0)
 
     const active_sprint = (sprintStmt.get(project.id) as SprintRow | undefined) ?? null
+    const testStats = testStatsStmt.get(project.id) as {
+      test_cases_total: number; test_cases_passed: number
+      test_cases_failed: number; test_cases_untested: number
+    }
 
-    return { ...project, lanes, total_cards, open_cards, active_sprint }
+    return { ...project, lanes, total_cards, open_cards, active_sprint, ...testStats }
   })
 
   return ok(c, result)
