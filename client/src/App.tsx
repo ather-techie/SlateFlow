@@ -8,6 +8,7 @@ import BoardPage from './pages/BoardPage'
 import BacklogPage from './pages/BacklogPage'
 import SprintsPage from './pages/SprintsPage'
 import TestSuitePage from './pages/TestSuitePage'
+import EpicsPage from './pages/EpicsPage'
 import ProjectSetupPage from './pages/ProjectSetupPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/projects/new" element={<ProjectSetupPage />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/projects/:projectId/epics" element={<EpicsPage />} />
           <Route path="/projects/:projectId/board" element={<BoardPage />} />
           <Route path="/projects/:projectId/backlog" element={<BacklogPage />} />
           <Route path="/projects/:projectId/sprints" element={<SprintsPage />} />

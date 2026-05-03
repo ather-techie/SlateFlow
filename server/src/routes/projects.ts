@@ -81,6 +81,19 @@ projects.post('/projects', async (c) => {
       return getLane.get(lastInsertRowid)
     })
 
+    const { lastInsertRowid: defaultEpicId } = db.prepare(
+      `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
+       VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`
+    ).run(projectId)
+    db.prepare(
+      `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+       VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`
+    ).run(projectId, defaultEpicId)
+    db.prepare(
+      `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
+       VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`
+    ).run(projectId)
+
     const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId)
     return { ...(project as object), swim_lanes }
   })()
@@ -132,13 +145,16 @@ projects.patch('/projects/:id', async (c) => {
   return ok(c, db.prepare('SELECT * FROM projects WHERE id = ?').get(id))
 })
 
-// DELETE /projects/:id — cascade handled by FK
+// DELETE /projects/:id — cascade handled by FK; Default Project cannot be deleted
 projects.delete('/projects/:id', (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const existing = db.prepare('SELECT id FROM projects WHERE id = ?').get(id)
+  const existing = db.prepare('SELECT id, is_default FROM projects WHERE id = ?').get(id) as
+    | { id: number; is_default: number }
+    | undefined
   if (!existing) return err(c, 'project not found', 404)
+  if (existing.is_default) return err(c, 'Cannot delete the Default Project', 409)
 
   db.prepare('DELETE FROM projects WHERE id = ?').run(id)
   return ok(c, { id })

@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS projects (
   name        TEXT    NOT NULL,
   description TEXT    NOT NULL DEFAULT '',
   color       TEXT    NOT NULL DEFAULT '#6366f1',
+  is_default  INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -28,7 +29,8 @@ CREATE TABLE IF NOT EXISTS sprints (
   goal       TEXT    NOT NULL DEFAULT '',
   start_date TEXT    NOT NULL,
   end_date   TEXT    NOT NULL,
-  status     TEXT    NOT NULL DEFAULT 'planned' CHECK (status IN ('active', 'completed', 'planned'))
+  status     TEXT    NOT NULL DEFAULT 'planned' CHECK (status IN ('active', 'completed', 'planned')),
+  is_default INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS columns (
@@ -120,4 +122,45 @@ CREATE TABLE IF NOT EXISTS test_runs (
   notes        TEXT,
   run_by       TEXT,
   run_at       DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS epics (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  title       TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  priority    TEXT    NOT NULL DEFAULT 'p2' CHECK (priority IN ('p0','p1','p2','p3')),
+  status      TEXT    NOT NULL DEFAULT 'new' CHECK (status IN ('new','active','resolved','closed')),
+  assignee    TEXT,
+  position    INTEGER NOT NULL DEFAULT 0,
+  is_default  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS features (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  epic_id     INTEGER REFERENCES epics(id) ON DELETE SET NULL,
+  title       TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  priority    TEXT    NOT NULL DEFAULT 'p2' CHECK (priority IN ('p0','p1','p2','p3')),
+  status      TEXT    NOT NULL DEFAULT 'new' CHECK (status IN ('new','active','resolved','closed')),
+  assignee    TEXT,
+  position    INTEGER NOT NULL DEFAULT 0,
+  is_default  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  story_id    INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  title       TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  status      TEXT    NOT NULL DEFAULT 'to-do' CHECK (status IN ('to-do','in-progress','done')),
+  assignee    TEXT,
+  position    INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );

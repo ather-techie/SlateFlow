@@ -1,10 +1,33 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api'
-import type { BacklogCard, Card, Lane, Project, Sprint } from '../types'
+import type { BacklogCard, Card, Epic, Feature, Lane, Project, Sprint, Task } from '../types'
 import CardModal from './CardModal'
 import Header from './Header'
 import PriorityBadge from './PriorityBadge'
+
+type TypeFilter = 'all' | 'epics' | 'features' | 'stories' | 'tasks'
+
+const TYPE_TABS: { key: TypeFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'epics', label: 'Epics' },
+  { key: 'features', label: 'Features' },
+  { key: 'stories', label: 'Stories' },
+  { key: 'tasks', label: 'Tasks' },
+]
+
+const STATUS_COLORS: Record<string, string> = {
+  new: 'bg-slate-100 text-slate-500',
+  active: 'bg-blue-100 text-blue-700',
+  resolved: 'bg-emerald-100 text-emerald-700',
+  closed: 'bg-slate-100 text-slate-400',
+}
+
+const TASK_STATUS_COLORS: Record<string, string> = {
+  'to-do': 'bg-slate-100 text-slate-500',
+  'in-progress': 'bg-blue-100 text-blue-700',
+  'done': 'bg-emerald-100 text-emerald-700',
+}
 
 const PRIORITIES: Card['priority'][] = ['p0', 'p1', 'p2', 'p3']
 const PRIORITY_LABELS: Record<string, string> = {
@@ -212,6 +235,10 @@ export default function BacklogPage() {
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [activeCard, setActiveCard] = useState<BacklogCard | null>(null)
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
+  const [epics, setEpics] = useState<Epic[]>([])
+  const [features, setFeatures] = useState<Feature[]>([])
+  const [projectTasks, setProjectTasks] = useState<(Task & { story_title: string })[]>([])
 
   useEffect(() => {
     setLoading(true)
@@ -236,6 +263,11 @@ export default function BacklogPage() {
             return { ...card, column_name: lane?.name ?? 'Uncategorized', column_color: lane?.color ?? '#94a3b8' }
           }))
         }
+
+        // Load hierarchy data in background
+        api.epics.list(pid).then(setEpics).catch(() => {})
+        api.features.list(pid).then(setFeatures).catch(() => {})
+        api.cards.listProjectTasks(pid).then(setProjectTasks).catch(() => {})
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load backlog')
       } finally {
@@ -316,24 +348,55 @@ export default function BacklogPage() {
 
       <main className="flex-1 overflow-y-auto px-6 py-6">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-xl font-semibold text-slate-800">Backlog</h1>
               <p className="text-sm text-slate-500 mt-0.5">
                 {selectedSprintId
-                  ? `${cards.length} card${cards.length !== 1 ? 's' : ''} in this sprint`
-                  : `${cards.length} card${cards.length !== 1 ? 's' : ''} not assigned to any sprint`}
+                  ? `${cards.length} stor${cards.length !== 1 ? 'ies' : 'y'} in this sprint`
+                  : `${cards.length} stor${cards.length !== 1 ? 'ies' : 'y'} not assigned to any sprint`}
               </p>
             </div>
-            <button
-              onClick={() => setShowAddForm(v => !v)}
-              className="flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              New Card
-            </button>
+            {(typeFilter === 'all' || typeFilter === 'stories') && (
+              <button
+                onClick={() => setShowAddForm(v => !v)}
+                className="flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                New Story
+              </button>
+            )}
+          </div>
+
+          {/* Type filter tabs */}
+          <div className="flex gap-1 mb-5 border-b border-slate-200">
+            {TYPE_TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setTypeFilter(tab.key)}
+                className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  typeFilter === tab.key
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {tab.label}
+                {tab.key === 'epics' && epics.length > 0 && (
+                  <span className="ml-1.5 text-xs bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5">{epics.length}</span>
+                )}
+                {tab.key === 'features' && features.length > 0 && (
+                  <span className="ml-1.5 text-xs bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5">{features.length}</span>
+                )}
+                {tab.key === 'stories' && cards.length > 0 && (
+                  <span className="ml-1.5 text-xs bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5">{cards.length}</span>
+                )}
+                {tab.key === 'tasks' && projectTasks.length > 0 && (
+                  <span className="ml-1.5 text-xs bg-slate-100 text-slate-500 rounded-full px-1.5 py-0.5">{projectTasks.length}</span>
+                )}
+              </button>
+            ))}
           </div>
 
           {showAddForm && lanes.length > 0 && (
@@ -358,44 +421,160 @@ export default function BacklogPage() {
                 <div key={i} className="h-14 bg-slate-200 animate-pulse rounded-lg" />
               ))}
             </div>
-          ) : groups.length === 0 ? (
-            <div className="text-center py-20 text-slate-400">
-              <p className="text-lg">{selectedSprintId ? 'No cards in this sprint' : 'Backlog is empty'}</p>
-              <p className="text-sm mt-1">
-                {selectedSprintId
-                  ? 'Assign cards to this sprint from the board or card modal.'
-                  : showAddForm ? 'Fill in the form above to add a card.' : 'Click "New Card" to add one.'}
-              </p>
-            </div>
           ) : (
-            <div className="space-y-6">
-              {groups.map(group => (
-                <div key={group.name}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span
-                      className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                      style={{ backgroundColor: group.color || '#94a3b8' }}
-                    />
-                    <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      {group.name}
-                    </h2>
-                    <span className="text-xs text-slate-400">({group.cards.length})</span>
+            <>
+              {/* ── Epics view ── */}
+              {typeFilter === 'epics' && (
+                <div className="space-y-2">
+                  {epics.length === 0 && <p className="text-slate-400 text-sm py-8 text-center">No epics yet. Create them from the Epics page.</p>}
+                  {epics.map(ep => (
+                    <div key={ep.id} className="bg-white rounded-lg border border-slate-200 px-4 py-3 flex items-center gap-3">
+                      <span className="w-3 h-3 rounded border-2 border-amber-400 bg-amber-50 flex-shrink-0" />
+                      <span className="flex-1 text-sm font-medium text-slate-800">{ep.title}</span>
+                      <PriorityBadge priority={ep.priority} />
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${STATUS_COLORS[ep.status]}`}>{ep.status}</span>
+                      <span className="text-xs text-slate-400">{ep.feature_count ?? 0} features · {ep.story_count ?? 0} stories</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Features view ── */}
+              {typeFilter === 'features' && (
+                <div className="space-y-2">
+                  {features.length === 0 && <p className="text-slate-400 text-sm py-8 text-center">No features yet. Create them from the Epics page.</p>}
+                  {features.map(f => {
+                    const epic = epics.find(e => e.id === f.epic_id)
+                    return (
+                      <div key={f.id} className="bg-white rounded-lg border border-slate-200 px-4 py-3 flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full border border-purple-400 bg-purple-50 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-800 truncate">{f.title}</p>
+                          {epic && <p className="text-xs text-slate-400 truncate">{epic.title}</p>}
+                        </div>
+                        <PriorityBadge priority={f.priority} />
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${STATUS_COLORS[f.status]}`}>{f.status}</span>
+                        <span className="text-xs text-slate-400">{f.story_count ?? 0} stories</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* ── Tasks view ── */}
+              {typeFilter === 'tasks' && (
+                <div className="space-y-2">
+                  {projectTasks.length === 0 && <p className="text-slate-400 text-sm py-8 text-center">No tasks yet. Add tasks inside a story from the board or Epics page.</p>}
+                  {projectTasks.map(t => (
+                    <div key={t.id} className="bg-white rounded-lg border border-slate-200 px-4 py-3 flex items-center gap-3">
+                      <span className={`w-3 h-3 rounded flex-shrink-0 border ${t.status === 'done' ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${t.status === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{t.title}</p>
+                        <p className="text-xs text-slate-400 truncate">Story: {t.story_title}</p>
+                      </div>
+                      {t.assignee && <span className="text-xs text-slate-500">{t.assignee}</span>}
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${TASK_STATUS_COLORS[t.status]}`}>{t.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── All view: hierarchy + stories ── */}
+              {typeFilter === 'all' && (
+                <>
+                  {/* Epics/Features hierarchy section */}
+                  {epics.length > 0 && (
+                    <div className="mb-6">
+                      <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Epic → Feature hierarchy</h2>
+                      <div className="space-y-2">
+                        {epics.map(ep => {
+                          const epFeatures = features.filter(f => f.epic_id === ep.id)
+                          return (
+                            <div key={ep.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                              <div className="px-4 py-2.5 flex items-center gap-2 bg-amber-50 border-b border-amber-100">
+                                <span className="w-3 h-3 rounded border-2 border-amber-400 bg-white flex-shrink-0" />
+                                <span className="flex-1 text-sm font-semibold text-slate-800">{ep.title}</span>
+                                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${STATUS_COLORS[ep.status]}`}>{ep.status}</span>
+                              </div>
+                              {epFeatures.map(f => (
+                                <div key={f.id} className="px-6 py-2 flex items-center gap-2 border-b border-slate-100 last:border-0">
+                                  <span className="w-2.5 h-2.5 rounded-full border border-purple-400 bg-white flex-shrink-0" />
+                                  <span className="flex-1 text-sm text-slate-700">{f.title}</span>
+                                  <span className="text-xs text-slate-400">{f.story_count ?? 0} stories</span>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[f.status]}`}>{f.status}</span>
+                                </div>
+                              ))}
+                              {epFeatures.length === 0 && (
+                                <div className="px-6 py-1.5 text-xs text-slate-400">No features</div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stories section (existing behavior) */}
+                  <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Stories</h2>
+                  {groups.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400">
+                      <p className="text-base">{selectedSprintId ? 'No stories in this sprint' : 'No unassigned stories'}</p>
+                      <p className="text-sm mt-1">
+                        {selectedSprintId ? 'Assign stories from the board.' : 'Click "New Story" to add one.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {groups.map(group => (
+                        <div key={group.name}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: group.color || '#94a3b8' }} />
+                            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{group.name}</h3>
+                            <span className="text-xs text-slate-400">({group.cards.length})</span>
+                          </div>
+                          <div className="space-y-2">
+                            {group.cards.map(card => (
+                              <CardRow key={card.id} card={card} sprints={sprints} onMoved={handleMoved} onDelete={handleDelete} onClick={setActiveCard} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── Stories filter view (existing behavior) ── */}
+              {typeFilter === 'stories' && (
+                groups.length === 0 ? (
+                  <div className="text-center py-20 text-slate-400">
+                    <p className="text-lg">{selectedSprintId ? 'No stories in this sprint' : 'No unassigned stories'}</p>
+                    <p className="text-sm mt-1">
+                      {selectedSprintId
+                        ? 'Assign stories to this sprint from the board or story modal.'
+                        : showAddForm ? 'Fill in the form above to add a story.' : 'Click "New Story" to add one.'}
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    {group.cards.map(card => (
-                      <CardRow
-                        key={card.id}
-                        card={card}
-                        sprints={sprints}
-                        onMoved={handleMoved}
-                        onDelete={handleDelete}
-                        onClick={setActiveCard}
-                      />
+                ) : (
+                  <div className="space-y-6">
+                    {groups.map(group => (
+                      <div key={group.name}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: group.color || '#94a3b8' }} />
+                          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{group.name}</h2>
+                          <span className="text-xs text-slate-400">({group.cards.length})</span>
+                        </div>
+                        <div className="space-y-2">
+                          {group.cards.map(card => (
+                            <CardRow key={card.id} card={card} sprints={sprints} onMoved={handleMoved} onDelete={handleDelete} onClick={setActiveCard} />
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
-              ))}
-            </div>
+                )
+              )}
+            </>
           )}
         </div>
       </main>

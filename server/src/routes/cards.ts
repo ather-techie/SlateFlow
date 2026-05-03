@@ -12,6 +12,7 @@ const LaneCreateSchema = z.object({
   story_points: z.number().int().min(1).max(13).nullable().optional(),
   assignee:     z.string().max(200).nullable().optional(),
   sprint_id:    z.number().int().positive().nullable().optional(),
+  feature_id:   z.number().int().positive().nullable().optional(),
   label_ids:    z.array(z.number().int().positive()).optional(),
 })
 
@@ -22,6 +23,7 @@ const ColCreateSchema = z.object({
   story_points: z.number().int().min(0).max(999).nullable().optional(),
   assignee:     z.string().max(200).nullable().optional(),
   sprint_id:    z.number().int().positive().nullable().optional(),
+  feature_id:   z.number().int().positive().nullable().optional(),
 })
 
 const UpdateSchema = z.object({
@@ -31,6 +33,25 @@ const UpdateSchema = z.object({
   story_points: z.number().int().min(0).max(999).nullable().optional(),
   assignee:     z.string().max(200).nullable().optional(),
   sprint_id:    z.number().int().positive().nullable().optional(),
+  feature_id:   z.number().int().positive().nullable().optional(),
+})
+
+const TaskCreateSchema = z.object({
+  title:       z.string().min(1, 'title is required').max(500),
+  description: z.string().max(5000).optional().default(''),
+  status:      z.enum(['to-do', 'in-progress', 'done']).optional().default('to-do'),
+  assignee:    z.string().max(200).nullable().optional(),
+})
+
+const TaskUpdateSchema = z.object({
+  title:       z.string().min(1).max(500).optional(),
+  description: z.string().max(5000).optional(),
+  status:      z.enum(['to-do', 'in-progress', 'done']).optional(),
+  assignee:    z.string().max(200).nullable().optional(),
+})
+
+const TaskReorderSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1),
 })
 
 const MoveSchema = z.object({
@@ -59,7 +80,7 @@ cards.post('/lanes/:id/cards', async (c) => {
   const laneId = parseId(c.req.param('id'))
   if (!laneId) return err(c, 'invalid id', 400)
 
-  const lane = db.prepare('SELECT id FROM swim_lanes WHERE id = ?').get(laneId)
+  const lane = db.prepare('SELECT id, project_id FROM swim_lanes WHERE id = ?').get(laneId) as { id: number; project_id: number } | undefined
   if (!lane) return err(c, 'lane not found', 404)
 
   let body: unknown
@@ -68,7 +89,21 @@ cards.post('/lanes/:id/cards', async (c) => {
   const parsed = LaneCreateSchema.safeParse(body)
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
-  const { title, description, priority, story_points, assignee, sprint_id, label_ids } = parsed.data
+  const { title, description, priority, story_points, assignee, sprint_id, feature_id, label_ids } = parsed.data
+
+  let resolvedFeatureId: number | null = feature_id ?? null
+  if (!resolvedFeatureId) {
+    const def = db.prepare('SELECT id FROM features WHERE project_id = ? AND is_default = 1 LIMIT 1')
+      .get(lane.project_id) as { id: number } | undefined
+    if (def) resolvedFeatureId = def.id
+  }
+
+  let resolvedSprintId: number | null = sprint_id ?? null
+  if (!resolvedSprintId) {
+    const defSprint = db.prepare('SELECT id FROM sprints WHERE project_id = ? AND is_default = 1 LIMIT 1')
+      .get(lane.project_id) as { id: number } | undefined
+    if (defSprint) resolvedSprintId = defSprint.id
+  }
 
   const maxPos = (
     db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM cards WHERE swim_lane_id = ?')
@@ -79,10 +114,10 @@ cards.post('/lanes/:id/cards', async (c) => {
     const { lastInsertRowid } = db
       .prepare(
         `INSERT INTO cards
-           (swim_lane_id, sprint_id, title, description, priority, story_points, assignee, position)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (swim_lane_id, sprint_id, feature_id, title, description, priority, story_points, assignee, position)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(laneId, sprint_id ?? null, title, description, priority, story_points ?? null, assignee ?? null, maxPos + 1)
+      .run(laneId, resolvedSprintId, resolvedFeatureId, title, description, priority, story_points ?? null, assignee ?? null, maxPos + 1)
 
     const cardId = lastInsertRowid
 
@@ -119,7 +154,7 @@ cards.post('/columns/:id/cards', async (c) => {
   const columnId = parseId(c.req.param('id'))
   if (!columnId) return err(c, 'invalid id', 400)
 
-  const col = db.prepare('SELECT id FROM columns WHERE id = ?').get(columnId)
+  const col = db.prepare('SELECT id, project_id FROM columns WHERE id = ?').get(columnId) as { id: number; project_id: number } | undefined
   if (!col) return err(c, 'column not found', 404)
 
   let body: unknown
@@ -129,6 +164,14 @@ cards.post('/columns/:id/cards', async (c) => {
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
   const { title, description, priority, story_points, assignee, sprint_id } = parsed.data
+
+  let resolvedColSprintId: number | null = sprint_id ?? null
+  if (!resolvedColSprintId) {
+    const defSprint = db.prepare('SELECT id FROM sprints WHERE project_id = ? AND is_default = 1 LIMIT 1')
+      .get(col.project_id) as { id: number } | undefined
+    if (defSprint) resolvedColSprintId = defSprint.id
+  }
+
   const maxPos = (
     db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM cards WHERE column_id = ?')
       .get(columnId) as { m: number }
@@ -140,7 +183,7 @@ cards.post('/columns/:id/cards', async (c) => {
          (column_id, sprint_id, title, description, priority, story_points, assignee, position)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(columnId, sprint_id ?? null, title, description, priority, story_points ?? null, assignee ?? null, maxPos + 1)
+    .run(columnId, resolvedColSprintId, title, description, priority, story_points ?? null, assignee ?? null, maxPos + 1)
 
   db.prepare("INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'create', ?)")
     .run(lastInsertRowid, JSON.stringify({ column_id: columnId }))
@@ -194,7 +237,7 @@ cards.patch('/cards/:id', async (c) => {
   const sets: string[] = ["updated_at = datetime('now')"]
   const vals: unknown[] = []
 
-  const allowed = ['title', 'description', 'priority', 'story_points', 'assignee', 'sprint_id'] as const
+  const allowed = ['title', 'description', 'priority', 'story_points', 'assignee', 'sprint_id', 'feature_id'] as const
   for (const key of allowed) {
     if (key in fields) {
       sets.push(`${key} = ?`)
@@ -274,6 +317,139 @@ cards.patch('/cards/:id/move', async (c) => {
   })()
 
   return ok(c, db.prepare('SELECT * FROM cards WHERE id = ?').get(id))
+})
+
+// ── list all tasks for a project ────────────────────────────────────────────
+cards.get('/projects/:id/tasks', (c) => {
+  const projectId = parseId(c.req.param('id'))
+  if (!projectId) return err(c, 'invalid id', 400)
+
+  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  if (!project) return err(c, 'project not found', 404)
+
+  const rows = db.prepare(`
+    SELECT t.*, c.title as story_title
+    FROM tasks t
+    JOIN cards c ON c.id = t.story_id
+    LEFT JOIN swim_lanes sl ON sl.id = c.swim_lane_id
+    WHERE sl.project_id = ? OR EXISTS (
+      SELECT 1 FROM columns col WHERE col.id = c.column_id AND col.project_id = ?
+    )
+    ORDER BY t.story_id, t.position, t.id
+  `).all(projectId, projectId)
+
+  return ok(c, rows)
+})
+
+// ── list tasks for a story ──────────────────────────────────────────────────
+cards.get('/cards/:id/tasks', (c) => {
+  const storyId = parseId(c.req.param('id'))
+  if (!storyId) return err(c, 'invalid id', 400)
+
+  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(storyId)
+  if (!card) return err(c, 'story not found', 404)
+
+  const rows = db.prepare('SELECT * FROM tasks WHERE story_id = ? ORDER BY position, id').all(storyId)
+  return ok(c, rows)
+})
+
+// ── create task under a story ───────────────────────────────────────────────
+cards.post('/cards/:id/tasks', async (c) => {
+  const storyId = parseId(c.req.param('id'))
+  if (!storyId) return err(c, 'invalid id', 400)
+
+  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(storyId)
+  if (!card) return err(c, 'story not found', 404)
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return err(c, 'invalid JSON') }
+
+  const parsed = TaskCreateSchema.safeParse(body)
+  if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
+
+  const { title, description, status, assignee } = parsed.data
+
+  const maxPos = (
+    db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM tasks WHERE story_id = ?')
+      .get(storyId) as { m: number }
+  ).m
+
+  const { lastInsertRowid } = db.prepare(
+    `INSERT INTO tasks (story_id, title, description, status, assignee, position)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(storyId, title, description, status, assignee ?? null, maxPos + 1)
+
+  return ok(c, db.prepare('SELECT * FROM tasks WHERE id = ?').get(lastInsertRowid), 201)
+})
+
+// ── update task ─────────────────────────────────────────────────────────────
+cards.patch('/tasks/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return err(c, 'invalid id', 400)
+
+  const existing = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id)
+  if (!existing) return err(c, 'task not found', 404)
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return err(c, 'invalid JSON') }
+
+  const parsed = TaskUpdateSchema.safeParse(body)
+  if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
+
+  const fields = parsed.data
+  const sets: string[] = ["updated_at = datetime('now')"]
+  const vals: unknown[] = []
+
+  const allowed = ['title', 'description', 'status', 'assignee'] as const
+  for (const key of allowed) {
+    if (key in fields) {
+      sets.push(`${key} = ?`)
+      vals.push(fields[key] ?? null)
+    }
+  }
+
+  if (sets.length === 1) return err(c, 'no fields to update', 400)
+
+  vals.push(id)
+  db.prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
+
+  return ok(c, db.prepare('SELECT * FROM tasks WHERE id = ?').get(id))
+})
+
+// ── delete task ─────────────────────────────────────────────────────────────
+cards.delete('/tasks/:id', (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return err(c, 'invalid id', 400)
+
+  const task = db.prepare('SELECT id FROM tasks WHERE id = ?').get(id)
+  if (!task) return err(c, 'task not found', 404)
+
+  db.prepare('DELETE FROM tasks WHERE id = ?').run(id)
+  return ok(c, { id })
+})
+
+// ── reorder tasks for a story ───────────────────────────────────────────────
+cards.post('/cards/:id/tasks/reorder', async (c) => {
+  const storyId = parseId(c.req.param('id'))
+  if (!storyId) return err(c, 'invalid id', 400)
+
+  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(storyId)
+  if (!card) return err(c, 'story not found', 404)
+
+  let body: unknown
+  try { body = await c.req.json() } catch { return err(c, 'invalid JSON') }
+
+  const parsed = TaskReorderSchema.safeParse(body)
+  if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
+
+  const { ids } = parsed.data
+
+  db.transaction(() => {
+    const update = db.prepare('UPDATE tasks SET position = ? WHERE id = ? AND story_id = ?')
+    ids.forEach((taskId, i) => update.run(i, taskId, storyId))
+  })()
+
+  return ok(c, db.prepare('SELECT * FROM tasks WHERE story_id = ? ORDER BY position, id').all(storyId))
 })
 
 export default cards

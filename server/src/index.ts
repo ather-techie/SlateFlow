@@ -12,6 +12,8 @@ import lanes from './routes/lanes.js'
 import activity from './routes/activity.js'
 import dashboard from './routes/dashboard.js'
 import testcases from './routes/testcases.js'
+import epics from './routes/epics.js'
+import features from './routes/features.js'
 import { testCaseOpenApi } from './lib/openapi.js'
 
 // Ensure the DB is initialised (runs schema + seed on first boot)
@@ -35,6 +37,8 @@ app.route('/api', lanes)
 app.route('/api', activity)
 app.route('/api', dashboard)
 app.route('/api', testcases)
+app.route('/api', epics)
+app.route('/api', features)
 
 app.get('/api/openapi.json', (c) => c.json(testCaseOpenApi))
 

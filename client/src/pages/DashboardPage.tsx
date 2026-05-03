@@ -273,13 +273,17 @@ function KebabMenu({
           >
             Manage Lanes
           </Link>
-          <div className="border-t border-slate-100 my-1" />
-          <button
-            onClick={() => { setOpen(false); onDelete() }}
-            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
-          >
-            Delete Project
-          </button>
+          {!project.is_default && (
+            <>
+              <div className="border-t border-slate-100 my-1" />
+              <button
+                onClick={() => { setOpen(false); onDelete() }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+              >
+                Delete Project
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -488,6 +492,7 @@ export default function DashboardPage() {
       await api.deleteProject(project.id)
       setProjects(prev => prev.filter(p => p.id !== project.id))
       setStats(prev => ({
+        ...prev,
         total_projects: Math.max(0, prev.total_projects - 1),
         active_sprints: Math.max(0, prev.active_sprints - (project.active_sprint ? 1 : 0)),
         open_cards: Math.max(0, prev.open_cards - project.open_cards),

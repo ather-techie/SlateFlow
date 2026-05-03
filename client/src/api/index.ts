@@ -5,9 +5,12 @@ import type {
   Card,
   Comment,
   DashboardStats,
+  Epic,
+  Feature,
   Lane,
   Project,
   ProjectSummary,
+  Task,
   TestCase,
   TestCaseSummary,
   TestRun,
@@ -62,17 +65,45 @@ export const api = {
     get: (cardId: number) => unwrap<Card>(http.get(`/cards/${cardId}`)),
     create: (
       laneId: number,
-      data: { title: string; priority?: Card['priority']; assignee?: string | null },
+      data: { title: string; priority?: Card['priority']; assignee?: string | null; feature_id?: number | null },
     ) => unwrap<Card>(http.post(`/lanes/${laneId}/cards`, data)),
     update: (
       cardId: number,
       data: Partial<
-        Pick<Card, 'title' | 'description' | 'priority' | 'story_points' | 'assignee' | 'sprint_id'>
+        Pick<Card, 'title' | 'description' | 'priority' | 'story_points' | 'assignee' | 'sprint_id' | 'feature_id'>
       >,
     ) => unwrap<Card>(http.patch(`/cards/${cardId}`, data)),
     delete: (cardId: number) => unwrap<{ id: number }>(http.delete(`/cards/${cardId}`)),
     move: (cardId: number, data: { lane_id: number; position?: number }) =>
       unwrap<Card>(http.patch(`/cards/${cardId}/move`, data)),
+    listTasks: (cardId: number) => unwrap<Task[]>(http.get(`/cards/${cardId}/tasks`)),
+    createTask: (cardId: number, data: { title: string; description?: string; status?: Task['status']; assignee?: string | null }) =>
+      unwrap<Task>(http.post(`/cards/${cardId}/tasks`, data)),
+    updateTask: (taskId: number, data: Partial<Pick<Task, 'title' | 'description' | 'status' | 'assignee'>>) =>
+      unwrap<Task>(http.patch(`/tasks/${taskId}`, data)),
+    deleteTask: (taskId: number) => unwrap<{ id: number }>(http.delete(`/tasks/${taskId}`)),
+    reorderTasks: (cardId: number, ids: number[]) => unwrap<Task[]>(http.post(`/cards/${cardId}/tasks/reorder`, { ids })),
+    listProjectTasks: (projectId: number) => unwrap<(Task & { story_title: string })[]>(http.get(`/projects/${projectId}/tasks`)),
+  },
+  epics: {
+    list: (projectId: number) => unwrap<Epic[]>(http.get(`/projects/${projectId}/epics`)),
+    get: (id: number) => unwrap<Epic>(http.get(`/epics/${id}`)),
+    create: (projectId: number, data: { title: string; description?: string; priority?: Epic['priority']; status?: Epic['status']; assignee?: string | null }) =>
+      unwrap<Epic>(http.post(`/projects/${projectId}/epics`, data)),
+    update: (id: number, data: Partial<Pick<Epic, 'title' | 'description' | 'priority' | 'status' | 'assignee'>>) =>
+      unwrap<Epic>(http.patch(`/epics/${id}`, data)),
+    delete: (id: number) => unwrap<{ id: number }>(http.delete(`/epics/${id}`)),
+  },
+  features: {
+    list: (projectId: number, epicId?: number) =>
+      unwrap<Feature[]>(http.get(`/projects/${projectId}/features`, { params: epicId ? { epic_id: epicId } : undefined })),
+    get: (id: number) => unwrap<Feature>(http.get(`/features/${id}`)),
+    create: (projectId: number, data: { title: string; description?: string; epic_id?: number | null; priority?: Feature['priority']; status?: Feature['status']; assignee?: string | null }) =>
+      unwrap<Feature>(http.post(`/projects/${projectId}/features`, data)),
+    update: (id: number, data: Partial<Pick<Feature, 'title' | 'description' | 'epic_id' | 'priority' | 'status' | 'assignee'>>) =>
+      unwrap<Feature>(http.patch(`/features/${id}`, data)),
+    delete: (id: number) => unwrap<{ id: number }>(http.delete(`/features/${id}`)),
+    listStories: (featureId: number) => unwrap<Card[]>(http.get(`/features/${featureId}/stories`)),
   },
   comments: {
     list: (cardId: number) => unwrap<Comment[]>(http.get(`/cards/${cardId}/comments`)),

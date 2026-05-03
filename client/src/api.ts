@@ -1,4 +1,4 @@
-import type { ActivityLog, ActivityItem, BacklogCard, Card, Column, Comment, DashboardStats, Label, Lane, LanePreset, Project, ProjectSummary, Sprint, TestCase, TestCaseSummary, TestRun, TestSuite } from './types'
+import type { ActivityLog, ActivityItem, BacklogCard, Card, Column, Comment, DashboardStats, Epic, Feature, Label, Lane, LanePreset, Project, ProjectSummary, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite } from './types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, init)
@@ -25,7 +25,7 @@ export const api = {
 
   updateCard: (
     cardId: number,
-    data: Partial<Pick<Card, 'title' | 'description' | 'priority' | 'story_points' | 'assignee' | 'sprint_id'>>,
+    data: Partial<Pick<Card, 'title' | 'description' | 'priority' | 'story_points' | 'assignee' | 'sprint_id' | 'feature_id'>>,
   ) => request<Card>(`/cards/${cardId}`, { method: 'PATCH', ...json(data) }),
 
   moveCard: (cardId: number, data: { column_id: number; position?: number }) =>
@@ -70,7 +70,7 @@ export const api = {
   getLaneCards: (laneId: number) => request<Card[]>(`/lanes/${laneId}/cards`),
   createLaneCard: (
     laneId: number,
-    data: { title: string; priority?: Card['priority']; assignee?: string | null },
+    data: { title: string; priority?: Card['priority']; assignee?: string | null; sprint_id?: number | null },
   ) => request<Card>(`/lanes/${laneId}/cards`, { method: 'POST', ...json(data) }),
   moveLaneCard: (cardId: number, data: { lane_id: number; position?: number }) =>
     request<Card>(`/cards/${cardId}/move`, { method: 'PATCH', ...json(data) }),
@@ -129,4 +129,47 @@ export const api = {
     request<TestRun>(`/test-cases/${testCaseId}/runs`, { method: 'POST', ...json(data) }),
   getTestRuns: (testCaseId: number) =>
     request<TestRun[]>(`/test-cases/${testCaseId}/runs`),
+
+  // ── Epics ────────────────────────────────────────────────────────────────────
+  epics: {
+    list: (projectId: number) => request<Epic[]>(`/projects/${projectId}/epics`),
+    get: (id: number) => request<Epic>(`/epics/${id}`),
+    create: (projectId: number, data: { title: string; description?: string; priority?: Epic['priority']; status?: Epic['status']; assignee?: string | null }) =>
+      request<Epic>(`/projects/${projectId}/epics`, { method: 'POST', ...json(data) }),
+    update: (id: number, data: Partial<Pick<Epic, 'title' | 'description' | 'priority' | 'status' | 'assignee'>>) =>
+      request<Epic>(`/epics/${id}`, { method: 'PATCH', ...json(data) }),
+    delete: (id: number) => request<{ id: number }>(`/epics/${id}`, { method: 'DELETE' }),
+  },
+
+  // ── Features ─────────────────────────────────────────────────────────────────
+  features: {
+    list: (projectId: number, epicId?: number) =>
+      request<Feature[]>(`/projects/${projectId}/features${epicId ? `?epic_id=${epicId}` : ''}`),
+    get: (id: number) => request<Feature>(`/features/${id}`),
+    create: (projectId: number, data: { title: string; description?: string; epic_id?: number | null; priority?: Feature['priority']; status?: Feature['status']; assignee?: string | null }) =>
+      request<Feature>(`/projects/${projectId}/features`, { method: 'POST', ...json(data) }),
+    update: (id: number, data: Partial<Pick<Feature, 'title' | 'description' | 'epic_id' | 'priority' | 'status' | 'assignee'>>) =>
+      request<Feature>(`/features/${id}`, { method: 'PATCH', ...json(data) }),
+    delete: (id: number) => request<{ id: number }>(`/features/${id}`, { method: 'DELETE' }),
+    listStories: (featureId: number) => request<Card[]>(`/features/${featureId}/stories`),
+  },
+
+  // ── Tasks ─────────────────────────────────────────────────────────────────────
+  cards: {
+    listTasks: (storyId: number) => request<Task[]>(`/cards/${storyId}/tasks`),
+    createTask: (storyId: number, data: { title: string; description?: string; status?: Task['status']; assignee?: string | null }) =>
+      request<Task>(`/cards/${storyId}/tasks`, { method: 'POST', ...json(data) }),
+    updateTask: (taskId: number, data: Partial<Pick<Task, 'title' | 'description' | 'status' | 'assignee'>>) =>
+      request<Task>(`/tasks/${taskId}`, { method: 'PATCH', ...json(data) }),
+    deleteTask: (taskId: number) => request<{ id: number }>(`/tasks/${taskId}`, { method: 'DELETE' }),
+    reorderTasks: (storyId: number, ids: number[]) => request<Task[]>(`/cards/${storyId}/tasks/reorder`, { method: 'POST', ...json({ ids }) }),
+    create: (laneId: number, data: { title: string; priority?: Card['priority']; assignee?: string | null; feature_id?: number | null }) =>
+      request<Card>(`/lanes/${laneId}/cards`, { method: 'POST', ...json(data) }),
+    listProjectTasks: (projectId: number) => request<(Task & { story_title: string })[]>(`/projects/${projectId}/tasks`),
+  },
+
+  // ── Lanes (namespaced alias for EpicsPage) ───────────────────────────────────
+  lanes: {
+    list: (projectId: number) => request<Lane[]>(`/projects/${projectId}/lanes`),
+  },
 }

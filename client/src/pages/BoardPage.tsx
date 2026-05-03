@@ -12,7 +12,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import type { Card as CardType, Lane, Project, Sprint, TestCaseSummary } from '../types'
+import type { Card as CardType, Epic, Feature, Lane, Project, Sprint, TestCaseSummary } from '../types'
 import { api } from '../api'
 import { useBoardStore } from '../store/boardStore'
 import Header from '../components/Header'
@@ -39,6 +39,10 @@ export default function BoardPage() {
   const [error, setError] = useState<string | null>(null)
   const [showManageLanes, setShowManageLanes] = useState(false)
   const [showNewSprint, setShowNewSprint] = useState(false)
+  const [epics, setEpics] = useState<Epic[]>([])
+  const [features, setFeatures] = useState<Feature[]>([])
+  const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null)
+  const [selectedFeatureId, setSelectedFeatureId] = useState<number | null>(null)
 
   // New sprint form state
   const [newSprintName, setNewSprintName] = useState('')
@@ -85,6 +89,10 @@ export default function BoardPage() {
         const cardArrays = await Promise.all(ls.map(l => api.getLaneCards(l.id)))
         setAllCards(cardArrays.flat())
 
+        // Load epics and features for board filter
+        api.epics.list(pid).then(setEpics).catch(() => {})
+        api.features.list(pid).then(setFeatures).catch(() => {})
+
         // Populate test case indicators for card tiles
         api.getProjectTestCases(pid).then(cases => {
           const byCard: Record<number, TestCaseSummary> = {}
@@ -103,16 +111,28 @@ export default function BoardPage() {
     })()
   }, [pid])
 
+  // Feature IDs that belong to the selected epic (for hierarchical filtering)
+  const epicFeatureIds = useMemo(() => {
+    if (!selectedEpicId) return null
+    return new Set(features.filter(f => f.epic_id === selectedEpicId).map(f => f.id))
+  }, [selectedEpicId, features])
+
   // ── Derived: cards per lane ───────────────────────────────────────────────────
   const cardsByLane = useMemo(() => {
     const map: Record<number, CardType[]> = {}
     for (const lane of lanes) {
       map[lane.id] = allCards
-        .filter(c => c.swim_lane_id === lane.id && (selectedSprintId === null || c.sprint_id === selectedSprintId))
+        .filter(c => {
+          if (c.swim_lane_id !== lane.id) return false
+          if (selectedSprintId !== null && c.sprint_id !== selectedSprintId) return false
+          if (selectedFeatureId !== null && c.feature_id !== selectedFeatureId) return false
+          if (epicFeatureIds !== null && (c.feature_id === null || !epicFeatureIds.has(c.feature_id))) return false
+          return true
+        })
         .sort((a, b) => a.position - b.position || a.id - b.id)
     }
     return map
-  }, [lanes, allCards, selectedSprintId])
+  }, [lanes, allCards, selectedSprintId, selectedFeatureId, epicFeatureIds])
 
   // ── DnD handlers ─────────────────────────────────────────────────────────────
   function handleDragStart({ active }: DragStartEvent) {
@@ -198,7 +218,8 @@ export default function BoardPage() {
       id: tempId,
       column_id: null,
       swim_lane_id: laneId,
-      sprint_id: null,
+      sprint_id: selectedSprintId,
+      feature_id: null,
       title,
       description: '',
       priority,
@@ -210,7 +231,7 @@ export default function BoardPage() {
     }
     setAllCards(prev => [...prev, optimistic])
     try {
-      const created = await api.createLaneCard(laneId, { title, priority, assignee: assignee ?? null })
+      const created = await api.createLaneCard(laneId, { title, priority, assignee: assignee ?? null, sprint_id: selectedSprintId ?? undefined })
       setAllCards(prev => prev.map(c => (c.id === tempId ? created : c)))
     } catch {
       setAllCards(prev => prev.filter(c => c.id !== tempId))
@@ -300,7 +321,29 @@ export default function BoardPage() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+          {epics.length > 0 && (
+            <select
+              value={selectedEpicId ?? ''}
+              onChange={e => { setSelectedEpicId(e.target.value ? Number(e.target.value) : null); setSelectedFeatureId(null) }}
+              className="text-xs bg-white border border-slate-200 rounded-md px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            >
+              <option value="">All Epics</option>
+              {epics.map(ep => <option key={ep.id} value={ep.id}>{ep.title}</option>)}
+            </select>
+          )}
+          {features.length > 0 && (
+            <select
+              value={selectedFeatureId ?? ''}
+              onChange={e => setSelectedFeatureId(e.target.value ? Number(e.target.value) : null)}
+              className="text-xs bg-white border border-slate-200 rounded-md px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            >
+              <option value="">All Features</option>
+              {(selectedEpicId ? features.filter(f => f.epic_id === selectedEpicId) : features).map(f => (
+                <option key={f.id} value={f.id}>{f.title}</option>
+              ))}
+            </select>
+          )}
           <button
             onClick={() => setShowManageLanes(true)}
             className="text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors font-medium"

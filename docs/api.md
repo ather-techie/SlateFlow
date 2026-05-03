@@ -13,6 +13,32 @@ Error → `data` is `null`, `error` is a human-readable message.
 
 ---
 
+## Work-Item Hierarchy
+
+SlateFlow uses a 4-level hierarchy modelled after Azure DevOps:
+
+```
+Project
+└── Epic          (top-level theme or initiative)
+    └── Feature   (deliverable within an epic)
+        └── Story (board card that moves across swim lanes)
+            └── Task (sub-item of a story; has to-do / in-progress / done status)
+```
+
+| Level   | DB table  | Default item    | Cannot delete default? |
+|---------|-----------|-----------------|------------------------|
+| Epic    | `epics`   | Default Epic    | Yes — returns 409      |
+| Feature | `features`| Default Feature | Yes — returns 409      |
+| Story   | `cards`   | —               | —                      |
+| Task    | `tasks`   | —               | —                      |
+
+**Auto-assignment rules:**
+- A Story created without `feature_id` is assigned to the project's **Default Feature**.
+- A Feature created without `epic_id` is assigned to the project's **Default Epic**.
+- A Task must always have a parent Story (`story_id` is required).
+
+---
+
 ## Projects
 
 ### List projects
@@ -50,6 +76,7 @@ Any subset of: `name`, `description`, `color`.
 ```bash
 curl -X DELETE http://localhost:3000/api/projects/1
 ```
+Returns `409` if the project is the Default Project (`is_default = 1`).
 
 ---
 
@@ -147,15 +174,17 @@ curl -X DELETE http://localhost:3000/api/columns/2
 
 ---
 
-## Cards
+## Stories (Cards)
 
-### List cards in a lane
+Stories are the board-level work items that move across swim lanes. They map to the `cards` table. Every story belongs to a Feature via `feature_id` — if omitted on creation, the story is automatically assigned to the project's Default Feature.
+
+### List stories in a lane
 ```bash
 curl http://localhost:3000/api/lanes/1/cards
 ```
-Cards are ordered by `position` ascending.
+Stories are ordered by `position` ascending.
 
-### Create card
+### Create story
 ```bash
 curl -X POST http://localhost:3000/api/lanes/1/cards \
   -H 'Content-Type: application/json' \
@@ -164,25 +193,26 @@ curl -X POST http://localhost:3000/api/lanes/1/cards \
     "priority": "p0",
     "story_points": 3,
     "assignee": "alice",
-    "sprint_id": 2
+    "sprint_id": 2,
+    "feature_id": 5
   }'
 ```
-Optional fields: `priority` (`p0`–`p3`, default `p2`), `story_points`, `assignee`, `sprint_id` (integer — attaches the card to a sprint; `null` means backlog).
+Optional fields: `priority` (`p0`–`p3`, default `p2`), `story_points`, `assignee`, `sprint_id` (integer — attaches the story to a sprint; `null` means backlog), `feature_id` (integer — links story to a Feature; omit or `null` to auto-assign to the project's Default Feature).
 
-### Get card
+### Get story
 ```bash
 curl http://localhost:3000/api/cards/1
 ```
 
-### Update card fields
+### Update story fields
 ```bash
 curl -X PATCH http://localhost:3000/api/cards/1 \
   -H 'Content-Type: application/json' \
-  -d '{"priority":"p1","assignee":"bob","story_points":5}'
+  -d '{"priority":"p1","assignee":"bob","story_points":5,"feature_id":3}'
 ```
-Any subset of: `title`, `description`, `priority`, `story_points`, `assignee`, `sprint_id`.
+Any subset of: `title`, `description`, `priority`, `story_points`, `assignee`, `sprint_id`, `feature_id`.
 
-### Move card (change lane / reorder)
+### Move story (change lane / reorder)
 ```bash
 curl -X PATCH http://localhost:3000/api/cards/1/move \
   -H 'Content-Type: application/json' \
@@ -190,7 +220,7 @@ curl -X PATCH http://localhost:3000/api/cards/1/move \
 ```
 `position` is optional (defaults to end of target lane). Logs an `activity_log` entry.
 
-### Delete card
+### Delete story
 ```bash
 curl -X DELETE http://localhost:3000/api/cards/1
 ```
@@ -203,6 +233,7 @@ curl -X DELETE http://localhost:3000/api/cards/1
 ```bash
 curl http://localhost:3000/api/projects/1/sprints
 ```
+Each sprint includes an `is_default` field (0 or 1). The Default Sprint (`is_default = 1`) is created automatically with every project and cannot be deleted.
 
 ### Create sprint
 ```bash
@@ -235,44 +266,178 @@ Sets `status = 'completed'`. Idempotent.
 ```bash
 curl -X DELETE http://localhost:3000/api/sprints/1
 ```
-Deletes the sprint and sets `sprint_id = NULL` on all assigned cards (moves them to the backlog). Returns `{ "data": { "id": 1 }, "error": null }`.
+Deletes the sprint and sets `sprint_id = NULL` on all assigned cards (moves them to the backlog). Returns `{ "data": { "id": 1 }, "error": null }`. Returns `409` if the sprint is the Default Sprint (`is_default = 1`).
 
 ### List cards in a sprint
 ```bash
 curl http://localhost:3000/api/sprints/1/cards
 ```
 
-### Backlog (cards with no sprint)
+### Backlog (stories with no sprint)
 ```bash
 curl http://localhost:3000/api/projects/1/backlog
 ```
-Returns all cards for the project where `sprint_id IS NULL`, enriched with `column_name` and `column_color` sourced from the card's swim lane (or legacy column). Supports both new cards (created via `POST /lanes/:id/cards`) and legacy cards (created via `POST /columns/:id/cards`).
+Returns all stories for the project where `sprint_id IS NULL`, enriched with `column_name` and `column_color` sourced from the story's swim lane (or legacy column).
 
-**Create a backlog card** — post to the card's target swim lane with no `sprint_id`:
+**Create a backlog story** — post to the target swim lane with no `sprint_id`:
 ```bash
 curl -X POST http://localhost:3000/api/lanes/1/cards \
   -H 'Content-Type: application/json' \
   -d '{"title":"Investigate auth bug","priority":"p1"}'
 ```
 
-**Update a backlog card** (title, description, priority, story_points, assignee):
-```bash
-curl -X PATCH http://localhost:3000/api/cards/42 \
-  -H 'Content-Type: application/json' \
-  -d '{"title":"Renamed","priority":"p0","story_points":3}'
-```
-
-**Move a backlog card to a sprint**:
+**Move a backlog story to a sprint**:
 ```bash
 curl -X PATCH http://localhost:3000/api/cards/42 \
   -H 'Content-Type: application/json' \
   -d '{"sprint_id":7}'
 ```
 
-**Delete a backlog card**:
+---
+
+## Epics
+
+Epics are the top level of the work-item hierarchy. Each epic belongs to a project and can contain multiple Features. Each project has exactly one non-deletable **Default Epic** (`is_default = 1`) that acts as the parent for features created without an explicit epic.
+
+### List epics for a project
 ```bash
-curl -X DELETE http://localhost:3000/api/cards/42
+curl http://localhost:3000/api/projects/1/epics
 ```
+Each epic includes `feature_count` and `story_count` (stories under any of its features).
+
+### Create epic
+```bash
+curl -X POST http://localhost:3000/api/projects/1/epics \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "title": "User Authentication",
+    "description": "All login and auth flows",
+    "priority": "p1",
+    "status": "active",
+    "assignee": "alice"
+  }'
+```
+Required: `title`. Optional: `description`, `priority` (`p0`–`p3`, default `p2`), `status` (`new`|`active`|`resolved`|`closed`, default `new`), `assignee`.
+
+### Get epic
+```bash
+curl http://localhost:3000/api/epics/1
+```
+
+### Update epic
+```bash
+curl -X PATCH http://localhost:3000/api/epics/1 \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"resolved","priority":"p0"}'
+```
+Any subset of: `title`, `description`, `priority`, `status`, `assignee`.
+
+### Delete epic
+```bash
+curl -X DELETE http://localhost:3000/api/epics/1
+```
+Deleting an epic sets `epic_id = NULL` on its features (features are not deleted). Returns `409` if the epic is the project's Default Epic.
+
+---
+
+## Features
+
+Features are the second level of the hierarchy. Each feature belongs to a project and always to an Epic. A feature contains Stories (cards). Each project has exactly one non-deletable **Default Feature** (`is_default = 1`) that acts as the parent for stories created without an explicit feature.
+
+### List features for a project
+```bash
+curl http://localhost:3000/api/projects/1/features
+
+# filter by epic
+curl http://localhost:3000/api/projects/1/features?epic_id=2
+```
+Each feature includes `story_count` and `done_story_count` (stories in a lane with `is_done_col = 1`).
+
+### Create feature
+```bash
+curl -X POST http://localhost:3000/api/projects/1/features \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "title": "Login Flow",
+    "epic_id": 1,
+    "priority": "p1",
+    "status": "active",
+    "assignee": "bob"
+  }'
+```
+Required: `title`. Optional: `description`, `epic_id` (integer — omit or `null` to auto-assign to the project's Default Epic), `priority`, `status`, `assignee`.
+
+### Get feature
+```bash
+curl http://localhost:3000/api/features/1
+```
+
+### List stories in a feature
+```bash
+curl http://localhost:3000/api/features/1/stories
+```
+Returns all stories (cards) with `feature_id` matching this feature.
+
+### Update feature
+```bash
+curl -X PATCH http://localhost:3000/api/features/1 \
+  -H 'Content-Type: application/json' \
+  -d '{"epic_id":2,"status":"resolved"}'
+```
+Any subset of: `title`, `description`, `epic_id` (nullable), `priority`, `status`, `assignee`.
+
+### Delete feature
+```bash
+curl -X DELETE http://localhost:3000/api/features/1
+```
+Deleting a feature sets `feature_id = NULL` on its stories (stories are not deleted). Returns `409` if the feature is the project's Default Feature.
+
+---
+
+## Tasks
+
+Tasks are the fourth and lowest level of the work-item hierarchy. Each task belongs to a Story (`story_id` is required and cannot be null). They have a three-state status (`to-do`|`in-progress`|`done`) and are visible both as an inline checklist in the story's CardModal and as an expandable fourth level in the Epics hierarchy view.
+
+### List tasks for a story
+```bash
+curl http://localhost:3000/api/cards/1/tasks
+```
+Ordered by `position` ascending.
+
+### Create task
+```bash
+curl -X POST http://localhost:3000/api/cards/1/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Write unit tests","assignee":"alice","status":"to-do"}'
+```
+Required: `title`. Optional: `description`, `assignee`, `status` (default `to-do`).
+
+### Update task
+```bash
+curl -X PATCH http://localhost:3000/api/tasks/5 \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"done"}'
+```
+Any subset of: `title`, `description`, `status`, `assignee`.
+
+### Delete task
+```bash
+curl -X DELETE http://localhost:3000/api/tasks/5
+```
+
+### Reorder tasks
+```bash
+curl -X POST http://localhost:3000/api/cards/1/tasks/reorder \
+  -H 'Content-Type: application/json' \
+  -d '{"ids":[3,1,2]}'
+```
+All IDs must belong to the story.
+
+### List all tasks for a project
+```bash
+curl http://localhost:3000/api/projects/1/tasks
+```
+Returns all tasks across all stories in the project, each including `story_title`.
 
 ---
 
@@ -504,6 +669,6 @@ Returns runs newest-first.
 |--------|------------------------------------|
 | 400    | Bad request / invalid ID           |
 | 404    | Resource not found                 |
-| 409    | Conflict (e.g. deleting a lane with cards) |
+| 409    | Conflict (e.g. deleting a lane with cards, or deleting a Default Epic/Feature) |
 | 422    | Validation error (zod)             |
 | 500    | Server error                       |

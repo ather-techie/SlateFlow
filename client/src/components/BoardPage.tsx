@@ -172,6 +172,7 @@ export default function BoardPage() {
       column_id: columnId,
       swim_lane_id: null,
       sprint_id: null,
+      feature_id: null,
       title,
       description: '',
       priority: 'p2',

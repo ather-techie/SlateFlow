@@ -44,6 +44,14 @@ function TestsIcon() {
   )
 }
 
+function EpicsIcon() {
+  return (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+    </svg>
+  )
+}
+
 function SettingsIcon() {
   return (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -155,6 +163,13 @@ export default function Layout() {
         {/* Nav */}
         <nav className="flex-1 flex flex-col gap-0.5">
           <NavItem to="/dashboard" icon={<DashboardIcon />} label="Dashboard" expanded={expanded} />
+          <NavItem
+            to={projectId ? `/projects/${projectId}/epics` : undefined}
+            icon={<EpicsIcon />}
+            label="Epics"
+            expanded={expanded}
+            disabled={!projectId}
+          />
           <NavItem
             to={projectId ? `/projects/${projectId}/board` : undefined}
             icon={<BoardIcon />}

@@ -87,8 +87,11 @@ sprints.delete('/sprints/:id', (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const sprint = db.prepare('SELECT id FROM sprints WHERE id = ?').get(id)
+  const sprint = db.prepare('SELECT id, is_default FROM sprints WHERE id = ?').get(id) as
+    | { id: number; is_default: number }
+    | undefined
   if (!sprint) return err(c, 'sprint not found', 404)
+  if (sprint.is_default) return err(c, 'Cannot delete the Default Sprint', 409)
 
   db.transaction(() => {
     db.prepare("UPDATE cards SET sprint_id = NULL, updated_at = datetime('now') WHERE sprint_id = ?").run(id)

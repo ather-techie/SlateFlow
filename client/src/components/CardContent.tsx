@@ -10,6 +10,7 @@ interface Props {
 
 export default function CardContent({ card, className = '', style }: Props) {
   const summary = useBoardStore(s => s.testCaseSummary[card.id])
+  const taskSummary = useBoardStore(s => s.taskSummary[card.id])
 
   const indicatorColor = summary && summary.total > 0
     ? summary.failed > 0
@@ -48,6 +49,17 @@ export default function CardContent({ card, className = '', style }: Props) {
           </span>
         )}
       </div>
+
+      {taskSummary && taskSummary.total > 0 && (
+        <div className="mt-2 flex items-center gap-1 text-xs text-slate-500" title={`${taskSummary.done}/${taskSummary.total} tasks done`}>
+          <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth="1.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8h10M3 4h10M3 12h5" />
+          </svg>
+          <span className={taskSummary.done === taskSummary.total ? 'text-emerald-600' : ''}>
+            {taskSummary.done}/{taskSummary.total} tasks
+          </span>
+        </div>
+      )}
 
       {summary && summary.total > 0 && (
         <div

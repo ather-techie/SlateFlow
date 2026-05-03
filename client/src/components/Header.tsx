@@ -27,6 +27,7 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
   function getPageSlug() {
     if (location.pathname.endsWith('/backlog')) return 'backlog'
     if (location.pathname.endsWith('/sprints')) return 'sprints'
+    if (location.pathname.endsWith('/epics')) return 'epics'
     return 'board'
   }
 
@@ -53,6 +54,9 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
       <span className="text-slate-700 select-none">|</span>
 
       <nav className="flex items-center gap-5">
+        {/* <NavLink to={`/projects/${projectId}/epics`} className={navClass}>
+          Epics
+        </NavLink>
         <NavLink to={`/projects/${projectId}/board`} end className={navClass}>
           Board
         </NavLink>
@@ -64,7 +68,7 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
         </NavLink>
         <NavLink to={`/projects/${projectId}/tests`} className={navClass}>
           Tests
-        </NavLink>
+        </NavLink> */}
       </nav>
 
       {activeSprint && (

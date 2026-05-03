@@ -424,18 +424,20 @@ function SprintCard({ sprint, columns, onComplete, onActivate, onEdit, onDelete 
           >
             Edit
           </button>
-          <button
-            onClick={e => {
-              e.stopPropagation()
-              if (window.confirm(`Delete "${sprint.name}"? This cannot be undone.`)) {
-                onDelete(sprint.id)
-              }
-            }}
-            className="px-3 py-1 text-xs font-medium bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
-            title="Delete sprint"
-          >
-            Delete
-          </button>
+          {!sprint.is_default && (
+            <button
+              onClick={e => {
+                e.stopPropagation()
+                if (window.confirm(`Delete "${sprint.name}"? This cannot be undone.`)) {
+                  onDelete(sprint.id)
+                }
+              }}
+              className="px-3 py-1 text-xs font-medium bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+              title="Delete sprint"
+            >
+              Delete
+            </button>
+          )}
           <svg
             className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
             fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}

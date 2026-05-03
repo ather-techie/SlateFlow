@@ -30,6 +30,14 @@ try { db.exec('ALTER TABLE cards ADD COLUMN position INTEGER NOT NULL DEFAULT 0'
 try { db.exec("ALTER TABLE projects ADD COLUMN color TEXT NOT NULL DEFAULT '#6366f1'") } catch { /* already exists */ }
 // swim_lane_id links cards to swim_lanes once projects adopt the new lane system
 try { db.exec('ALTER TABLE cards ADD COLUMN swim_lane_id INTEGER') } catch { /* already exists */ }
+// feature_id links stories (cards) to features in the Epic > Feature > Story hierarchy
+try { db.exec('ALTER TABLE cards ADD COLUMN feature_id INTEGER REFERENCES features(id) ON DELETE SET NULL') } catch { /* already exists */ }
+// is_default flags the protected Default Epic / Default Feature per project
+try { db.exec('ALTER TABLE epics ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
+try { db.exec('ALTER TABLE features ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
+// is_default flags the protected Default Project (global) and Default Sprint (per project)
+try { db.exec('ALTER TABLE projects ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
+try { db.exec('ALTER TABLE sprints ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
 
 // Make column_id nullable so swim_lane-based cards don't require a columns row
 try {
@@ -64,8 +72,74 @@ try {
   }
 } catch { /* already nullable */ }
 
-// Seed only when the database is empty
-const projectCount = (db.prepare('SELECT COUNT(*) as n FROM projects').get() as { n: number }).n
+// Ensure every existing project has a Default Epic and Default Feature
+const projectsNeedingDefaults = db.prepare(`
+  SELECT p.id FROM projects p
+  WHERE NOT EXISTS (SELECT 1 FROM epics e WHERE e.project_id = p.id AND e.is_default = 1)
+`).all() as { id: number }[]
+
+if (projectsNeedingDefaults.length > 0) {
+  const insDefaultEpic = db.prepare(
+    `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
+     VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`
+  )
+  const insDefaultFeature = db.prepare(
+    `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+     VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`
+  )
+  db.transaction(() => {
+    for (const { id: projectId } of projectsNeedingDefaults) {
+      const { lastInsertRowid: epicId } = insDefaultEpic.run(projectId)
+      insDefaultFeature.run(projectId, epicId)
+    }
+  })()
+  console.info(`[db] Seeded Default Epic/Feature for ${projectsNeedingDefaults.length} existing project(s)`)
+}
+
+// Ensure a Default Project exists globally
+const defaultProject = db.prepare('SELECT id FROM projects WHERE is_default = 1').get() as { id: number } | undefined
+if (!defaultProject) {
+  const { lastInsertRowid: dpId } = db.prepare(
+    `INSERT INTO projects (name, description, color, is_default) VALUES ('Default Project', '', '#6366f1', 1)`
+  ).run()
+  // Give the Default Project its Default Epic + Feature
+  const { lastInsertRowid: dpEpicId } = db.prepare(
+    `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
+     VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`
+  ).run(dpId)
+  db.prepare(
+    `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+     VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`
+  ).run(dpId, dpEpicId)
+  // Give the Default Project its Default Sprint
+  db.prepare(
+    `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
+     VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`
+  ).run(dpId)
+  console.info('[db] Created Default Project with Default Sprint')
+}
+
+// Ensure every existing project has a Default Sprint
+const projectsNeedingDefaultSprint = db.prepare(`
+  SELECT p.id FROM projects p
+  WHERE NOT EXISTS (SELECT 1 FROM sprints s WHERE s.project_id = p.id AND s.is_default = 1)
+`).all() as { id: number }[]
+
+if (projectsNeedingDefaultSprint.length > 0) {
+  const insDefaultSprint = db.prepare(
+    `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
+     VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`
+  )
+  db.transaction(() => {
+    for (const { id: projectId } of projectsNeedingDefaultSprint) {
+      insDefaultSprint.run(projectId)
+    }
+  })()
+  console.info(`[db] Seeded Default Sprint for ${projectsNeedingDefaultSprint.length} existing project(s)`)
+}
+
+// Seed only when the database is empty (excluding the Default Project)
+const projectCount = (db.prepare('SELECT COUNT(*) as n FROM projects WHERE is_default = 0').get() as { n: number }).n
 if (projectCount === 0) {
   seed()
 }
@@ -97,6 +171,19 @@ function seed() {
       'SlateFlow Demo',
       'Default project — delete or rename to get started.'
     )
+
+    const { lastInsertRowid: defaultEpicId } = db.prepare(
+      `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
+       VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`
+    ).run(projectId)
+    db.prepare(
+      `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+       VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`
+    ).run(projectId, defaultEpicId)
+    db.prepare(
+      `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
+       VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`
+    ).run(projectId)
 
     const cols = [
       { name: 'To Do',       position: 0, color: '#94a3b8' },
