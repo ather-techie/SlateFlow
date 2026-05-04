@@ -22,6 +22,8 @@ const UpdateSchema = z.object({
   priority:    z.enum(['p0', 'p1', 'p2', 'p3']).optional(),
   status:      z.enum(['new', 'active', 'resolved', 'closed']).optional(),
   assignee:    z.string().max(200).nullable().optional(),
+  start_date:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  end_date:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 })
 
 const FEATURE_WITH_COUNTS = `
@@ -155,7 +157,7 @@ features.patch('/features/:id', async (c) => {
   const sets: string[] = ["updated_at = datetime('now')"]
   const vals: unknown[] = []
 
-  const allowed = ['title', 'description', 'epic_id', 'priority', 'status', 'assignee'] as const
+  const allowed = ['title', 'description', 'epic_id', 'priority', 'status', 'assignee', 'start_date', 'end_date'] as const
   for (const key of allowed) {
     if (key in fields) {
       sets.push(`${key} = ?`)

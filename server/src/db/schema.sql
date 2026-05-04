@@ -205,3 +205,16 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_epic_access_user ON epic_access(user_id);
 CREATE INDEX IF NOT EXISTS idx_epic_access_epic ON epic_access(epic_id);
+
+-- Story dependency relationships (blocks / blocked-by)
+CREATE TABLE IF NOT EXISTS story_dependencies (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  blocker_id  INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  blocked_id  INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(blocker_id, blocked_id),
+  CHECK(blocker_id != blocked_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_story_dep_blocker ON story_dependencies(blocker_id);
+CREATE INDEX IF NOT EXISTS idx_story_dep_blocked ON story_dependencies(blocked_id);

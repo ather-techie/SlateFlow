@@ -19,6 +19,16 @@ A lightweight, self-hostable Kanban board for agile teams — sprints, backlog m
 - **Labels & comments** — tag cards and leave threaded comments
 - **Self-host** — single Docker container, SQLite database on a named volume; no external services required
 
+### Planning & Visibility
+- **Roadmap / timeline view** — Gantt-style view across Epics and Features with date ranges
+- **Story dependencies** — "blocks / blocked by" relationships between stories
+- **Capacity planning** — assignee workload view per sprint (story points per person)
+
+### Reporting
+- **Velocity chart** — story points completed per sprint, trend over time
+- **Cycle time / lead time** — how long cards spend in each lane
+- **CSV export** — backlog, sprint report, or full project snapshot as CSV
+
 ## Quick Start
 
 **Prerequisites:** Node.js 20+

@@ -1,4 +1,4 @@
-import type { ActivityLog, ActivityItem, AuthUser, BacklogCard, Card, Column, Comment, DashboardStats, Epic, EpicAccessEntry, Feature, Label, Lane, LanePreset, Notification, Project, ProjectSummary, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite, User } from './types'
+import type { ActivityLog, ActivityItem, AuthUser, BacklogCard, CapacityEntry, Card, Column, Comment, CycleTimeEntry, DashboardStats, Dependency, DependencyList, Epic, EpicAccessEntry, Feature, Label, Lane, LanePreset, Notification, Project, ProjectSummary, RoadmapEpic, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite, User, VelocityEntry } from './types'
 import { useAuthStore } from './store/authStore'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -142,7 +142,7 @@ export const api = {
     get: (id: number) => request<Epic>(`/epics/${id}`),
     create: (projectId: number, data: { title: string; description?: string; priority?: Epic['priority']; status?: Epic['status']; assignee?: string | null }) =>
       request<Epic>(`/projects/${projectId}/epics`, { method: 'POST', ...json(data) }),
-    update: (id: number, data: Partial<Pick<Epic, 'title' | 'description' | 'priority' | 'status' | 'assignee'>>) =>
+    update: (id: number, data: Partial<Pick<Epic, 'title' | 'description' | 'priority' | 'status' | 'assignee' | 'start_date' | 'end_date'>>) =>
       request<Epic>(`/epics/${id}`, { method: 'PATCH', ...json(data) }),
     delete: (id: number) => request<{ id: number }>(`/epics/${id}`, { method: 'DELETE' }),
   },
@@ -154,7 +154,7 @@ export const api = {
     get: (id: number) => request<Feature>(`/features/${id}`),
     create: (projectId: number, data: { title: string; description?: string; epic_id?: number | null; priority?: Feature['priority']; status?: Feature['status']; assignee?: string | null }) =>
       request<Feature>(`/projects/${projectId}/features`, { method: 'POST', ...json(data) }),
-    update: (id: number, data: Partial<Pick<Feature, 'title' | 'description' | 'epic_id' | 'priority' | 'status' | 'assignee'>>) =>
+    update: (id: number, data: Partial<Pick<Feature, 'title' | 'description' | 'epic_id' | 'priority' | 'status' | 'assignee' | 'start_date' | 'end_date'>>) =>
       request<Feature>(`/features/${id}`, { method: 'PATCH', ...json(data) }),
     delete: (id: number) => request<{ id: number }>(`/features/${id}`, { method: 'DELETE' }),
     listStories: (featureId: number) => request<Card[]>(`/features/${featureId}/stories`),
@@ -172,6 +172,10 @@ export const api = {
     create: (laneId: number, data: { title: string; priority?: Card['priority']; assignee?: string | null; feature_id?: number | null }) =>
       request<Card>(`/lanes/${laneId}/cards`, { method: 'POST', ...json(data) }),
     listProjectTasks: (projectId: number) => request<(Task & { story_title: string })[]>(`/projects/${projectId}/tasks`),
+    searchStories: (projectId: number, q: string) =>
+      request<Pick<Card, 'id' | 'title' | 'priority' | 'story_points' | 'assignee' | 'swim_lane_id'>[]>(
+        `/projects/${projectId}/stories/search?q=${encodeURIComponent(q)}`
+      ),
   },
 
   // ── Lanes (namespaced alias for EpicsPage) ───────────────────────────────────
@@ -217,5 +221,30 @@ export const api = {
       request<Notification[]>(`/notifications${unreadOnly ? '?unread_only=1' : ''}`),
     markRead: (id: number) => request<{ id: number }>(`/notifications/${id}/read`, { method: 'PATCH' }),
     markAllRead: () => request<{ count: number }>('/notifications/read-all', { method: 'PATCH' }),
+  },
+
+  // ── Roadmap ──────────────────────────────────────────────────────────────────
+  roadmap: {
+    get: (projectId: number) => request<RoadmapEpic[]>(`/projects/${projectId}/roadmap`),
+  },
+
+  // ── Reports ──────────────────────────────────────────────────────────────────
+  reports: {
+    velocity: (projectId: number) => request<VelocityEntry[]>(`/projects/${projectId}/velocity`),
+    cycleTime: (projectId: number) => request<CycleTimeEntry[]>(`/projects/${projectId}/cycle-time`),
+    capacity: (projectId: number, sprintId: number) =>
+      request<CapacityEntry[]>(`/projects/${projectId}/capacity?sprint_id=${sprintId}`),
+    exportUrl: (projectId: number, type: 'backlog' | 'sprint' | 'full', sprintId?: number) => {
+      const base = `/api/projects/${projectId}/export/csv?type=${type}`
+      return sprintId ? `${base}&sprint_id=${sprintId}` : base
+    },
+  },
+
+  // ── Dependencies ─────────────────────────────────────────────────────────────
+  dependencies: {
+    list: (cardId: number) => request<DependencyList>(`/cards/${cardId}/dependencies`),
+    add: (cardId: number, target_id: number, type: 'blocks' | 'blocked_by') =>
+      request<Dependency>(`/cards/${cardId}/dependencies`, { method: 'POST', ...json({ target_id, type }) }),
+    remove: (depId: number) => request<{ id: number }>(`/dependencies/${depId}`, { method: 'DELETE' }),
   },
 }

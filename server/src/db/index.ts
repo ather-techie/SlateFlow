@@ -50,6 +50,12 @@ try { db.exec('ALTER TABLE tasks        ADD COLUMN assignee_id     INTEGER REFER
 try { db.exec('ALTER TABLE test_cases   ADD COLUMN assigned_to_id  INTEGER REFERENCES users(id)') } catch { /* exists */ }
 try { db.exec('ALTER TABLE test_runs    ADD COLUMN run_by_id       INTEGER REFERENCES users(id)') } catch { /* exists */ }
 
+// Roadmap: date ranges on epics and features
+try { db.exec('ALTER TABLE epics    ADD COLUMN start_date TEXT') } catch { /* exists */ }
+try { db.exec('ALTER TABLE epics    ADD COLUMN end_date   TEXT') } catch { /* exists */ }
+try { db.exec('ALTER TABLE features ADD COLUMN start_date TEXT') } catch { /* exists */ }
+try { db.exec('ALTER TABLE features ADD COLUMN end_date   TEXT') } catch { /* exists */ }
+
 // Make column_id nullable so swim_lane-based cards don't require a columns row
 try {
   const colInfo = (db.prepare('PRAGMA table_info(cards)').all() as { name: string; notnull: number }[])

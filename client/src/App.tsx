@@ -14,6 +14,8 @@ import TestSuitePage from './pages/TestSuitePage'
 import EpicsPage from './pages/EpicsPage'
 import ProjectSetupPage from './pages/ProjectSetupPage'
 import AdminPage from './pages/AdminPage'
+import RoadmapPage from './pages/RoadmapPage'
+import ReportsPage from './pages/ReportsPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function RootRedirect() {
@@ -85,6 +87,8 @@ export default function App() {
           <Route path="/projects/:projectId/backlog" element={<BacklogPage />} />
           <Route path="/projects/:projectId/sprints" element={<SprintsPage />} />
           <Route path="/projects/:projectId/tests" element={<TestSuitePage />} />
+          <Route path="/projects/:projectId/roadmap" element={<RoadmapPage />} />
+          <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

@@ -54,6 +54,22 @@ function EpicsIcon() {
   )
 }
 
+function RoadmapIcon() {
+  return (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
+function ReportsIcon() {
+  return (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  )
+}
+
 function BellIcon() {
   return (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -289,6 +305,13 @@ export default function Layout() {
             disabled={!projectId}
           />
           <NavItem
+            to={projectId ? `/projects/${projectId}/roadmap` : undefined}
+            icon={<RoadmapIcon />}
+            label="Roadmap"
+            expanded={expanded}
+            disabled={!projectId}
+          />
+          <NavItem
             to={projectId ? `/projects/${projectId}/board` : undefined}
             icon={<BoardIcon />}
             label="Board"
@@ -316,6 +339,13 @@ export default function Layout() {
             expanded={expanded}
             disabled={!projectId}
             badge={hasFailedTests}
+          />
+          <NavItem
+            to={projectId ? `/projects/${projectId}/reports` : undefined}
+            icon={<ReportsIcon />}
+            label="Reports"
+            expanded={expanded}
+            disabled={!projectId}
           />
         </nav>
 

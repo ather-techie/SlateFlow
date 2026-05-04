@@ -19,6 +19,9 @@ import users from './routes/users.js'
 import epicAccess from './routes/epicAccess.js'
 import notifications from './routes/notifications.js'
 import sse from './routes/sse.js'
+import dependencies from './routes/dependencies.js'
+import roadmap from './routes/roadmap.js'
+import reports from './routes/reports.js'
 import { requireAuth } from './middleware/requireAuth.js'
 import { testCaseOpenApi } from './lib/openapi.js'
 
@@ -55,6 +58,9 @@ app.route('/api', users)
 app.route('/api', epicAccess)
 app.route('/api', notifications)
 app.route('/api', sse)
+app.route('/api', dependencies)
+app.route('/api', roadmap)
+app.route('/api', reports)
 
 app.get('/api/openapi.json', (c) => c.json(testCaseOpenApi))
 

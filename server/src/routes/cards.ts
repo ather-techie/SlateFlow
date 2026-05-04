@@ -470,4 +470,26 @@ cards.post('/cards/:id/tasks/reorder', async (c) => {
   return ok(c, db.prepare('SELECT * FROM tasks WHERE story_id = ? ORDER BY position, id').all(storyId))
 })
 
+// GET /projects/:id/stories/search?q= — search all stories in a project by title
+cards.get('/projects/:id/stories/search', (c) => {
+  const projectId = parseId(c.req.param('id'))
+  if (!projectId) return err(c, 'invalid id', 400)
+
+  const q = (c.req.query('q') ?? '').trim()
+  if (q.length < 2) return ok(c, [])
+
+  const rows = db.prepare(`
+    SELECT c.id, c.title, c.priority, c.story_points, c.assignee, c.swim_lane_id, c.sprint_id
+    FROM cards c
+    LEFT JOIN swim_lanes sl ON sl.id = c.swim_lane_id
+    LEFT JOIN sprints s ON s.id = c.sprint_id
+    WHERE (sl.project_id = ? OR s.project_id = ?)
+      AND c.title LIKE ? ESCAPE '\\'
+    ORDER BY c.title
+    LIMIT 20
+  `).all(projectId, projectId, `%${q.replace(/[%_\\]/g, '\\$&')}%`)
+
+  return ok(c, rows)
+})
+
 export default cards

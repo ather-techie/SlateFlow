@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import { api } from '../api'
-import type { Card, Column, Project, Sprint } from '../types'
+import type { CapacityEntry, Card, Column, Project, Sprint } from '../types'
 import Header from './Header'
 import PriorityBadge from './PriorityBadge'
 
@@ -53,6 +53,52 @@ function buildBurndown(sprint: Sprint, cards: Card[]) {
       actual: day <= today ? total : undefined,
     }
   })
+}
+
+// ── Capacity section ───────────────────────────────────────────────────────
+
+interface CapacitySectionProps {
+  projectId: number
+  sprintId: number
+}
+
+function CapacitySection({ projectId, sprintId }: CapacitySectionProps) {
+  const [data, setData] = useState<CapacityEntry[] | null>(null)
+
+  useEffect(() => {
+    api.reports.capacity(projectId, sprintId)
+      .then(setData)
+      .catch(() => setData([]))
+  }, [projectId, sprintId])
+
+  if (data === null) {
+    return <div className="h-8 bg-slate-100 animate-pulse rounded" />
+  }
+
+  if (data.length === 0) {
+    return <p className="text-xs text-slate-400">No stories assigned yet.</p>
+  }
+
+  const maxPts = Math.max(...data.map(d => d.story_points), 1)
+
+  return (
+    <div className="space-y-1.5">
+      {data.map(row => (
+        <div key={row.assignee} className="flex items-center gap-2">
+          <span className="text-xs text-slate-600 w-28 truncate flex-shrink-0">{row.assignee}</span>
+          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-indigo-400 rounded-full"
+              style={{ width: `${(row.story_points / maxPts) * 100}%` }}
+            />
+          </div>
+          <span className="text-xs text-slate-500 w-16 text-right flex-shrink-0">
+            {row.story_points}pt · {row.story_count} {row.story_count === 1 ? 'story' : 'stories'}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // ── Create sprint form ─────────────────────────────────────────────────────
@@ -299,13 +345,14 @@ function EditSprintModal({ sprint, onSave, onClose }: EditSprintModalProps) {
 interface SprintCardProps {
   sprint: Sprint
   columns: Column[]
+  projectId: number
   onComplete: (id: number) => void
   onActivate: (id: number) => void
   onEdit: (sprint: Sprint) => void
   onDelete: (id: number) => void
 }
 
-function SprintCard({ sprint, columns, onComplete, onActivate, onEdit, onDelete }: SprintCardProps) {
+function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit, onDelete }: SprintCardProps) {
   const [cards, setCards] = useState<Card[]>([])
   const [loadingCards, setLoadingCards] = useState(true)
   const [completing, setCompleting] = useState(false)
@@ -498,6 +545,14 @@ function SprintCard({ sprint, columns, onComplete, onActivate, onEdit, onDelete 
             </div>
           )}
 
+          {/* Capacity */}
+          <div>
+            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
+              Capacity
+            </h4>
+            <CapacitySection projectId={projectId} sprintId={sprint.id} />
+          </div>
+
           {/* Cards list */}
           {loadingCards ? (
             <div className="space-y-2">
@@ -661,6 +716,7 @@ export default function SprintsPage() {
                   key={sprint.id}
                   sprint={sprint}
                   columns={columns}
+                  projectId={pid}
                   onComplete={handleComplete}
                   onActivate={handleActivate}
                   onEdit={setEditingSprint}
