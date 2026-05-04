@@ -100,6 +100,7 @@ export interface Comment {
   id: number
   card_id: number
   author: string
+  author_id: number | null
   body: string
   created_at: string
 }
@@ -225,4 +226,45 @@ export interface TestCaseSummary {
   untested: number
   blocked: number
   skipped: number
+}
+
+// ── Auth & Users ──────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: number
+  email: string
+  display_name: string
+  role: 'super_admin' | 'member'
+  epic_access: EpicAccessEntry[]
+}
+
+export interface User {
+  id: number
+  email: string
+  display_name: string
+  role: 'super_admin' | 'member'
+  is_active: number
+  created_at: string
+}
+
+export interface EpicAccessEntry {
+  id: number
+  user_id: number
+  epic_id: number
+  role: 'epic_admin' | 'contributor' | 'reader'
+  granted_by: number | null
+  created_at: string
+  display_name?: string
+  email?: string
+}
+
+export interface Notification {
+  id: number
+  user_id: number
+  type: 'mention' | 'board_update' | 'assignment'
+  entity_type: string
+  entity_id: number
+  message: string
+  is_read: number
+  created_at: string
 }

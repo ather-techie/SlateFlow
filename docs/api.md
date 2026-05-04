@@ -11,6 +11,151 @@ All responses share this envelope:
 Success → `data` is populated, `error` is `null`.  
 Error → `data` is `null`, `error` is a human-readable message.
 
+> **Authentication required:** All endpoints except `POST /api/auth/login` and `POST /api/auth/logout` require a valid session. Include `credentials: 'include'` (fetch) or `withCredentials: true` (axios) so the `sf_token` httpOnly cookie is sent automatically.
+
+---
+
+## Authentication
+
+### Login
+```bash
+curl -c cookies.txt -X POST http://localhost:3000/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@flow.local","password":"Admin1234!"}'
+```
+Sets an httpOnly `sf_token` cookie (7-day TTL) on success.  
+Response: `{ "data": { "id": 1, "email": "...", "display_name": "Administrator", "role": "super_admin" } }`
+
+### Logout
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/auth/logout
+```
+Clears the `sf_token` cookie.
+
+### Get current user
+```bash
+curl -b cookies.txt http://localhost:3000/api/auth/me
+```
+Returns the current user object including `epic_access` array:
+```json
+{
+  "data": {
+    "id": 1, "email": "admin@flow.local", "display_name": "Administrator",
+    "role": "super_admin",
+    "epic_access": [{ "epic_id": 3, "role": "contributor" }]
+  }
+}
+```
+
+### Update own profile / password
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/auth/me \
+  -H 'Content-Type: application/json' \
+  -d '{"display_name":"New Name","current_password":"Admin1234!","new_password":"NewPass99!"}'
+```
+
+---
+
+## Users (Super Admin only)
+
+### List users
+```bash
+curl -b cookies.txt http://localhost:3000/api/users
+```
+
+### Search users (typeahead)
+```bash
+curl -b cookies.txt 'http://localhost:3000/api/users/search?q=alice'
+```
+
+### Create user
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/users \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"alice@example.com","display_name":"Alice Smith","password":"Secret1234!","role":"member"}'
+```
+
+### Update user
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/users/2 \
+  -H 'Content-Type: application/json' \
+  -d '{"role":"super_admin","is_active":true}'
+```
+
+### Soft-delete user (preserves history)
+```bash
+curl -b cookies.txt -X DELETE http://localhost:3000/api/users/2
+```
+
+---
+
+## Epic Access
+
+Epic-scoped roles (`epic_admin`, `contributor`, `reader`) are managed per user–epic pair.  
+All endpoints require the caller to be `super_admin` or `epic_admin` of the target epic.
+
+> **Default Epic:** All authenticated users automatically have `contributor` access to each project's Default Epic — no explicit grant is needed or shown.
+
+### List access entries for an epic
+```bash
+curl -b cookies.txt http://localhost:3000/api/epics/5/access
+```
+
+### Grant access
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/epics/5/access \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":2,"role":"contributor"}'
+```
+
+### Update role
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/epics/5/access/2 \
+  -H 'Content-Type: application/json' \
+  -d '{"role":"reader"}'
+```
+
+### Revoke access
+```bash
+curl -b cookies.txt -X DELETE http://localhost:3000/api/epics/5/access/2
+```
+
+---
+
+## Notifications
+
+### List notifications
+```bash
+curl -b cookies.txt 'http://localhost:3000/api/notifications?unread_only=1'
+```
+
+### Mark one as read
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/notifications/12/read
+```
+
+### Mark all as read
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/notifications/read-all
+```
+
+---
+
+## Real-Time Events (SSE)
+
+```js
+const es = new EventSource('/api/events', { withCredentials: true })
+es.addEventListener('card:created', e => console.log(JSON.parse(e.data)))
+es.addEventListener('card:updated', e => { /* patch local store */ })
+es.addEventListener('card:moved',   e => { /* reorder */ })
+es.addEventListener('card:deleted', e => { /* remove from UI */ })
+es.addEventListener('notification', e => { /* show badge */ })
+es.addEventListener('ping', () => {})   // keepalive every 25 s
+```
+
+Event names: `card:created`, `card:updated`, `card:moved`, `card:deleted`, `epic:updated`, `notification`.  
+Each event's `data` field is a JSON string matching the updated resource shape.
+
 ---
 
 ## Work-Item Hierarchy

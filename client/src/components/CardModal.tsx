@@ -561,9 +561,8 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   const [creatingLabel, setCreatingLabel] = useState(false)
 
   // Comments
-  const [comments, setComments]           = useState<Comment[]>([])
-  const [commentBody, setCommentBody]     = useState('')
-  const [commentAuthor, setCommentAuthor] = useState(() => localStorage.getItem('lb-author') ?? '')
+  const [comments, setComments]       = useState<Comment[]>([])
+  const [commentBody, setCommentBody] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
 
   // Activity
@@ -743,12 +742,10 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   async function handleCommentSubmit(e: React.FormEvent) {
     e.preventDefault()
     const body = commentBody.trim()
-    const author = commentAuthor.trim() || 'anonymous'
     if (!body) return
     setSubmittingComment(true)
     try {
-      localStorage.setItem('lb-author', author)
-      const comment = await api.createComment(card.id, { author, body })
+      const comment = await api.createComment(card.id, { body })
       setComments(prev => [...prev, comment])
       setCommentBody('')
       api.getActivityLog(card.id).then(setActivity).catch(() => {})
@@ -981,8 +978,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                   </ul>
                 )}
                 <form onSubmit={handleCommentSubmit} className="space-y-2">
-                  <input value={commentAuthor} onChange={e => setCommentAuthor(e.target.value)} placeholder="Your name" className={inputCls} />
-                  <textarea value={commentBody} onChange={e => setCommentBody(e.target.value)} placeholder="Add a comment…" rows={3} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+                  <textarea value={commentBody} onChange={e => setCommentBody(e.target.value)} placeholder="Add a comment… Use @name to mention someone" rows={3} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
                   <button type="submit" disabled={submittingComment || !commentBody.trim()} className="bg-indigo-600 text-white text-sm font-medium rounded-lg px-4 py-1.5 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Post comment</button>
                 </form>
               </div>

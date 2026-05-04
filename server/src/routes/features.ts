@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
+import { canWrite } from '../lib/epicAccess.js'
 
 const features = new Hono()
 
@@ -34,6 +35,7 @@ const FEATURE_WITH_COUNTS = `
 
 // ── list features for a project ─────────────────────────────────────────────
 features.get('/projects/:id/features', (c) => {
+  const user = c.get('user')
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
@@ -44,10 +46,30 @@ features.get('/projects/:id/features', (c) => {
   const epicId = epicIdRaw ? parseInt(epicIdRaw, 10) : null
 
   let rows
-  if (epicId && Number.isFinite(epicId) && epicId > 0) {
-    rows = db.prepare(`${FEATURE_WITH_COUNTS} WHERE f.project_id = ? AND f.epic_id = ? ORDER BY f.position, f.id`).all(projectId, epicId)
+  if (user.role === 'super_admin') {
+    if (epicId && Number.isFinite(epicId) && epicId > 0) {
+      rows = db.prepare(`${FEATURE_WITH_COUNTS} WHERE f.project_id = ? AND f.epic_id = ? ORDER BY f.position, f.id`).all(projectId, epicId)
+    } else {
+      rows = db.prepare(`${FEATURE_WITH_COUNTS} WHERE f.project_id = ? ORDER BY f.position, f.id`).all(projectId)
+    }
   } else {
-    rows = db.prepare(`${FEATURE_WITH_COUNTS} WHERE f.project_id = ? ORDER BY f.position, f.id`).all(projectId)
+    // Only features whose parent epic is accessible (Default Epic or has epic_access row)
+    const accessFilter = `(e.is_default = 1 OR EXISTS (SELECT 1 FROM epic_access ea WHERE ea.epic_id = e.id AND ea.user_id = ?))`
+    if (epicId && Number.isFinite(epicId) && epicId > 0) {
+      rows = db.prepare(`
+        ${FEATURE_WITH_COUNTS}
+        JOIN epics e ON e.id = f.epic_id
+        WHERE f.project_id = ? AND f.epic_id = ? AND ${accessFilter}
+        ORDER BY f.position, f.id
+      `).all(projectId, epicId, user.id)
+    } else {
+      rows = db.prepare(`
+        ${FEATURE_WITH_COUNTS}
+        JOIN epics e ON e.id = f.epic_id
+        WHERE f.project_id = ? AND ${accessFilter}
+        ORDER BY f.position, f.id
+      `).all(projectId, user.id)
+    }
   }
 
   return ok(c, rows)
@@ -55,6 +77,7 @@ features.get('/projects/:id/features', (c) => {
 
 // ── create feature ──────────────────────────────────────────────────────────
 features.post('/projects/:id/features', async (c) => {
+  const user = c.get('user')
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
@@ -78,6 +101,9 @@ features.post('/projects/:id/features', async (c) => {
     const exists = db.prepare('SELECT id FROM epics WHERE id = ? AND project_id = ?').get(resolvedEpicId, projectId)
     if (!exists) return err(c, 'epic not found in this project', 404)
   }
+
+  // Check write access on the target epic
+  if (resolvedEpicId && !canWrite(user.id, resolvedEpicId, user.role)) return err(c, 'forbidden', 403)
 
   const maxPos = (
     db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM features WHERE project_id = ?')
@@ -105,11 +131,13 @@ features.get('/features/:id', (c) => {
 
 // ── update feature ──────────────────────────────────────────────────────────
 features.patch('/features/:id', async (c) => {
+  const user = c.get('user')
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const existing = db.prepare('SELECT id, project_id FROM features WHERE id = ?').get(id) as { id: number; project_id: number } | undefined
+  const existing = db.prepare('SELECT id, project_id, epic_id FROM features WHERE id = ?').get(id) as { id: number; project_id: number; epic_id: number | null } | undefined
   if (!existing) return err(c, 'feature not found', 404)
+  if (existing.epic_id && !canWrite(user.id, existing.epic_id, user.role)) return err(c, 'forbidden', 403)
 
   let body: unknown
   try { body = await c.req.json() } catch { return err(c, 'invalid JSON') }
@@ -157,12 +185,14 @@ features.get('/features/:id/stories', (c) => {
 
 // ── delete feature ──────────────────────────────────────────────────────────
 features.delete('/features/:id', (c) => {
+  const user = c.get('user')
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const feature = db.prepare('SELECT id, is_default FROM features WHERE id = ?').get(id) as { id: number; is_default: number } | undefined
+  const feature = db.prepare('SELECT id, is_default, epic_id FROM features WHERE id = ?').get(id) as { id: number; is_default: number; epic_id: number | null } | undefined
   if (!feature) return err(c, 'feature not found', 404)
   if (feature.is_default) return err(c, 'cannot delete the default feature', 409)
+  if (feature.epic_id && !canWrite(user.id, feature.epic_id, user.role)) return err(c, 'forbidden', 403)
 
   db.prepare('DELETE FROM features WHERE id = ?').run(id)
   return ok(c, { id })

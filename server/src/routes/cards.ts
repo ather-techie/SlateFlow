@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
+import { emitBoardEvent } from '../lib/eventBus.js'
 
 const cards = new Hono()
 
@@ -132,6 +133,7 @@ cards.post('/lanes/:id/cards', async (c) => {
     return db.prepare('SELECT * FROM cards WHERE id = ?').get(cardId)
   })()
 
+  emitBoardEvent({ type: 'card:created', projectId: lane.project_id, data: result })
   return ok(c, result, 201)
 })
 
@@ -261,7 +263,14 @@ cards.patch('/cards/:id', async (c) => {
     }
   })()
 
-  return ok(c, db.prepare('SELECT * FROM cards WHERE id = ?').get(id))
+  const updated = db.prepare('SELECT * FROM cards WHERE id = ?').get(id) as { swim_lane_id?: number } | null
+  if (updated) {
+    const laneRow = updated.swim_lane_id
+      ? db.prepare('SELECT project_id FROM swim_lanes WHERE id = ?').get(updated.swim_lane_id) as { project_id: number } | undefined
+      : undefined
+    if (laneRow) emitBoardEvent({ type: 'card:updated', projectId: laneRow.project_id, data: updated })
+  }
+  return ok(c, updated)
 })
 
 // ── delete card ─────────────────────────────────────────────────────────────
@@ -269,10 +278,16 @@ cards.delete('/cards/:id', (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(id)
+  const card = db.prepare('SELECT id, swim_lane_id FROM cards WHERE id = ?').get(id) as { id: number; swim_lane_id: number | null } | undefined
   if (!card) return err(c, 'card not found', 404)
 
+  const laneRow = card.swim_lane_id
+    ? db.prepare('SELECT project_id FROM swim_lanes WHERE id = ?').get(card.swim_lane_id) as { project_id: number } | undefined
+    : undefined
+
   db.prepare('DELETE FROM cards WHERE id = ?').run(id)
+
+  if (laneRow) emitBoardEvent({ type: 'card:deleted', projectId: laneRow.project_id, data: { id } })
   return ok(c, { id })
 })
 
@@ -316,7 +331,10 @@ cards.patch('/cards/:id/move', async (c) => {
       .run(id, JSON.stringify({ from_lane_id: card.swim_lane_id, to_lane_id: lane_id, position: targetPos }))
   })()
 
-  return ok(c, db.prepare('SELECT * FROM cards WHERE id = ?').get(id))
+  const movedCard = db.prepare('SELECT * FROM cards WHERE id = ?').get(id)
+  const movedLane = db.prepare('SELECT project_id FROM swim_lanes WHERE id = ?').get(lane_id) as { project_id: number } | undefined
+  if (movedLane) emitBoardEvent({ type: 'card:moved', projectId: movedLane.project_id, data: movedCard })
+  return ok(c, movedCard)
 })
 
 // ── list all tasks for a project ────────────────────────────────────────────

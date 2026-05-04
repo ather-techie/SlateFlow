@@ -48,6 +48,37 @@ Before requesting review, confirm:
 - [ ] No unrelated files or debug code are included in the diff
 - [ ] PR description explains **what** changed and **why**
 
+## License Compliance
+
+Before submitting a PR with new dependencies, verify that all licenses are compatible:
+
+### Steps to generate a license report:
+
+1. **Install license-checker globally** (if not already):
+   ```bash
+   npm install -g license-checker
+   ```
+
+2. **Generate license reports** in both workspaces:
+   ```bash
+   cd client
+   license-checker --json > ../license-report-client.json
+   cd ../server
+   license-checker --json > ../license-report-server.json
+   cd ..
+   ```
+
+3. **Review the generated reports** at `license-report-client.json` and `license-report-server.json` to ensure all dependencies use compatible licenses (e.g., MIT, Apache 2.0, ISC).
+
+4. **Consolidate** (optional): To create a single combined report:
+   ```bash
+   npx license-checker --json > license-report.json
+   ```
+
+5. **Share** the license report(s) in your PR comments if adding significant new dependencies.
+
+For questions about license compatibility, consult [LABELS.md](LABELS.md) or reach out to the maintainers.
+
 ## Project Structure
 
 ```

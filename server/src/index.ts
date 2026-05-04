@@ -14,6 +14,12 @@ import dashboard from './routes/dashboard.js'
 import testcases from './routes/testcases.js'
 import epics from './routes/epics.js'
 import features from './routes/features.js'
+import authRoutes from './routes/auth.js'
+import users from './routes/users.js'
+import epicAccess from './routes/epicAccess.js'
+import notifications from './routes/notifications.js'
+import sse from './routes/sse.js'
+import { requireAuth } from './middleware/requireAuth.js'
 import { testCaseOpenApi } from './lib/openapi.js'
 
 // Ensure the DB is initialised (runs schema + seed on first boot)
@@ -22,9 +28,15 @@ import './db/index.js'
 const app = new Hono()
 
 app.use('*', logger())
-app.use('/api/*', cors({ origin: 'http://localhost:5173' }))
+app.use('/api/*', cors({ origin: 'http://localhost:5173', credentials: true }))
 
 app.get('/api/health', (c) => c.json({ data: { status: 'ok', service: 'slateflow' }, error: null }))
+
+// Public auth routes must be registered BEFORE the requireAuth middleware
+app.route('/api', authRoutes)
+
+// All subsequent /api/* routes require authentication
+app.use('/api/*', requireAuth)
 
 app.route('/api', projects)
 app.route('/api', columns)
@@ -39,6 +51,10 @@ app.route('/api', dashboard)
 app.route('/api', testcases)
 app.route('/api', epics)
 app.route('/api', features)
+app.route('/api', users)
+app.route('/api', epicAccess)
+app.route('/api', notifications)
+app.route('/api', sse)
 
 app.get('/api/openapi.json', (c) => c.json(testCaseOpenApi))
 

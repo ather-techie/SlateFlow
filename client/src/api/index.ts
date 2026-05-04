@@ -17,11 +17,19 @@ import type {
   TestSuite,
 } from '../types'
 
-export const http = axios.create({ baseURL: '/api' })
+export const http = axios.create({ baseURL: '/api', withCredentials: true })
 
 http.interceptors.response.use(
   res => res,
   err => {
+    if (err.response?.status === 401) {
+      // Defer import to avoid circular dep at module load time
+      import('../store/authStore').then(({ useAuthStore }) => {
+        useAuthStore.getState().logout()
+        window.location.href = '/login'
+      })
+      return Promise.reject(err)
+    }
     const msg =
       (err.response?.data as { error?: string } | undefined)?.error ??
       err.message ??

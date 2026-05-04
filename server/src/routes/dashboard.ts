@@ -31,11 +31,13 @@ interface SprintRow {
   status: string
 }
 
-// GET /dashboard/stats — aggregate counts across all projects
+// GET /dashboard/stats — aggregate counts across accessible projects
 dashboard.get('/dashboard/stats', (c) => {
+  const user = c.get('user')
+
   const total_projects = (db.prepare('SELECT COUNT(*) as n FROM projects').get() as { n: number }).n
   const active_sprints = (db.prepare("SELECT COUNT(*) as n FROM sprints WHERE status = 'active'").get() as { n: number }).n
-  // Cards in non-done swim_lanes count as open; legacy column cards (no swim_lane_id) also count as open
+
   const open_cards = (db.prepare(`
     SELECT COUNT(*) as n FROM cards c
     LEFT JOIN swim_lanes sl ON sl.id = c.swim_lane_id
@@ -46,7 +48,7 @@ dashboard.get('/dashboard/stats', (c) => {
   const test_cases_failed   = (db.prepare("SELECT COUNT(*) as n FROM test_cases WHERE status = 'failed'").get() as { n: number }).n
   const test_cases_untested = (db.prepare("SELECT COUNT(*) as n FROM test_cases WHERE status = 'untested'").get() as { n: number }).n
 
-  return ok(c, { total_projects, active_sprints, open_cards, test_cases_total, test_cases_passed, test_cases_failed, test_cases_untested })
+  return ok(c, { total_projects, active_sprints, open_cards, test_cases_total, test_cases_passed, test_cases_failed, test_cases_untested, user_role: user.role })
 })
 
 // GET /dashboard/projects — all projects with lane card counts and active sprint

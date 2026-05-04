@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { api } from './api/index'
+import { useAuthStore } from './store/authStore'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import BoardPage from './pages/BoardPage'
 import BacklogPage from './pages/BacklogPage'
@@ -10,6 +13,7 @@ import SprintsPage from './pages/SprintsPage'
 import TestSuitePage from './pages/TestSuitePage'
 import EpicsPage from './pages/EpicsPage'
 import ProjectSetupPage from './pages/ProjectSetupPage'
+import AdminPage from './pages/AdminPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function RootRedirect() {
@@ -34,6 +38,19 @@ function RootRedirect() {
 }
 
 export default function App() {
+  const { setUser, setLoading } = useAuthStore()
+
+  // Hydrate auth state on mount
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(res => res.json())
+      .then(json => {
+        if (json.data) setUser(json.data)
+        else setUser(null)
+      })
+      .catch(() => setUser(null))
+  }, [setUser])
+
   return (
     <BrowserRouter>
       <Toaster
@@ -44,9 +61,24 @@ export default function App() {
         }}
       />
       <Routes>
-        <Route path="/" element={<RootRedirect />} />
-        <Route path="/projects/new" element={<ProjectSetupPage />} />
-        <Route element={<Layout />}>
+        {/* Public */}
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* Protected root redirect */}
+        <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
+
+        {/* Protected project setup (outside Layout) */}
+        <Route path="/projects/new" element={<ProtectedRoute><ProjectSetupPage /></ProtectedRoute>} />
+
+        {/* Admin — super_admin only */}
+        <Route path="/admin" element={
+          <ProtectedRoute>
+            <AdminPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Protected app routes with Layout */}
+        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/projects/:projectId/epics" element={<EpicsPage />} />
           <Route path="/projects/:projectId/board" element={<BoardPage />} />
@@ -54,6 +86,7 @@ export default function App() {
           <Route path="/projects/:projectId/sprints" element={<SprintsPage />} />
           <Route path="/projects/:projectId/tests" element={<TestSuitePage />} />
         </Route>
+
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

@@ -164,3 +164,44 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ── Authentication ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS users (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  email         TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+  display_name  TEXT    NOT NULL,
+  password_hash TEXT    NOT NULL,
+  role          TEXT    NOT NULL DEFAULT 'member' CHECK(role IN ('super_admin', 'member')),
+  is_active     INTEGER NOT NULL DEFAULT 1,
+  deleted_at    TEXT,
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Epic-scoped role assignments (one row per user–epic pair)
+CREATE TABLE IF NOT EXISTS epic_access (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  epic_id    INTEGER NOT NULL REFERENCES epics(id) ON DELETE CASCADE,
+  role       TEXT    NOT NULL DEFAULT 'reader' CHECK(role IN ('epic_admin','contributor','reader')),
+  granted_by INTEGER REFERENCES users(id),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, epic_id)
+);
+
+-- Notification inbox (mentions, assignments, board events)
+CREATE TABLE IF NOT EXISTS notifications (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  type        TEXT    NOT NULL CHECK(type IN ('mention','board_update','assignment')),
+  entity_type TEXT    NOT NULL DEFAULT 'card',
+  entity_id   INTEGER NOT NULL,
+  message     TEXT    NOT NULL,
+  is_read     INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_epic_access_user ON epic_access(user_id);
+CREATE INDEX IF NOT EXISTS idx_epic_access_epic ON epic_access(epic_id);

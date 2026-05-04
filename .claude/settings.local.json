@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -c /tmp/sf-cookies.txt -X POST http://localhost:3000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@flow.local\",\"password\":\"Admin1234!\"}')",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s -b /tmp/sf-cookies.txt http://localhost:3000/api/auth/me)",
+      "Read(//tmp/**)",
+      "Bash(curl -sv -c /tmp/sf-cookies2.txt -X POST http://localhost:3000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@flow.local\",\"password\":\"Admin1234!\"}')"
+    ]
+  }
+}

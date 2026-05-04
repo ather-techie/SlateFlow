@@ -1,7 +1,13 @@
-import type { ActivityLog, ActivityItem, BacklogCard, Card, Column, Comment, DashboardStats, Epic, Feature, Label, Lane, LanePreset, Project, ProjectSummary, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite } from './types'
+import type { ActivityLog, ActivityItem, AuthUser, BacklogCard, Card, Column, Comment, DashboardStats, Epic, EpicAccessEntry, Feature, Label, Lane, LanePreset, Notification, Project, ProjectSummary, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite, User } from './types'
+import { useAuthStore } from './store/authStore'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, init)
+  const res = await fetch(`/api${path}`, { ...init, credentials: 'include' })
+  if (res.status === 401) {
+    useAuthStore.getState().logout()
+    window.location.href = '/login'
+    throw new Error('session expired')
+  }
   const json: { data: T; error: string | null } = await res.json()
   if (json.error) throw new Error(json.error)
   return json.data
@@ -31,7 +37,7 @@ export const api = {
   moveCard: (cardId: number, data: { column_id: number; position?: number }) =>
     request<Card>(`/cards/${cardId}/move`, { method: 'PATCH', ...json(data) }),
 
-  createComment: (cardId: number, data: { author: string; body: string }) =>
+  createComment: (cardId: number, data: { body: string }) =>
     request<Comment>(`/cards/${cardId}/comments`, { method: 'POST', ...json(data) }),
 
   getLabels: (projectId: number) => request<Label[]>(`/projects/${projectId}/labels`),
@@ -171,5 +177,45 @@ export const api = {
   // ── Lanes (namespaced alias for EpicsPage) ───────────────────────────────────
   lanes: {
     list: (projectId: number) => request<Lane[]>(`/projects/${projectId}/lanes`),
+  },
+
+  // ── Auth ─────────────────────────────────────────────────────────────────────
+  auth: {
+    login: (data: { email: string; password: string }) =>
+      request<AuthUser>('/auth/login', { method: 'POST', ...json(data) }),
+    logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
+    me: () => request<AuthUser & { epic_access: EpicAccessEntry[] }>('/auth/me'),
+    updateMe: (data: { display_name?: string; current_password?: string; new_password?: string }) =>
+      request<AuthUser>('/auth/me', { method: 'PATCH', ...json(data) }),
+  },
+
+  // ── Users (super_admin only) ──────────────────────────────────────────────────
+  users: {
+    list: () => request<User[]>('/users'),
+    search: (q: string) => request<User[]>(`/users/search?q=${encodeURIComponent(q)}`),
+    create: (data: { email: string; display_name: string; password: string; role?: string }) =>
+      request<User>('/users', { method: 'POST', ...json(data) }),
+    update: (id: number, data: { display_name?: string; role?: string; is_active?: boolean; new_password?: string }) =>
+      request<User>(`/users/${id}`, { method: 'PATCH', ...json(data) }),
+    delete: (id: number) => request<{ id: number }>(`/users/${id}`, { method: 'DELETE' }),
+  },
+
+  // ── Epic Access ───────────────────────────────────────────────────────────────
+  epicAccess: {
+    list: (epicId: number) => request<EpicAccessEntry[]>(`/epics/${epicId}/access`),
+    grant: (epicId: number, data: { user_id: number; role: string }) =>
+      request<EpicAccessEntry>(`/epics/${epicId}/access`, { method: 'POST', ...json(data) }),
+    update: (epicId: number, userId: number, data: { role: string }) =>
+      request<EpicAccessEntry>(`/epics/${epicId}/access/${userId}`, { method: 'PATCH', ...json(data) }),
+    revoke: (epicId: number, userId: number) =>
+      request<{ user_id: number; epic_id: number }>(`/epics/${epicId}/access/${userId}`, { method: 'DELETE' }),
+  },
+
+  // ── Notifications ─────────────────────────────────────────────────────────────
+  notifications: {
+    list: (unreadOnly?: boolean) =>
+      request<Notification[]>(`/notifications${unreadOnly ? '?unread_only=1' : ''}`),
+    markRead: (id: number) => request<{ id: number }>(`/notifications/${id}/read`, { method: 'PATCH' }),
+    markAllRead: () => request<{ count: number }>('/notifications/read-all', { method: 'PATCH' }),
   },
 }

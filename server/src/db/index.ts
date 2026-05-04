@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import bcrypt from 'bcryptjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -38,6 +39,16 @@ try { db.exec('ALTER TABLE features ADD COLUMN is_default INTEGER NOT NULL DEFAU
 // is_default flags the protected Default Project (global) and Default Sprint (per project)
 try { db.exec('ALTER TABLE projects ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
 try { db.exec('ALTER TABLE sprints ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
+
+// Auth: link assignee/author fields to users table (nullable; TEXT cols kept for backward compat)
+try { db.exec('ALTER TABLE comments     ADD COLUMN author_id       INTEGER REFERENCES users(id)') } catch { /* exists */ }
+try { db.exec('ALTER TABLE activity_log ADD COLUMN user_id         INTEGER REFERENCES users(id)') } catch { /* exists */ }
+try { db.exec('ALTER TABLE cards        ADD COLUMN assignee_id     INTEGER REFERENCES users(id)') } catch { /* exists */ }
+try { db.exec('ALTER TABLE epics        ADD COLUMN assignee_id     INTEGER REFERENCES users(id)') } catch { /* exists */ }
+try { db.exec('ALTER TABLE features     ADD COLUMN assignee_id     INTEGER REFERENCES users(id)') } catch { /* exists */ }
+try { db.exec('ALTER TABLE tasks        ADD COLUMN assignee_id     INTEGER REFERENCES users(id)') } catch { /* exists */ }
+try { db.exec('ALTER TABLE test_cases   ADD COLUMN assigned_to_id  INTEGER REFERENCES users(id)') } catch { /* exists */ }
+try { db.exec('ALTER TABLE test_runs    ADD COLUMN run_by_id       INTEGER REFERENCES users(id)') } catch { /* exists */ }
 
 // Make column_id nullable so swim_lane-based cards don't require a columns row
 try {
@@ -136,6 +147,16 @@ if (projectsNeedingDefaultSprint.length > 0) {
     }
   })()
   console.info(`[db] Seeded Default Sprint for ${projectsNeedingDefaultSprint.length} existing project(s)`)
+}
+
+// Seed the super admin user on first run
+const adminExists = db.prepare("SELECT id FROM users WHERE email = 'admin@flow.local'").get()
+if (!adminExists) {
+  const hash = bcrypt.hashSync('Admin1234!', 12)
+  db.prepare(
+    "INSERT INTO users (email, display_name, password_hash, role) VALUES ('admin@flow.local', 'Administrator', ?, 'super_admin')"
+  ).run(hash)
+  console.info('[db] Seeded admin@flow.local (super_admin) — change password after first login')
 }
 
 // Seed only when the database is empty (excluding the Default Project)
