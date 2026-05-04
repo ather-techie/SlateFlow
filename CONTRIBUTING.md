@@ -17,6 +17,19 @@ The app starts at http://localhost:5173 (client) and http://localhost:3000 (API)
 
 To reset the database, delete `server/slateflow.db` and restart the server.
 
+## Contributor License Agreement
+
+Before contributing, please read and agree to the [Contributor License Agreement (CLA)](../CLA.md).
+
+All pull requests must be signed by the contributor before they can be merged. The automated **CLAassistant** bot will check your CLA signature on every PR and post a comment with a signing link if needed. Signing takes about **2 minutes** and covers all your current and future contributions.
+
+**Why a CLA?** It clarifies intellectual property rights while allowing SlateFlow to:
+- Offer proprietary editions or SaaS variants
+- Respond to future business opportunities
+- Protect the Project's long-term sustainability
+
+For common questions, see [CLA FAQ](../docs/CLA_FAQ.md).
+
 ## Branch Naming
 
 | Prefix | Use for |
@@ -78,6 +91,8 @@ Before submitting a PR with new dependencies, verify that all licenses are compa
 5. **Share** the license report(s) in your PR comments if adding significant new dependencies.
 
 For questions about license compatibility, consult [LABELS.md](LABELS.md) or reach out to the maintainers.
+
+**Note:** Before submitting a PR with new dependencies, ensure You have signed the [CLA](../CLA.md).
 
 ## Project Structure
 

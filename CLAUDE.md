@@ -215,3 +215,28 @@ Full REST API documentation with curl examples is in [docs/api.md](docs/api.md).
 | `.dockerignore` | Excludes `node_modules`, `dist`, `*.db` from build context |
 
 In production mode the server compiles to `server/dist/` and serves `client/dist/` as static files. `schema.sql` must be copied alongside `index.js` in `server/dist/db/` (done by the Dockerfile's `cp` step since `tsc` doesn't copy non-TS assets).
+
+## Contributor License Agreement (CLA) Enforcement
+
+All pull requests require a signed Contributor License Agreement before merge. This protects SlateFlow's ability to relicense (e.g., offer proprietary SaaS variants) without renegotiating with contributors.
+
+### CLA Setup
+
+- **CLA Document:** [CLA.md](CLA.md) — Individual CLA with non-assignment, broad sublicensing/relicensing rights, employer authorization clause
+- **Enforcement:** CLAassistant bot checks all PRs and posts a comment with signing link; status check must pass before merge (branch protection rule recommended)
+- **FAQ:** [docs/CLA_FAQ.md](docs/CLA_FAQ.md) — Common questions for contributors
+- **Configuration:** CLAassistant is integrated via GitHub App; contact maintainers to configure bot settings or whitelist GitHub usernames
+
+### Maintainer Responsibilities
+
+1. **PR Review:** Watch for CLAassistant comment on PRs; look for ✅ "CLA Signed" status
+2. **Non-signers:** If a contributor has not signed (❌ status), comment asking them to sign before merge attempt
+3. **Branch Protection (optional):** Require CLAassistant status check in GitHub repository settings under Branch Protection → Require status checks to pass
+4. **Whitelist (optional):** If core maintainers should skip CLA signing for rapid iteration, configure GitHub username whitelist via CLAassistant settings
+
+### Key Points
+
+- **Non-assignment:** Contributor retains copyright; SlateFlow gets broad usage rights
+- **One-time signing:** Contributor signs once; covers all past and future contributions
+- **SaaS-friendly:** Explicit relicensing clause allows proprietary variants and dual-licensing
+- **Employer clause:** Protects against employer IP disputes

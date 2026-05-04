@@ -11,6 +11,7 @@
 
 ## Checklist
 
+- [ ] I have read and agree to the [Contributor License Agreement](../CLA.md)
 - [ ] Branch is named with the correct prefix (`feat/`, `fix/`, `chore/`)
 - [ ] `npm run lint -w client` passes with no new errors
 - [ ] TypeScript compiles cleanly in both `client/` and `server/`
