@@ -44,12 +44,15 @@ CREATE TABLE IF NOT EXISTS columns (
 CREATE TABLE IF NOT EXISTS cards (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   column_id    INTEGER REFERENCES columns(id) ON DELETE CASCADE,
+  swim_lane_id INTEGER REFERENCES swim_lanes(id) ON DELETE CASCADE,
   sprint_id    INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
+  feature_id   INTEGER REFERENCES features(id) ON DELETE SET NULL,
   title        TEXT    NOT NULL,
   description  TEXT    NOT NULL DEFAULT '',
   priority     TEXT    NOT NULL DEFAULT 'p2' CHECK (priority IN ('p0', 'p1', 'p2', 'p3')),
   story_points INTEGER,
   assignee     TEXT,
+  assignee_id  INTEGER REFERENCES users(id),
   position     INTEGER NOT NULL DEFAULT 0,
   created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -72,6 +75,7 @@ CREATE TABLE IF NOT EXISTS comments (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   card_id    INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
   author     TEXT    NOT NULL,
+  author_id  INTEGER REFERENCES users(id),
   body       TEXT    NOT NULL,
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
@@ -79,6 +83,7 @@ CREATE TABLE IF NOT EXISTS comments (
 CREATE TABLE IF NOT EXISTS activity_log (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   card_id    INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  user_id    INTEGER REFERENCES users(id),
   action     TEXT    NOT NULL,
   meta       TEXT    NOT NULL DEFAULT '{}',
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -109,6 +114,7 @@ CREATE TABLE IF NOT EXISTS test_cases (
   preconditions   TEXT,
   expected_result TEXT,
   assigned_to     TEXT,
+  assigned_to_id  INTEGER REFERENCES users(id),
   position        INTEGER NOT NULL DEFAULT 0,
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -121,6 +127,7 @@ CREATE TABLE IF NOT EXISTS test_runs (
   status       TEXT    NOT NULL CHECK(status IN ('passed','failed','blocked','skipped')),
   notes        TEXT,
   run_by       TEXT,
+  run_by_id    INTEGER REFERENCES users(id),
   run_at       DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -132,8 +139,11 @@ CREATE TABLE IF NOT EXISTS epics (
   priority    TEXT    NOT NULL DEFAULT 'p2' CHECK (priority IN ('p0','p1','p2','p3')),
   status      TEXT    NOT NULL DEFAULT 'new' CHECK (status IN ('new','active','resolved','closed')),
   assignee    TEXT,
+  assignee_id INTEGER REFERENCES users(id),
   position    INTEGER NOT NULL DEFAULT 0,
   is_default  INTEGER NOT NULL DEFAULT 0,
+  start_date  TEXT,
+  end_date    TEXT,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
@@ -147,8 +157,11 @@ CREATE TABLE IF NOT EXISTS features (
   priority    TEXT    NOT NULL DEFAULT 'p2' CHECK (priority IN ('p0','p1','p2','p3')),
   status      TEXT    NOT NULL DEFAULT 'new' CHECK (status IN ('new','active','resolved','closed')),
   assignee    TEXT,
+  assignee_id INTEGER REFERENCES users(id),
   position    INTEGER NOT NULL DEFAULT 0,
   is_default  INTEGER NOT NULL DEFAULT 0,
+  start_date  TEXT,
+  end_date    TEXT,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
@@ -160,6 +173,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   description TEXT    NOT NULL DEFAULT '',
   status      TEXT    NOT NULL DEFAULT 'to-do' CHECK (status IN ('to-do','in-progress','done')),
   assignee    TEXT,
+  assignee_id INTEGER REFERENCES users(id),
   position    INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))

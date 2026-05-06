@@ -60,73 +60,8 @@ export const db = {
 await db.run('PRAGMA journal_mode = WAL')
 await db.run('PRAGMA foreign_keys = ON')
 
-// Detect new tables before running schema so we can log their creation
-const testTablesRow = await db.get<{ n: number }>(
-  "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name='test_cases'"
-)
-const testTablesNew = (testTablesRow?.n ?? 0) === 0
-
 const schema = readFileSync(SCHEMA_PATH, 'utf8')
 await db.exec(schema)
-
-if (testTablesNew) console.info('[db] Test case tables migrated')
-
-// Additive column migrations
-try { await db.exec('ALTER TABLE cards ADD COLUMN position INTEGER NOT NULL DEFAULT 0') } catch { /* exists */ }
-try { await db.exec("ALTER TABLE projects ADD COLUMN color TEXT NOT NULL DEFAULT '#6366f1'") } catch { /* exists */ }
-try { await db.exec('ALTER TABLE cards ADD COLUMN swim_lane_id INTEGER') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE cards ADD COLUMN feature_id INTEGER REFERENCES features(id) ON DELETE SET NULL') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE epics ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE features ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE projects ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE sprints ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0') } catch { /* exists */ }
-
-try { await db.exec('ALTER TABLE comments     ADD COLUMN author_id       INTEGER REFERENCES users(id)') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE activity_log ADD COLUMN user_id         INTEGER REFERENCES users(id)') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE cards        ADD COLUMN assignee_id     INTEGER REFERENCES users(id)') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE epics        ADD COLUMN assignee_id     INTEGER REFERENCES users(id)') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE features     ADD COLUMN assignee_id     INTEGER REFERENCES users(id)') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE tasks        ADD COLUMN assignee_id     INTEGER REFERENCES users(id)') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE test_cases   ADD COLUMN assigned_to_id  INTEGER REFERENCES users(id)') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE test_runs    ADD COLUMN run_by_id       INTEGER REFERENCES users(id)') } catch { /* exists */ }
-
-try { await db.exec('ALTER TABLE epics    ADD COLUMN start_date TEXT') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE epics    ADD COLUMN end_date   TEXT') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE features ADD COLUMN start_date TEXT') } catch { /* exists */ }
-try { await db.exec('ALTER TABLE features ADD COLUMN end_date   TEXT') } catch { /* exists */ }
-
-// Make column_id nullable so swim_lane-based cards don't require a columns row
-try {
-  const colInfo = await db.all<{ name: string; notnull: number }>('PRAGMA table_info(cards)')
-  const colDef = colInfo.find(c => c.name === 'column_id')
-  if (colDef?.notnull === 1) {
-    await db.run('PRAGMA foreign_keys = OFF')
-    await db.exec('DROP TABLE IF EXISTS _cards_mig')
-    await db.transaction(async () => {
-      await db.exec(`CREATE TABLE _cards_mig (
-        id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        column_id    INTEGER REFERENCES columns(id) ON DELETE CASCADE,
-        swim_lane_id INTEGER REFERENCES swim_lanes(id) ON DELETE CASCADE,
-        sprint_id    INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
-        title        TEXT    NOT NULL,
-        description  TEXT    NOT NULL DEFAULT '',
-        priority     TEXT    NOT NULL DEFAULT 'p2' CHECK (priority IN ('p0','p1','p2','p3')),
-        story_points INTEGER,
-        assignee     TEXT,
-        position     INTEGER NOT NULL DEFAULT 0,
-        created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
-        updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
-      )`)
-      await db.exec(`INSERT INTO _cards_mig
-        SELECT id, column_id, swim_lane_id, sprint_id, title, description,
-               priority, story_points, assignee, position, created_at, updated_at
-        FROM cards`)
-      await db.exec('DROP TABLE cards')
-      await db.exec('ALTER TABLE _cards_mig RENAME TO cards')
-    })()
-    await db.run('PRAGMA foreign_keys = ON')
-  }
-} catch { /* already nullable */ }
 
 // Ensure every existing project has a Default Epic and Default Feature
 const projectsNeedingDefaults = await db.all<{ id: number }>(`
