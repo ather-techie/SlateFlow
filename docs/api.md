@@ -74,6 +74,7 @@ curl -b cookies.txt -X POST http://localhost:3000/api/users \
   -H 'Content-Type: application/json' \
   -d '{"email":"alice@example.com","display_name":"Alice Smith","password":"Secret1234!","role":"global_reader"}'
 ```
+`role` must be `global_reader` (default) or `super_admin`. To assign project-level roles (`project_admin`, `contributor`, `reader`) at creation time, call `POST /projects/:id/access` immediately after with the new user's `id`. The Admin Panel's Create User modal does this automatically.
 
 ### Update user
 ```bash
@@ -91,7 +92,7 @@ curl -b cookies.txt -X DELETE http://localhost:3000/api/users/2
 ```bash
 curl -b cookies.txt http://localhost:3000/api/users/2/project-access
 ```
-Returns all projects with this user's assigned role (`null` = no project-level access):
+Returns **all** projects with this user's assigned role (`null` = no project-level access, user falls back to global reader):
 ```json
 {
   "data": [
@@ -100,7 +101,7 @@ Returns all projects with this user's assigned role (`null` = no project-level a
   ]
 }
 ```
-Super Admin only. Used by the Admin Panel "Project Access" modal.
+Super Admin only. Used by the Admin Panel "Project Access" modal and the Create User modal's project assignment panel.
 
 ---
 

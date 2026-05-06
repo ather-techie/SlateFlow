@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { api } from '../api'
 import { useAuthStore } from '../store/authStore'
-import type { User } from '../types'
+import type { Project, User } from '../types'
 import ProjectAccessModal from '../components/ProjectAccessModal'
 
 type Tab = 'users'
+
+type ProjectAssignment = { project_id: number; role: 'project_admin' | 'contributor' | 'reader' }
 
 // ─── Create User Modal ────────────────────────────────────────────────────────
 
@@ -14,15 +16,39 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'global_reader' | 'super_admin'>('global_reader')
+  const [role, setRole] = useState<'none' | 'global_reader' | 'super_admin'>('none')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [assignments, setAssignments] = useState<ProjectAssignment[]>([])
+
+  useEffect(() => {
+    api.getProjects().then(setProjects).catch(() => {})
+  }, [])
+
+  function addAssignment() {
+    const unused = projects.find(p => !assignments.some(a => a.project_id === p.id))
+    if (!unused) return
+    setAssignments(prev => [...prev, { project_id: unused.id, role: 'reader' }])
+  }
+
+  function updateAssignment(idx: number, patch: Partial<ProjectAssignment>) {
+    setAssignments(prev => prev.map((a, i) => i === idx ? { ...a, ...patch } : a))
+  }
+
+  function removeAssignment(idx: number) {
+    setAssignments(prev => prev.filter((_, i) => i !== idx))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     try {
-      const user = await api.users.create({ email, display_name: displayName, password, role } as Parameters<typeof api.users.create>[0])
+      const resolvedRole = role === 'none' ? 'global_reader' : role
+      const user = await api.users.create({ email, display_name: displayName, password, role: resolvedRole } as Parameters<typeof api.users.create>[0])
+      for (const a of assignments) {
+        await api.projectAccess.grant(a.project_id, { user_id: user.id, role: a.role })
+      }
       onCreated(user)
       toast.success(`User ${displayName} created`)
       onClose()
@@ -34,10 +60,11 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   }
 
   const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500'
+  const selectSmCls = 'bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500'
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+      <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-slate-100 mb-4">Create User</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
@@ -73,11 +100,83 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1">Role</label>
-            <select value={role} onChange={e => setRole(e.target.value as 'global_reader' | 'super_admin')} className={inputCls}>
+            <select
+              value={role}
+              onChange={e => {
+                const v = e.target.value as 'none' | 'global_reader' | 'super_admin'
+                setRole(v)
+                if (v === 'super_admin') setAssignments([])
+              }}
+              className={inputCls}
+            >
+              <option value="none">None</option>
               <option value="global_reader">Global Reader</option>
               <option value="super_admin">Super Admin</option>
             </select>
           </div>
+
+          {role === 'super_admin' ? (
+            <p className="text-xs text-slate-500 bg-slate-800/50 rounded-lg px-3 py-2">
+              Super Admin has full access to all projects — no project assignment needed.
+            </p>
+          ) : role === 'none' || role === 'global_reader' ? (
+            /* Project Access — only relevant for Global Reader */
+            <div className="pt-1">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-slate-400">Project Access <span className="text-slate-600">(optional)</span></span>
+                <button
+                  type="button"
+                  onClick={addAssignment}
+                  disabled={projects.length === 0 || assignments.length >= projects.length}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  + Add project
+                </button>
+              </div>
+              {assignments.length === 0 ? (
+                <p className="text-xs text-slate-600">No project access assigned — user will have read-only access to all projects.</p>
+              ) : (
+                <div className="space-y-2">
+                  {assignments.map((a, idx) => {
+                    const availableProjects = projects.filter(
+                      p => p.id === a.project_id || !assignments.some((x, i) => i !== idx && x.project_id === p.id)
+                    )
+                    return (
+                      <div key={idx} className="flex items-center gap-2">
+                        <select
+                          value={a.project_id}
+                          onChange={e => updateAssignment(idx, { project_id: Number(e.target.value) })}
+                          className={`${selectSmCls} flex-1 min-w-0`}
+                        >
+                          {availableProjects.map(p => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={a.role}
+                          onChange={e => updateAssignment(idx, { role: e.target.value as ProjectAssignment['role'] })}
+                          className={selectSmCls}
+                        >
+                          <option value="project_admin">Project Admin</option>
+                          <option value="contributor">Contributor</option>
+                          <option value="reader">Reader</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeAssignment(idx)}
+                          className="text-slate-500 hover:text-red-400 text-sm leading-none px-1"
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          ) : null}
+
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 text-sm text-slate-400 py-2 hover:text-slate-200">Cancel</button>
             <button type="submit" disabled={loading} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg py-2">

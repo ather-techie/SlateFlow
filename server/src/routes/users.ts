@@ -104,7 +104,6 @@ users.get('/users/:id/project-access', async (c) => {
     `SELECT p.id AS project_id, p.name AS project_name, pa.role
      FROM projects p
      LEFT JOIN project_access pa ON pa.project_id = p.id AND pa.user_id = ?
-     WHERE p.deleted_at IS NULL
      ORDER BY p.name`,
     id,
   )
