@@ -10,16 +10,14 @@ const CreateLabelSchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().default('#6366f1'),
 })
 
-// ── list labels for a project ───────────────────────────────────────────────
-labels.get('/projects/:id/labels', (c) => {
+labels.get('/projects/:id/labels', async (c) => {
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
-  const rows = db.prepare('SELECT * FROM labels WHERE project_id = ? ORDER BY name').all(projectId)
+  const rows = await db.all('SELECT * FROM labels WHERE project_id = ? ORDER BY name', projectId)
   return ok(c, rows)
 })
 
-// ── create a label ──────────────────────────────────────────────────────────
 labels.post('/projects/:id/labels', async (c) => {
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
@@ -31,31 +29,26 @@ labels.post('/projects/:id/labels', async (c) => {
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
   const { name, color } = parsed.data
-  const { lastInsertRowid } = db
-    .prepare('INSERT INTO labels (project_id, name, color) VALUES (?, ?, ?)')
-    .run(projectId, name, color)
+  const { lastID } = await db.run('INSERT INTO labels (project_id, name, color) VALUES (?, ?, ?)', projectId, name, color)
 
-  const label = db.prepare('SELECT * FROM labels WHERE id = ?').get(lastInsertRowid)
+  const label = await db.get('SELECT * FROM labels WHERE id = ?', lastID)
   return ok(c, label, 201)
 })
 
-// ── list labels on a card ───────────────────────────────────────────────────
-labels.get('/cards/:id/labels', (c) => {
+labels.get('/cards/:id/labels', async (c) => {
   const cardId = parseId(c.req.param('id'))
   if (!cardId) return err(c, 'invalid id', 400)
 
-  const rows = db
-    .prepare(`
-      SELECT l.* FROM labels l
-      JOIN card_labels cl ON cl.label_id = l.id
-      WHERE cl.card_id = ?
-      ORDER BY l.name
-    `)
-    .all(cardId)
+  const rows = await db.all(
+    `SELECT l.* FROM labels l
+     JOIN card_labels cl ON cl.label_id = l.id
+     WHERE cl.card_id = ?
+     ORDER BY l.name`,
+    cardId,
+  )
   return ok(c, rows)
 })
 
-// ── add a label to a card ───────────────────────────────────────────────────
 labels.post('/cards/:id/labels', async (c) => {
   const cardId = parseId(c.req.param('id'))
   if (!cardId) return err(c, 'invalid id', 400)
@@ -68,7 +61,7 @@ labels.post('/cards/:id/labels', async (c) => {
 
   const { label_id } = parsed.data
   try {
-    db.prepare('INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)').run(cardId, label_id)
+    await db.run('INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)', cardId, label_id)
   } catch {
     // already exists — idempotent
   }
@@ -76,13 +69,12 @@ labels.post('/cards/:id/labels', async (c) => {
   return ok(c, { card_id: cardId, label_id })
 })
 
-// ── remove a label from a card ──────────────────────────────────────────────
-labels.delete('/cards/:id/labels/:labelId', (c) => {
+labels.delete('/cards/:id/labels/:labelId', async (c) => {
   const cardId = parseId(c.req.param('id'))
   const labelId = parseId(c.req.param('labelId'))
   if (!cardId || !labelId) return err(c, 'invalid id', 400)
 
-  db.prepare('DELETE FROM card_labels WHERE card_id = ? AND label_id = ?').run(cardId, labelId)
+  await db.run('DELETE FROM card_labels WHERE card_id = ? AND label_id = ?', cardId, labelId)
   return ok(c, { card_id: cardId, label_id: labelId })
 })
 

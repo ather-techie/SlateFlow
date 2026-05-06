@@ -10,39 +10,39 @@ const AddSchema = z.object({
   type: z.enum(['blocks', 'blocked_by']),
 })
 
-// GET /cards/:id/dependencies — list blocks and blocked_by for a story
-dependencies.get('/cards/:id/dependencies', (c) => {
+dependencies.get('/cards/:id/dependencies', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(id)
+  const card = await db.get('SELECT id FROM cards WHERE id = ?', id)
   if (!card) return err(c, 'card not found', 404)
 
-  const blocks = db.prepare(`
-    SELECT d.id as dep_id, c.id, c.title, c.priority, c.story_points, c.assignee, c.swim_lane_id
-    FROM story_dependencies d
-    JOIN cards c ON c.id = d.blocked_id
-    WHERE d.blocker_id = ?
-    ORDER BY d.created_at
-  `).all(id)
+  const blocks = await db.all(
+    `SELECT d.id as dep_id, c.id, c.title, c.priority, c.story_points, c.assignee, c.swim_lane_id
+     FROM story_dependencies d
+     JOIN cards c ON c.id = d.blocked_id
+     WHERE d.blocker_id = ?
+     ORDER BY d.created_at`,
+    id,
+  )
 
-  const blocked_by = db.prepare(`
-    SELECT d.id as dep_id, c.id, c.title, c.priority, c.story_points, c.assignee, c.swim_lane_id
-    FROM story_dependencies d
-    JOIN cards c ON c.id = d.blocker_id
-    WHERE d.blocked_id = ?
-    ORDER BY d.created_at
-  `).all(id)
+  const blocked_by = await db.all(
+    `SELECT d.id as dep_id, c.id, c.title, c.priority, c.story_points, c.assignee, c.swim_lane_id
+     FROM story_dependencies d
+     JOIN cards c ON c.id = d.blocker_id
+     WHERE d.blocked_id = ?
+     ORDER BY d.created_at`,
+    id,
+  )
 
   return ok(c, { blocks, blocked_by })
 })
 
-// POST /cards/:id/dependencies — add a dependency
 dependencies.post('/cards/:id/dependencies', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(id)
+  const card = await db.get('SELECT id FROM cards WHERE id = ?', id)
   if (!card) return err(c, 'card not found', 404)
 
   let body: unknown
@@ -55,18 +55,18 @@ dependencies.post('/cards/:id/dependencies', async (c) => {
 
   if (target_id === id) return err(c, 'a story cannot depend on itself', 400)
 
-  const target = db.prepare('SELECT id FROM cards WHERE id = ?').get(target_id)
+  const target = await db.get('SELECT id FROM cards WHERE id = ?', target_id)
   if (!target) return err(c, 'target card not found', 404)
 
   const blocker_id = type === 'blocks' ? id : target_id
   const blocked_id = type === 'blocks' ? target_id : id
 
   try {
-    const { lastInsertRowid } = db.prepare(
-      'INSERT INTO story_dependencies (blocker_id, blocked_id) VALUES (?, ?)'
-    ).run(blocker_id, blocked_id)
-
-    const row = db.prepare('SELECT * FROM story_dependencies WHERE id = ?').get(lastInsertRowid)
+    const { lastID } = await db.run(
+      'INSERT INTO story_dependencies (blocker_id, blocked_id) VALUES (?, ?)',
+      blocker_id, blocked_id,
+    )
+    const row = await db.get('SELECT * FROM story_dependencies WHERE id = ?', lastID)
     return ok(c, row, 201)
   } catch (e: unknown) {
     if (e instanceof Error && e.message.includes('UNIQUE')) {
@@ -76,15 +76,14 @@ dependencies.post('/cards/:id/dependencies', async (c) => {
   }
 })
 
-// DELETE /dependencies/:id — remove a dependency
-dependencies.delete('/dependencies/:id', (c) => {
+dependencies.delete('/dependencies/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const dep = db.prepare('SELECT id FROM story_dependencies WHERE id = ?').get(id)
+  const dep = await db.get('SELECT id FROM story_dependencies WHERE id = ?', id)
   if (!dep) return err(c, 'dependency not found', 404)
 
-  db.prepare('DELETE FROM story_dependencies WHERE id = ?').run(id)
+  await db.run('DELETE FROM story_dependencies WHERE id = ?', id)
   return ok(c, { id })
 })
 

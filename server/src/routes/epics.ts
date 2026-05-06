@@ -24,42 +24,41 @@ const UpdateSchema = z.object({
   end_date:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 })
 
-// ── list epics for a project ────────────────────────────────────────────────
-epics.get('/projects/:id/epics', (c) => {
+epics.get('/projects/:id/epics', async (c) => {
   const user = c.get('user')
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
-  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
   let rows
   if (user.role === 'super_admin') {
-    rows = db.prepare(`
-      SELECT e.*,
+    rows = await db.all(
+      `SELECT e.*,
         (SELECT COUNT(*) FROM features f WHERE f.epic_id = e.id) AS feature_count,
         (SELECT COUNT(*) FROM cards s JOIN features f ON f.id = s.feature_id WHERE f.epic_id = e.id) AS story_count
-      FROM epics e WHERE e.project_id = ? ORDER BY e.position, e.id
-    `).all(projectId)
+       FROM epics e WHERE e.project_id = ? ORDER BY e.position, e.id`,
+      projectId,
+    )
   } else {
-    // Members see epics where they have an explicit grant OR the Default Epic
-    rows = db.prepare(`
-      SELECT e.*,
+    rows = await db.all(
+      `SELECT e.*,
         (SELECT COUNT(*) FROM features f WHERE f.epic_id = e.id) AS feature_count,
         (SELECT COUNT(*) FROM cards s JOIN features f ON f.id = s.feature_id WHERE f.epic_id = e.id) AS story_count
-      FROM epics e
-      WHERE e.project_id = ?
-        AND (e.is_default = 1 OR EXISTS (
-          SELECT 1 FROM epic_access ea WHERE ea.epic_id = e.id AND ea.user_id = ?
-        ))
-      ORDER BY e.position, e.id
-    `).all(projectId, user.id)
+       FROM epics e
+       WHERE e.project_id = ?
+         AND (e.is_default = 1 OR EXISTS (
+           SELECT 1 FROM epic_access ea WHERE ea.epic_id = e.id AND ea.user_id = ?
+         ))
+       ORDER BY e.position, e.id`,
+      projectId, user.id,
+    )
   }
 
   return ok(c, rows)
 })
 
-// ── create epic ─────────────────────────────────────────────────────────────
 epics.post('/projects/:id/epics', async (c) => {
   const user = c.get('user')
   if (user.role !== 'super_admin') return err(c, 'forbidden', 403)
@@ -67,7 +66,7 @@ epics.post('/projects/:id/epics', async (c) => {
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
-  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
   let body: unknown
@@ -78,57 +77,58 @@ epics.post('/projects/:id/epics', async (c) => {
 
   const { title, description, priority, status, assignee } = parsed.data
 
-  const maxPos = (
-    db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM epics WHERE project_id = ?')
-      .get(projectId) as { m: number }
-  ).m
+  const maxPosRow = await db.get<{ m: number }>(
+    'SELECT COALESCE(MAX(position), -1) as m FROM epics WHERE project_id = ?',
+    projectId,
+  )
 
-  const { lastInsertRowid } = db.prepare(
+  const { lastID } = await db.run(
     `INSERT INTO epics (project_id, title, description, priority, status, assignee, position)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(projectId, title, description, priority, status, assignee ?? null, maxPos + 1)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    projectId, title, description, priority, status, assignee ?? null, (maxPosRow?.m ?? -1) + 1,
+  )
 
-  const row = db.prepare(`
-    SELECT e.*,
+  const row = await db.get(
+    `SELECT e.*,
       (SELECT COUNT(*) FROM features f WHERE f.epic_id = e.id) AS feature_count,
       (SELECT COUNT(*) FROM cards s
          JOIN features f ON f.id = s.feature_id
          WHERE f.epic_id = e.id) AS story_count
-    FROM epics e WHERE e.id = ?
-  `).get(lastInsertRowid)
+     FROM epics e WHERE e.id = ?`,
+    lastID,
+  )
 
   return ok(c, row, 201)
 })
 
-// ── get single epic ─────────────────────────────────────────────────────────
-epics.get('/epics/:id', (c) => {
+epics.get('/epics/:id', async (c) => {
   const user = c.get('user')
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const row = db.prepare(`
-    SELECT e.*,
+  const row = await db.get(
+    `SELECT e.*,
       (SELECT COUNT(*) FROM features f WHERE f.epic_id = e.id) AS feature_count,
       (SELECT COUNT(*) FROM cards s
          JOIN features f ON f.id = s.feature_id
          WHERE f.epic_id = e.id) AS story_count
-    FROM epics e WHERE e.id = ?
-  `).get(id)
+     FROM epics e WHERE e.id = ?`,
+    id,
+  )
 
   if (!row) return err(c, 'epic not found', 404)
-  if (!canRead(user.id, id, user.role)) return err(c, 'forbidden', 403)
+  if (!await canRead(user.id, id, user.role)) return err(c, 'forbidden', 403)
   return ok(c, row)
 })
 
-// ── update epic ─────────────────────────────────────────────────────────────
 epics.patch('/epics/:id', async (c) => {
   const user = c.get('user')
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const existing = db.prepare('SELECT id FROM epics WHERE id = ?').get(id)
+  const existing = await db.get('SELECT id FROM epics WHERE id = ?', id)
   if (!existing) return err(c, 'epic not found', 404)
-  if (!canWrite(user.id, id, user.role)) return err(c, 'forbidden', 403)
+  if (!await canWrite(user.id, id, user.role)) return err(c, 'forbidden', 403)
 
   let body: unknown
   try { body = await c.req.json() } catch { return err(c, 'invalid JSON') }
@@ -151,33 +151,33 @@ epics.patch('/epics/:id', async (c) => {
   if (sets.length === 1) return err(c, 'no fields to update', 400)
 
   vals.push(id)
-  db.prepare(`UPDATE epics SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
+  await db.run(`UPDATE epics SET ${sets.join(', ')} WHERE id = ?`, ...vals)
 
-  const row = db.prepare(`
-    SELECT e.*,
+  const row = await db.get(
+    `SELECT e.*,
       (SELECT COUNT(*) FROM features f WHERE f.epic_id = e.id) AS feature_count,
       (SELECT COUNT(*) FROM cards s
          JOIN features f ON f.id = s.feature_id
          WHERE f.epic_id = e.id) AS story_count
-    FROM epics e WHERE e.id = ?
-  `).get(id)
+     FROM epics e WHERE e.id = ?`,
+    id,
+  )
 
   return ok(c, row)
 })
 
-// ── delete epic ─────────────────────────────────────────────────────────────
-epics.delete('/epics/:id', (c) => {
+epics.delete('/epics/:id', async (c) => {
   const user = c.get('user')
   if (user.role !== 'super_admin') return err(c, 'forbidden', 403)
 
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const epic = db.prepare('SELECT id, is_default FROM epics WHERE id = ?').get(id) as { id: number; is_default: number } | undefined
+  const epic = await db.get<{ id: number; is_default: number }>('SELECT id, is_default FROM epics WHERE id = ?', id)
   if (!epic) return err(c, 'epic not found', 404)
   if (epic.is_default) return err(c, 'cannot delete the default epic', 409)
 
-  db.prepare('DELETE FROM epics WHERE id = ?').run(id)
+  await db.run('DELETE FROM epics WHERE id = ?', id)
   return ok(c, { id })
 })
 

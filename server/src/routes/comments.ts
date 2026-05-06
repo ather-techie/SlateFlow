@@ -10,16 +10,14 @@ const CreateSchema = z.object({
   body: z.string().min(1, 'body is required'),
 })
 
-comments.get('/cards/:id/comments', (c) => {
+comments.get('/cards/:id/comments', async (c) => {
   const cardId = parseId(c.req.param('id'))
   if (!cardId) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(cardId)
+  const card = await db.get('SELECT id FROM cards WHERE id = ?', cardId)
   if (!card) return err(c, 'card not found', 404)
 
-  const rows = db
-    .prepare('SELECT * FROM comments WHERE card_id = ? ORDER BY created_at ASC')
-    .all(cardId)
+  const rows = await db.all('SELECT * FROM comments WHERE card_id = ? ORDER BY created_at ASC', cardId)
   return ok(c, rows)
 })
 
@@ -28,7 +26,7 @@ comments.post('/cards/:id/comments', async (c) => {
   const cardId = parseId(c.req.param('id'))
   if (!cardId) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id, title FROM cards WHERE id = ?').get(cardId) as { id: number; title: string } | undefined
+  const card = await db.get<{ id: number; title: string }>('SELECT id, title FROM cards WHERE id = ?', cardId)
   if (!card) return err(c, 'card not found', 404)
 
   let body: unknown
@@ -40,14 +38,16 @@ comments.post('/cards/:id/comments', async (c) => {
   const text = parsed.data.body
   const author = user.display_name
 
-  const { lastInsertRowid } = db
-    .prepare('INSERT INTO comments (card_id, author, author_id, body) VALUES (?, ?, ?, ?)')
-    .run(cardId, author, user.id, text)
+  const { lastID } = await db.run(
+    'INSERT INTO comments (card_id, author, author_id, body) VALUES (?, ?, ?, ?)',
+    cardId, author, user.id, text,
+  )
 
-  db.prepare("INSERT INTO activity_log (card_id, action, meta, user_id) VALUES (?, 'comment_added', ?, ?)")
-    .run(cardId, JSON.stringify({ author }), user.id)
+  await db.run(
+    "INSERT INTO activity_log (card_id, action, meta, user_id) VALUES (?, 'comment_added', ?, ?)",
+    cardId, JSON.stringify({ author }), user.id,
+  )
 
-  // Detect @mentions and notify matched users
   const mentionPattern = /@([\w.-]+)/g
   const mentions: string[] = []
   let m: RegExpExecArray | null
@@ -57,37 +57,37 @@ comments.post('/cards/:id/comments', async (c) => {
 
   if (mentions.length > 0) {
     const placeholders = mentions.map(() => '?').join(', ')
-    const mentionedUsers = db.prepare(`
-      SELECT id, display_name FROM users
-      WHERE LOWER(REPLACE(REPLACE(display_name, ' ', ''), '.', '')) IN (${placeholders})
-        AND deleted_at IS NULL AND id != ?
-    `).all(...mentions, user.id) as { id: number; display_name: string }[]
-
-    const insertNotif = db.prepare(
-      "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'mention', 'comment', ?, ?)"
+    const mentionedUsers = await db.all<{ id: number; display_name: string }>(
+      `SELECT id, display_name FROM users
+       WHERE LOWER(REPLACE(REPLACE(display_name, ' ', ''), '.', '')) IN (${placeholders})
+         AND deleted_at IS NULL AND id != ?`,
+      ...mentions, user.id,
     )
+
     for (const mentioned of mentionedUsers) {
-      insertNotif.run(mentioned.id, lastInsertRowid, `${author} mentioned you in a comment on "${card.title}"`)
-      emitBoardEvent({ type: 'notification', userId: mentioned.id, data: { type: 'mention', card_id: cardId, comment_id: lastInsertRowid } })
+      await db.run(
+        "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'mention', 'comment', ?, ?)",
+        mentioned.id, lastID, `${author} mentioned you in a comment on "${card.title}"`,
+      )
+      emitBoardEvent({ type: 'notification', userId: mentioned.id, data: { type: 'mention', card_id: cardId, comment_id: lastID } })
     }
   }
 
-  const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(lastInsertRowid)
+  const comment = await db.get('SELECT * FROM comments WHERE id = ?', lastID)
   return ok(c, comment, 201)
 })
 
-comments.delete('/comments/:id', (c) => {
+comments.delete('/comments/:id', async (c) => {
   const user = c.get('user')
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const comment = db.prepare('SELECT * FROM comments WHERE id = ?').get(id) as { id: number; author_id: number | null } | undefined
+  const comment = await db.get<{ id: number; author_id: number | null }>('SELECT * FROM comments WHERE id = ?', id)
   if (!comment) return err(c, 'comment not found', 404)
 
-  // Only the comment author or a super_admin can delete
   if (user.role !== 'super_admin' && comment.author_id !== user.id) return err(c, 'forbidden', 403)
 
-  db.prepare('DELETE FROM comments WHERE id = ?').run(id)
+  await db.run('DELETE FROM comments WHERE id = ?', id)
   return ok(c, { id })
 })
 

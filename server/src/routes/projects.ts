@@ -5,9 +5,7 @@ import { ok, err, parseId, zodErr } from '../lib/response.js'
 
 const projects = new Hono()
 
-const HexColor = z
-  .string()
-  .regex(/^#[0-9a-fA-F]{3,6}$/, 'color must be a hex value')
+const HexColor = z.string().regex(/^#[0-9a-fA-F]{3,6}$/, 'color must be a hex value')
 
 const CreateSchema = z
   .object({
@@ -30,21 +28,17 @@ const UpdateSchema = z.object({
   color:       HexColor.optional(),
 })
 
-// GET /projects — list all projects with lane count
-projects.get('/projects', (c) => {
-  const rows = db
-    .prepare(
-      `SELECT p.*, COUNT(sl.id) as lane_count
-       FROM projects p
-       LEFT JOIN swim_lanes sl ON sl.project_id = p.id
-       GROUP BY p.id
-       ORDER BY p.created_at DESC`,
-    )
-    .all()
+projects.get('/projects', async (c) => {
+  const rows = await db.all(
+    `SELECT p.*, COUNT(sl.id) as lane_count
+     FROM projects p
+     LEFT JOIN swim_lanes sl ON sl.project_id = p.id
+     GROUP BY p.id
+     ORDER BY p.created_at DESC`,
+  )
   return ok(c, rows)
 })
 
-// POST /projects — create project + swim lanes
 projects.post('/projects', async (c) => {
   let body: unknown
   try { body = await c.req.json() } catch { return err(c, 'invalid JSON') }
@@ -56,72 +50,69 @@ projects.post('/projects', async (c) => {
 
   let laneNames: string[]
   if (preset_id !== undefined) {
-    const preset = db.prepare('SELECT lanes FROM lane_presets WHERE id = ?').get(preset_id) as
-      | { lanes: string }
-      | undefined
+    const preset = await db.get<{ lanes: string }>('SELECT lanes FROM lane_presets WHERE id = ?', preset_id)
     if (!preset) return err(c, 'lane preset not found', 404)
     laneNames = JSON.parse(preset.lanes) as string[]
   } else {
     laneNames = custom_lanes!
   }
 
-  const result = db.transaction(() => {
-    const { lastInsertRowid: projectId } = db
-      .prepare('INSERT INTO projects (name, description, color) VALUES (?, ?, ?)')
-      .run(name, description, color)
-
-    const insertLane = db.prepare(
-      'INSERT INTO swim_lanes (project_id, name, position, is_done_col) VALUES (?, ?, ?, ?)',
+  const result = await db.transaction(async () => {
+    const { lastID: projectId } = await db.run(
+      'INSERT INTO projects (name, description, color) VALUES (?, ?, ?)',
+      name, description, color,
     )
-    const getLane = db.prepare('SELECT * FROM swim_lanes WHERE id = ?')
 
-    const swim_lanes = laneNames.map((laneName, idx) => {
+    const swim_lanes = []
+    for (let idx = 0; idx < laneNames.length; idx++) {
       const isDone = idx === laneNames.length - 1 ? 1 : 0
-      const { lastInsertRowid } = insertLane.run(projectId, laneName, idx, isDone)
-      return getLane.get(lastInsertRowid)
-    })
+      const { lastID } = await db.run(
+        'INSERT INTO swim_lanes (project_id, name, position, is_done_col) VALUES (?, ?, ?, ?)',
+        projectId, laneNames[idx], idx, isDone,
+      )
+      swim_lanes.push(await db.get('SELECT * FROM swim_lanes WHERE id = ?', lastID))
+    }
 
-    const { lastInsertRowid: defaultEpicId } = db.prepare(
+    const { lastID: defaultEpicId } = await db.run(
       `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
-       VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`
-    ).run(projectId)
-    db.prepare(
+       VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`,
+      projectId,
+    )
+    await db.run(
       `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
-       VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`
-    ).run(projectId, defaultEpicId)
-    db.prepare(
+       VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`,
+      projectId, defaultEpicId,
+    )
+    await db.run(
       `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
-       VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`
-    ).run(projectId)
+       VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`,
+      projectId,
+    )
 
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId)
+    const project = await db.get('SELECT * FROM projects WHERE id = ?', projectId)
     return { ...(project as object), swim_lanes }
   })()
 
   return ok(c, result, 201)
 })
 
-// GET /projects/:id — project detail + swim lanes
-projects.get('/projects/:id', (c) => {
+projects.get('/projects/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id)
+  const project = await db.get('SELECT * FROM projects WHERE id = ?', id)
   if (!project) return err(c, 'project not found', 404)
 
-  const swim_lanes = db
-    .prepare('SELECT * FROM swim_lanes WHERE project_id = ? ORDER BY position, id')
-    .all(id)
+  const swim_lanes = await db.all('SELECT * FROM swim_lanes WHERE project_id = ? ORDER BY position, id', id)
 
   return ok(c, { ...(project as object), swim_lanes })
 })
 
-// PATCH /projects/:id — update name, description, color
 projects.patch('/projects/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const existing = db.prepare('SELECT id FROM projects WHERE id = ?').get(id)
+  const existing = await db.get('SELECT id FROM projects WHERE id = ?', id)
   if (!existing) return err(c, 'project not found', 404)
 
   let body: unknown
@@ -139,24 +130,21 @@ projects.patch('/projects/:id', async (c) => {
 
   if (sets.length) {
     vals.push(id)
-    db.prepare(`UPDATE projects SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
+    await db.run(`UPDATE projects SET ${sets.join(', ')} WHERE id = ?`, ...vals)
   }
 
-  return ok(c, db.prepare('SELECT * FROM projects WHERE id = ?').get(id))
+  return ok(c, await db.get('SELECT * FROM projects WHERE id = ?', id))
 })
 
-// DELETE /projects/:id — cascade handled by FK; Default Project cannot be deleted
-projects.delete('/projects/:id', (c) => {
+projects.delete('/projects/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const existing = db.prepare('SELECT id, is_default FROM projects WHERE id = ?').get(id) as
-    | { id: number; is_default: number }
-    | undefined
+  const existing = await db.get<{ id: number; is_default: number }>('SELECT id, is_default FROM projects WHERE id = ?', id)
   if (!existing) return err(c, 'project not found', 404)
   if (existing.is_default) return err(c, 'Cannot delete the Default Project', 409)
 
-  db.prepare('DELETE FROM projects WHERE id = ?').run(id)
+  await db.run('DELETE FROM projects WHERE id = ?', id)
   return ok(c, { id })
 })
 

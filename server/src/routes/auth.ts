@@ -21,12 +21,13 @@ auth.post('/auth/login', async (c) => {
   const parsed = z.object({ email: z.string().email(), password: z.string().min(1) }).safeParse(body)
   if (!parsed.success) return err(c, 'email and password are required')
 
-  const user = db.prepare(
-    'SELECT id, email, display_name, role, password_hash, is_active, deleted_at FROM users WHERE email = ? COLLATE NOCASE'
-  ).get(parsed.data.email) as {
+  const user = await db.get<{
     id: number; email: string; display_name: string; role: string
     password_hash: string; is_active: number; deleted_at: string | null
-  } | undefined
+  }>(
+    'SELECT id, email, display_name, role, password_hash, is_active, deleted_at FROM users WHERE email = ? COLLATE NOCASE',
+    parsed.data.email,
+  )
 
   if (!user || user.deleted_at || !user.is_active) return err(c, 'invalid credentials', 401)
   if (!verifyPassword(parsed.data.password, user.password_hash)) return err(c, 'invalid credentials', 401)
@@ -42,11 +43,12 @@ auth.post('/auth/logout', (c) => {
   return ok(c, { ok: true })
 })
 
-auth.get('/auth/me', requireAuth, (c) => {
+auth.get('/auth/me', requireAuth, async (c) => {
   const user = c.get('user')
-  const projectAccess = db.prepare(
-    'SELECT project_id, role FROM project_access WHERE user_id = ?'
-  ).all(user.id) as { project_id: number; role: string }[]
+  const projectAccess = await db.all<{ project_id: number; role: string }>(
+    'SELECT project_id, role FROM project_access WHERE user_id = ?',
+    user.id,
+  )
 
   return ok(c, {
     id: user.id,
@@ -71,8 +73,8 @@ auth.patch('/auth/me', requireAuth, async (c) => {
 
   if (new_password) {
     if (!current_password) return err(c, 'current_password is required to set a new password')
-    const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id) as { password_hash: string }
-    if (!verifyPassword(current_password, row.password_hash)) return err(c, 'current password is incorrect', 401)
+    const row = await db.get<{ password_hash: string }>('SELECT password_hash FROM users WHERE id = ?', user.id)
+    if (!row || !verifyPassword(current_password, row.password_hash)) return err(c, 'current password is incorrect', 401)
   }
 
   const updates: string[] = []
@@ -85,9 +87,9 @@ auth.patch('/auth/me', requireAuth, async (c) => {
 
   updates.push("updated_at = datetime('now')")
   params.push(user.id)
-  db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
+  await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, ...params)
 
-  const updated = db.prepare('SELECT id, email, display_name, role FROM users WHERE id = ?').get(user.id)
+  const updated = await db.get('SELECT id, email, display_name, role FROM users WHERE id = ?', user.id)
   return ok(c, updated)
 })
 

@@ -7,27 +7,26 @@ import { requireSuperAdmin } from '../middleware/requireRole.js'
 
 const users = new Hono()
 
-// Search is accessible to all authenticated users (typeahead for assignee/mention)
-users.get('/users/search', (c) => {
+users.get('/users/search', async (c) => {
   const q = c.req.query('q') ?? ''
-  const rows = db.prepare(`
-    SELECT id, display_name, email FROM users
-    WHERE deleted_at IS NULL AND is_active = 1
-      AND (display_name LIKE ? OR email LIKE ?)
-    ORDER BY display_name LIMIT 20
-  `).all(`%${q}%`, `%${q}%`)
+  const rows = await db.all(
+    `SELECT id, display_name, email FROM users
+     WHERE deleted_at IS NULL AND is_active = 1
+       AND (display_name LIKE ? OR email LIKE ?)
+     ORDER BY display_name LIMIT 20`,
+    `%${q}%`, `%${q}%`,
+  )
   return ok(c, rows)
 })
 
-// All other user management endpoints are super_admin only
 users.use('/users', requireSuperAdmin)
 users.use('/users/:id', requireSuperAdmin)
 users.use('/users/:id/project-access', requireSuperAdmin)
 
-users.get('/users', (c) => {
-  const rows = db.prepare(
-    'SELECT id, email, display_name, role, is_active, created_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC'
-  ).all()
+users.get('/users', async (c) => {
+  const rows = await db.all(
+    'SELECT id, email, display_name, role, is_active, created_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC',
+  )
   return ok(c, rows)
 })
 
@@ -43,20 +42,20 @@ users.post('/users', async (c) => {
 
   const { email, display_name, password, role } = parsed.data
 
-  const exists = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get(email)
+  const exists = await db.get('SELECT id FROM users WHERE email = ? COLLATE NOCASE', email)
   if (exists) return err(c, 'email already in use', 409)
 
   const hash = hashPassword(password)
-  const { lastInsertRowid } = db.prepare(
-    'INSERT INTO users (email, display_name, password_hash, role) VALUES (?, ?, ?, ?)'
-  ).run(email, display_name, hash, role)
+  const { lastID } = await db.run(
+    'INSERT INTO users (email, display_name, password_hash, role) VALUES (?, ?, ?, ?)',
+    email, display_name, hash, role,
+  )
 
-  const user = db.prepare('SELECT id, email, display_name, role, is_active, created_at FROM users WHERE id = ?').get(lastInsertRowid)
+  const user = await db.get('SELECT id, email, display_name, role, is_active, created_at FROM users WHERE id = ?', lastID)
   return ok(c, user, 201)
 })
 
 users.patch('/users/:id', async (c) => {
-  const caller = c.get('user')
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 404)
 
@@ -71,12 +70,12 @@ users.patch('/users/:id', async (c) => {
 
   const { display_name, role, is_active, new_password } = parsed.data
 
-  // Cannot demote the last super_admin
   if (role === 'global_reader') {
-    const superAdminCount = (db.prepare(
-      "SELECT COUNT(*) as n FROM users WHERE role = 'super_admin' AND deleted_at IS NULL AND id != ?"
-    ).get(id) as { n: number }).n
-    if (superAdminCount === 0) return err(c, 'cannot demote the last super admin', 409)
+    const row = await db.get<{ n: number }>(
+      "SELECT COUNT(*) as n FROM users WHERE role = 'super_admin' AND deleted_at IS NULL AND id != ?",
+      id,
+    )
+    if ((row?.n ?? 0) === 0) return err(c, 'cannot demote the last super admin', 409)
   }
 
   const updates: string[] = []
@@ -91,43 +90,42 @@ users.patch('/users/:id', async (c) => {
 
   updates.push("updated_at = datetime('now')")
   params.push(id)
-  db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ? AND deleted_at IS NULL`).run(...params)
+  await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ? AND deleted_at IS NULL`, ...params)
 
-  const user = db.prepare('SELECT id, email, display_name, role, is_active, created_at FROM users WHERE id = ?').get(id)
+  const user = await db.get('SELECT id, email, display_name, role, is_active, created_at FROM users WHERE id = ?', id)
   return ok(c, user)
 })
 
-// GET /users/:id/project-access — all projects with this user's role (null = no access)
-users.get('/users/:id/project-access', (c) => {
+users.get('/users/:id/project-access', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 404)
 
-  const rows = db.prepare(`
-    SELECT p.id AS project_id, p.name AS project_name, pa.role
-    FROM projects p
-    LEFT JOIN project_access pa ON pa.project_id = p.id AND pa.user_id = ?
-    WHERE p.deleted_at IS NULL
-    ORDER BY p.name
-  `).all(id) as { project_id: number; project_name: string; role: string | null }[]
+  const rows = await db.all<{ project_id: number; project_name: string; role: string | null }>(
+    `SELECT p.id AS project_id, p.name AS project_name, pa.role
+     FROM projects p
+     LEFT JOIN project_access pa ON pa.project_id = p.id AND pa.user_id = ?
+     WHERE p.deleted_at IS NULL
+     ORDER BY p.name`,
+    id,
+  )
 
   return ok(c, rows)
 })
 
-users.delete('/users/:id', (c) => {
+users.delete('/users/:id', async (c) => {
   const caller = c.get('user')
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 404)
   if (id === caller.id) return err(c, 'cannot delete your own account', 409)
 
-  // Cannot delete last super_admin
-  const target = db.prepare('SELECT role FROM users WHERE id = ? AND deleted_at IS NULL').get(id) as { role: string } | undefined
+  const target = await db.get<{ role: string }>('SELECT role FROM users WHERE id = ? AND deleted_at IS NULL', id)
   if (!target) return err(c, 'user not found', 404)
   if (target.role === 'super_admin') {
-    const count = (db.prepare("SELECT COUNT(*) as n FROM users WHERE role = 'super_admin' AND deleted_at IS NULL").get() as { n: number }).n
-    if (count <= 1) return err(c, 'cannot delete the last super admin', 409)
+    const row = await db.get<{ n: number }>("SELECT COUNT(*) as n FROM users WHERE role = 'super_admin' AND deleted_at IS NULL")
+    if ((row?.n ?? 0) <= 1) return err(c, 'cannot delete the last super admin', 409)
   }
 
-  db.prepare("UPDATE users SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?").run(id)
+  await db.run("UPDATE users SET deleted_at = datetime('now'), is_active = 0 WHERE id = ?", id)
   return ok(c, { id })
 })
 

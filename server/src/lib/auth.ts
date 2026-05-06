@@ -21,7 +21,7 @@ export async function signToken(payload: { sub: number; email: string; role: str
 
 export async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
-    return (await verify(token, JWT_SECRET, 'HS256')) as JwtPayload
+    return (await verify(token, JWT_SECRET, 'HS256')) as unknown as JwtPayload
   } catch {
     return null
   }

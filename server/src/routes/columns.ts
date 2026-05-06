@@ -24,16 +24,14 @@ const UpdateSchema = z.object({
   position: z.number().int().min(0).optional(),
 })
 
-columns.get('/projects/:id/columns', (c) => {
+columns.get('/projects/:id/columns', async (c) => {
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
-  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
-  const rows = db
-    .prepare('SELECT * FROM columns WHERE project_id = ? ORDER BY position, id')
-    .all(projectId)
+  const rows = await db.all('SELECT * FROM columns WHERE project_id = ? ORDER BY position, id', projectId)
   return ok(c, rows)
 })
 
@@ -41,7 +39,7 @@ columns.post('/projects/:id/columns', async (c) => {
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
-  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
   let body: unknown
@@ -51,18 +49,18 @@ columns.post('/projects/:id/columns', async (c) => {
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
   const { name, color } = parsed.data
-  const maxPos = (
-    db
-      .prepare('SELECT COALESCE(MAX(position), -1) as m FROM columns WHERE project_id = ?')
-      .get(projectId) as { m: number }
-  ).m
-  const position = parsed.data.position ?? maxPos + 1
+  const maxPosRow = await db.get<{ m: number }>(
+    'SELECT COALESCE(MAX(position), -1) as m FROM columns WHERE project_id = ?',
+    projectId,
+  )
+  const position = parsed.data.position ?? (maxPosRow?.m ?? -1) + 1
 
-  const { lastInsertRowid } = db
-    .prepare('INSERT INTO columns (project_id, name, position, color) VALUES (?, ?, ?, ?)')
-    .run(projectId, name, position, color)
+  const { lastID } = await db.run(
+    'INSERT INTO columns (project_id, name, position, color) VALUES (?, ?, ?, ?)',
+    projectId, name, position, color,
+  )
 
-  const col = db.prepare('SELECT * FROM columns WHERE id = ?').get(lastInsertRowid)
+  const col = await db.get('SELECT * FROM columns WHERE id = ?', lastID)
   return ok(c, col, 201)
 })
 
@@ -70,11 +68,10 @@ columns.patch('/columns/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const col = db.prepare('SELECT * FROM columns WHERE id = ?').get(id) as {
-    id: number
-    project_id: number
-    position: number
-  } | undefined
+  const col = await db.get<{ id: number; project_id: number; position: number }>(
+    'SELECT * FROM columns WHERE id = ?',
+    id,
+  )
   if (!col) return err(c, 'column not found', 404)
 
   let body: unknown
@@ -85,44 +82,44 @@ columns.patch('/columns/:id', async (c) => {
 
   const { name, color, position } = parsed.data
 
-  db.transaction(() => {
+  await db.transaction(async () => {
     if (position !== undefined && position !== col.position) {
-      // Shift siblings to make room, then place this column
       const dir = position < col.position ? 1 : -1
       const [lo, hi] =
         position < col.position
           ? [position, col.position - 1]
           : [col.position + 1, position]
 
-      db.prepare(
+      await db.run(
         `UPDATE columns SET position = position + ?
          WHERE project_id = ? AND id != ? AND position BETWEEN ? AND ?`,
-      ).run(dir, col.project_id, id, lo, hi)
+        dir, col.project_id, id, lo, hi,
+      )
     }
 
     const sets: string[] = []
     const vals: unknown[] = []
-    if (name !== undefined) { sets.push('name = ?'); vals.push(name) }
-    if (color !== undefined) { sets.push('color = ?'); vals.push(color) }
+    if (name     !== undefined) { sets.push('name = ?');     vals.push(name) }
+    if (color    !== undefined) { sets.push('color = ?');    vals.push(color) }
     if (position !== undefined) { sets.push('position = ?'); vals.push(position) }
 
     if (sets.length) {
       vals.push(id)
-      db.prepare(`UPDATE columns SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
+      await db.run(`UPDATE columns SET ${sets.join(', ')} WHERE id = ?`, ...vals)
     }
   })()
 
-  return ok(c, db.prepare('SELECT * FROM columns WHERE id = ?').get(id))
+  return ok(c, await db.get('SELECT * FROM columns WHERE id = ?', id))
 })
 
-columns.delete('/columns/:id', (c) => {
+columns.delete('/columns/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const col = db.prepare('SELECT * FROM columns WHERE id = ?').get(id)
+  const col = await db.get('SELECT * FROM columns WHERE id = ?', id)
   if (!col) return err(c, 'column not found', 404)
 
-  db.prepare('DELETE FROM columns WHERE id = ?').run(id)
+  await db.run('DELETE FROM columns WHERE id = ?', id)
   return ok(c, { id })
 })
 

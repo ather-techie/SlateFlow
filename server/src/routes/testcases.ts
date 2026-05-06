@@ -75,13 +75,13 @@ function withParsedSteps(tc: TestCaseRow) {
   return { ...tc, steps: tc.steps ? JSON.parse(tc.steps) : null }
 }
 
-function resolveProjectId(card: CardRef): number | null {
+async function resolveProjectId(card: CardRef): Promise<number | null> {
   if (card.swim_lane_id) {
-    const lane = db.prepare('SELECT project_id FROM swim_lanes WHERE id = ?').get(card.swim_lane_id) as { project_id: number } | undefined
+    const lane = await db.get<{ project_id: number }>('SELECT project_id FROM swim_lanes WHERE id = ?', card.swim_lane_id)
     return lane?.project_id ?? null
   }
   if (card.column_id) {
-    const col = db.prepare('SELECT project_id FROM columns WHERE id = ?').get(card.column_id) as { project_id: number } | undefined
+    const col = await db.get<{ project_id: number }>('SELECT project_id FROM columns WHERE id = ?', card.column_id)
     return col?.project_id ?? null
   }
   return null
@@ -90,14 +90,14 @@ function resolveProjectId(card: CardRef): number | null {
 // ── Test Suites ───────────────────────────────────────────────────────────────
 
 // GET /projects/:id/test-suites
-testcases.get('/projects/:id/test-suites', (c) => {
+testcases.get('/projects/:id/test-suites', async (c) => {
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
-  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
-  return ok(c, db.prepare('SELECT * FROM test_suites WHERE project_id = ? ORDER BY id').all(projectId))
+  return ok(c, await db.all('SELECT * FROM test_suites WHERE project_id = ? ORDER BY id', projectId))
 })
 
 // POST /projects/:id/test-suites
@@ -105,7 +105,7 @@ testcases.post('/projects/:id/test-suites', async (c) => {
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
-  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
   let body: unknown
@@ -115,11 +115,12 @@ testcases.post('/projects/:id/test-suites', async (c) => {
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
   const { name, description } = parsed.data
-  const { lastInsertRowid } = db
-    .prepare('INSERT INTO test_suites (project_id, name, description) VALUES (?, ?, ?)')
-    .run(projectId, name, description ?? null)
+  const { lastID } = await db.run(
+    'INSERT INTO test_suites (project_id, name, description) VALUES (?, ?, ?)',
+    projectId, name, description ?? null,
+  )
 
-  return ok(c, db.prepare('SELECT * FROM test_suites WHERE id = ?').get(lastInsertRowid), 201)
+  return ok(c, await db.get('SELECT * FROM test_suites WHERE id = ?', lastID), 201)
 })
 
 // PATCH /test-suites/:id
@@ -127,7 +128,7 @@ testcases.patch('/test-suites/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const suite = db.prepare('SELECT id FROM test_suites WHERE id = ?').get(id)
+  const suite = await db.get('SELECT id FROM test_suites WHERE id = ?', id)
   if (!suite) return err(c, 'test suite not found', 404)
 
   let body: unknown
@@ -144,21 +145,21 @@ testcases.patch('/test-suites/:id', async (c) => {
   if (sets.length === 0) return err(c, 'no fields to update', 400)
 
   vals.push(id)
-  db.prepare(`UPDATE test_suites SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
-  return ok(c, db.prepare('SELECT * FROM test_suites WHERE id = ?').get(id))
+  await db.run(`UPDATE test_suites SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+  return ok(c, await db.get('SELECT * FROM test_suites WHERE id = ?', id))
 })
 
 // DELETE /test-suites/:id
-testcases.delete('/test-suites/:id', (c) => {
+testcases.delete('/test-suites/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const suite = db.prepare('SELECT id FROM test_suites WHERE id = ?').get(id)
+  const suite = await db.get('SELECT id FROM test_suites WHERE id = ?', id)
   if (!suite) return err(c, 'test suite not found', 404)
 
-  db.transaction(() => {
-    db.prepare('UPDATE test_cases SET suite_id = NULL WHERE suite_id = ?').run(id)
-    db.prepare('DELETE FROM test_suites WHERE id = ?').run(id)
+  await db.transaction(async () => {
+    await db.run('UPDATE test_cases SET suite_id = NULL WHERE suite_id = ?', id)
+    await db.run('DELETE FROM test_suites WHERE id = ?', id)
   })()
 
   return ok(c, { id })
@@ -167,11 +168,11 @@ testcases.delete('/test-suites/:id', (c) => {
 // ── Test Cases ────────────────────────────────────────────────────────────────
 
 // GET /cards/:id/test-cases
-testcases.get('/cards/:id/test-cases', (c) => {
+testcases.get('/cards/:id/test-cases', async (c) => {
   const cardId = parseId(c.req.param('id'))
   if (!cardId) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(cardId)
+  const card = await db.get('SELECT id FROM cards WHERE id = ?', cardId)
   if (!card) return err(c, 'card not found', 404)
 
   type RowWithRun = TestCaseRow & {
@@ -179,7 +180,7 @@ testcases.get('/cards/:id/test-cases', (c) => {
     latest_run_notes: string | null; latest_run_by: string | null; latest_run_at: string | null
   }
 
-  const rows = db.prepare(`
+  const rows = await db.all<RowWithRun>(`
     SELECT tc.*,
       tr.id     as latest_run_id,     tr.status as latest_run_status,
       tr.notes  as latest_run_notes,  tr.run_by as latest_run_by,
@@ -190,7 +191,7 @@ testcases.get('/cards/:id/test-cases', (c) => {
     )
     WHERE tc.card_id = ?
     ORDER BY tc.position, tc.id
-  `).all(cardId) as RowWithRun[]
+  `, cardId)
 
   const cases = rows.map(({ latest_run_id, latest_run_status, latest_run_notes, latest_run_by, latest_run_at, ...tc }) => ({
     ...withParsedSteps(tc as TestCaseRow),
@@ -216,10 +217,10 @@ testcases.post('/cards/:id/test-cases', async (c) => {
   const cardId = parseId(c.req.param('id'))
   if (!cardId) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id, swim_lane_id, column_id FROM cards WHERE id = ?').get(cardId) as CardRef | undefined
+  const card = await db.get<CardRef>('SELECT id, swim_lane_id, column_id FROM cards WHERE id = ?', cardId)
   if (!card) return err(c, 'card not found', 404)
 
-  const projectId = resolveProjectId(card)
+  const projectId = await resolveProjectId(card)
   if (!projectId) return err(c, 'cannot determine project for card', 400)
 
   let body: unknown
@@ -231,41 +232,40 @@ testcases.post('/cards/:id/test-cases', async (c) => {
   const { title, description, suite_id, priority, test_type, steps, preconditions, expected_result, assigned_to } = parsed.data
 
   if (suite_id) {
-    const suite = db.prepare('SELECT id FROM test_suites WHERE id = ? AND project_id = ?').get(suite_id, projectId)
+    const suite = await db.get('SELECT id FROM test_suites WHERE id = ? AND project_id = ?', suite_id, projectId)
     if (!suite) return err(c, 'test suite not found in this project', 404)
   }
 
-  const { m: maxPos } = db
-    .prepare('SELECT COALESCE(MAX(position), -1) as m FROM test_cases WHERE card_id = ?')
-    .get(cardId) as { m: number }
+  const maxPosRow = await db.get<{ m: number }>(
+    'SELECT COALESCE(MAX(position), -1) as m FROM test_cases WHERE card_id = ?', cardId,
+  )
+  const maxPos = maxPosRow?.m ?? -1
 
-  const { lastInsertRowid } = db.prepare(`
+  const { lastID } = await db.run(`
     INSERT INTO test_cases
       (suite_id, card_id, project_id, title, description, priority, test_type,
        steps, preconditions, expected_result, assigned_to, position)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `,
     suite_id ?? null, cardId, projectId, title,
     description ?? null, priority, test_type,
     steps ? JSON.stringify(steps) : null,
     preconditions ?? null, expected_result ?? null, assigned_to ?? null, maxPos + 1,
   )
 
-  const row = db.prepare('SELECT * FROM test_cases WHERE id = ?').get(lastInsertRowid) as TestCaseRow
-  return ok(c, withParsedSteps(row), 201)
+  const row = await db.get<TestCaseRow>('SELECT * FROM test_cases WHERE id = ?', lastID)
+  return ok(c, withParsedSteps(row!), 201)
 })
 
 // GET /test-cases/:id
-testcases.get('/test-cases/:id', (c) => {
+testcases.get('/test-cases/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const tc = db.prepare('SELECT * FROM test_cases WHERE id = ?').get(id) as TestCaseRow | undefined
+  const tc = await db.get<TestCaseRow>('SELECT * FROM test_cases WHERE id = ?', id)
   if (!tc) return err(c, 'test case not found', 404)
 
-  const runs = db
-    .prepare('SELECT * FROM test_runs WHERE test_case_id = ? ORDER BY run_at DESC, id DESC')
-    .all(id)
+  const runs = await db.all('SELECT * FROM test_runs WHERE test_case_id = ? ORDER BY run_at DESC, id DESC', id)
 
   return ok(c, { ...withParsedSteps(tc), runs })
 })
@@ -275,7 +275,7 @@ testcases.patch('/test-cases/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const tc = db.prepare('SELECT id FROM test_cases WHERE id = ?').get(id)
+  const tc = await db.get('SELECT id FROM test_cases WHERE id = ?', id)
   if (!tc) return err(c, 'test case not found', 404)
 
   let body: unknown
@@ -302,21 +302,21 @@ testcases.patch('/test-cases/:id', async (c) => {
   if (sets.length === 1) return err(c, 'no fields to update', 400)
 
   vals.push(id)
-  db.prepare(`UPDATE test_cases SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
+  await db.run(`UPDATE test_cases SET ${sets.join(', ')} WHERE id = ?`, ...vals)
 
-  const updated = db.prepare('SELECT * FROM test_cases WHERE id = ?').get(id) as TestCaseRow
-  return ok(c, withParsedSteps(updated))
+  const updated = await db.get<TestCaseRow>('SELECT * FROM test_cases WHERE id = ?', id)
+  return ok(c, withParsedSteps(updated!))
 })
 
 // DELETE /test-cases/:id
-testcases.delete('/test-cases/:id', (c) => {
+testcases.delete('/test-cases/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const tc = db.prepare('SELECT id FROM test_cases WHERE id = ?').get(id)
+  const tc = await db.get('SELECT id FROM test_cases WHERE id = ?', id)
   if (!tc) return err(c, 'test case not found', 404)
 
-  db.prepare('DELETE FROM test_cases WHERE id = ?').run(id)
+  await db.run('DELETE FROM test_cases WHERE id = ?', id)
   return ok(c, { id })
 })
 
@@ -325,7 +325,7 @@ testcases.post('/cards/:id/test-cases/reorder', async (c) => {
   const cardId = parseId(c.req.param('id'))
   if (!cardId) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(cardId)
+  const card = await db.get('SELECT id FROM cards WHERE id = ?', cardId)
   if (!card) return err(c, 'card not found', 404)
 
   let body: unknown
@@ -337,18 +337,19 @@ testcases.post('/cards/:id/test-cases/reorder', async (c) => {
   const { ordered_ids } = parsed.data
 
   const cardTcIds = new Set(
-    (db.prepare('SELECT id FROM test_cases WHERE card_id = ?').all(cardId) as { id: number }[]).map(r => r.id),
+    (await db.all<{ id: number }>('SELECT id FROM test_cases WHERE card_id = ?', cardId)).map(r => r.id),
   )
   if (!ordered_ids.every(id => cardTcIds.has(id))) {
     return err(c, 'one or more test case ids do not belong to this card', 400)
   }
 
-  db.transaction(() => {
-    const upd = db.prepare('UPDATE test_cases SET position = ? WHERE id = ?')
-    ordered_ids.forEach((tcId, idx) => upd.run(idx, tcId))
+  await db.transaction(async () => {
+    for (let idx = 0; idx < ordered_ids.length; idx++) {
+      await db.run('UPDATE test_cases SET position = ? WHERE id = ?', idx, ordered_ids[idx])
+    }
   })()
 
-  const rows = db.prepare('SELECT * FROM test_cases WHERE card_id = ? ORDER BY position, id').all(cardId) as TestCaseRow[]
+  const rows = await db.all<TestCaseRow>('SELECT * FROM test_cases WHERE card_id = ? ORDER BY position, id', cardId)
   return ok(c, rows.map(withParsedSteps))
 })
 
@@ -359,7 +360,7 @@ testcases.post('/test-cases/:id/runs', async (c) => {
   const testCaseId = parseId(c.req.param('id'))
   if (!testCaseId) return err(c, 'invalid id', 400)
 
-  const tc = db.prepare('SELECT * FROM test_cases WHERE id = ?').get(testCaseId) as TestCaseRow | undefined
+  const tc = await db.get<TestCaseRow>('SELECT * FROM test_cases WHERE id = ?', testCaseId)
   if (!tc) return err(c, 'test case not found', 404)
 
   let body: unknown
@@ -370,43 +371,47 @@ testcases.post('/test-cases/:id/runs', async (c) => {
 
   const { status, notes, run_by } = parsed.data
 
-  const run = db.transaction(() => {
-    const { lastInsertRowid } = db.prepare(`
+  const run = await db.transaction(async () => {
+    const { lastID } = await db.run(`
       INSERT INTO test_runs (test_case_id, card_id, status, notes, run_by)
       VALUES (?, ?, ?, ?, ?)
-    `).run(testCaseId, tc.card_id, status, notes ?? null, run_by ?? null)
+    `, testCaseId, tc.card_id, status, notes ?? null, run_by ?? null)
 
-    db.prepare("UPDATE test_cases SET status = ?, updated_at = datetime('now') WHERE id = ?")
-      .run(status, testCaseId)
+    await db.run(
+      "UPDATE test_cases SET status = ?, updated_at = datetime('now') WHERE id = ?",
+      status, testCaseId,
+    )
 
-    db.prepare("INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'test_run', ?)")
-      .run(tc.card_id, JSON.stringify({ title: tc.title, status, run_by: run_by ?? null }))
+    await db.run(
+      "INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'test_run', ?)",
+      tc.card_id, JSON.stringify({ title: tc.title, status, run_by: run_by ?? null }),
+    )
 
-    return db.prepare('SELECT * FROM test_runs WHERE id = ?').get(lastInsertRowid)
+    return db.get('SELECT * FROM test_runs WHERE id = ?', lastID)
   })()
 
   return ok(c, run, 201)
 })
 
 // GET /test-cases/:id/runs
-testcases.get('/test-cases/:id/runs', (c) => {
+testcases.get('/test-cases/:id/runs', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const tc = db.prepare('SELECT id FROM test_cases WHERE id = ?').get(id)
+  const tc = await db.get('SELECT id FROM test_cases WHERE id = ?', id)
   if (!tc) return err(c, 'test case not found', 404)
 
-  return ok(c, db.prepare('SELECT * FROM test_runs WHERE test_case_id = ? ORDER BY run_at DESC, id DESC').all(id))
+  return ok(c, await db.all('SELECT * FROM test_runs WHERE test_case_id = ? ORDER BY run_at DESC, id DESC', id))
 })
 
 // ── Bulk Operations ───────────────────────────────────────────────────────────
 
 // GET /projects/:id/test-cases
-testcases.get('/projects/:id/test-cases', (c) => {
+testcases.get('/projects/:id/test-cases', async (c) => {
   const projectId = parseId(c.req.param('id'))
   if (!projectId) return err(c, 'invalid id', 400)
 
-  const project = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
   const suiteId  = c.req.query('suite_id')
@@ -428,7 +433,7 @@ testcases.get('/projects/:id/test-cases', (c) => {
     latest_run_notes: string | null; latest_run_by: string | null; latest_run_at: string | null
   }
 
-  const rows = db.prepare(
+  const rows = await db.all<RowWithRunAndCard>(
     `SELECT tc.*, c.title AS card_title,
       tr.id AS latest_run_id, tr.status AS latest_run_status,
       tr.notes AS latest_run_notes, tr.run_by AS latest_run_by, tr.run_at AS latest_run_at
@@ -438,7 +443,8 @@ testcases.get('/projects/:id/test-cases', (c) => {
        SELECT id FROM test_runs WHERE test_case_id = tc.id ORDER BY run_at DESC, id DESC LIMIT 1
      )
      WHERE ${conditions.join(' AND ')} ORDER BY tc.position, tc.id`,
-  ).all(...vals) as RowWithRunAndCard[]
+    ...vals,
+  )
 
   return ok(c, rows.map(({ latest_run_id, latest_run_status, latest_run_notes, latest_run_by, latest_run_at, ...tc }) => ({
     ...withParsedSteps(tc as TestCaseRow),
@@ -454,7 +460,7 @@ testcases.patch('/cards/:id/test-cases/bulk-status', async (c) => {
   const cardId = parseId(c.req.param('id'))
   if (!cardId) return err(c, 'invalid id', 400)
 
-  const card = db.prepare('SELECT id FROM cards WHERE id = ?').get(cardId)
+  const card = await db.get('SELECT id FROM cards WHERE id = ?', cardId)
   if (!card) return err(c, 'card not found', 404)
 
   let body: unknown
@@ -466,18 +472,19 @@ testcases.patch('/cards/:id/test-cases/bulk-status', async (c) => {
   const { ids, status } = parsed.data
 
   const cardTcIds = new Set(
-    (db.prepare('SELECT id FROM test_cases WHERE card_id = ?').all(cardId) as { id: number }[]).map(r => r.id),
+    (await db.all<{ id: number }>('SELECT id FROM test_cases WHERE card_id = ?', cardId)).map(r => r.id),
   )
   if (!ids.every(id => cardTcIds.has(id))) {
     return err(c, 'one or more test case ids do not belong to this card', 400)
   }
 
-  db.transaction(() => {
-    const upd = db.prepare("UPDATE test_cases SET status = ?, updated_at = datetime('now') WHERE id = ?")
-    ids.forEach(id => upd.run(status, id))
+  await db.transaction(async () => {
+    for (const id of ids) {
+      await db.run("UPDATE test_cases SET status = ?, updated_at = datetime('now') WHERE id = ?", status, id)
+    }
   })()
 
-  const rows = db.prepare('SELECT * FROM test_cases WHERE card_id = ? ORDER BY position, id').all(cardId) as TestCaseRow[]
+  const rows = await db.all<TestCaseRow>('SELECT * FROM test_cases WHERE card_id = ? ORDER BY position, id', cardId)
   return ok(c, rows.map(withParsedSteps))
 })
 
