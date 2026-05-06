@@ -282,24 +282,24 @@ export interface AuthUser {
   id: number
   email: string
   display_name: string
-  role: 'super_admin' | 'member'
-  epic_access: EpicAccessEntry[]
+  role: 'super_admin' | 'global_reader'
+  project_access: ProjectAccessEntry[]
 }
 
 export interface User {
   id: number
   email: string
   display_name: string
-  role: 'super_admin' | 'member'
+  role: 'super_admin' | 'global_reader'
   is_active: number
   created_at: string
 }
 
-export interface EpicAccessEntry {
+export interface ProjectAccessEntry {
   id: number
   user_id: number
-  epic_id: number
-  role: 'epic_admin' | 'contributor' | 'reader'
+  project_id: number
+  role: 'project_admin' | 'contributor' | 'reader'
   granted_by: number | null
   created_at: string
   display_name?: string

@@ -22,6 +22,7 @@ users.get('/users/search', (c) => {
 // All other user management endpoints are super_admin only
 users.use('/users', requireSuperAdmin)
 users.use('/users/:id', requireSuperAdmin)
+users.use('/users/:id/project-access', requireSuperAdmin)
 
 users.get('/users', (c) => {
   const rows = db.prepare(
@@ -36,7 +37,7 @@ users.post('/users', async (c) => {
     email:        z.string().email(),
     display_name: z.string().min(1),
     password:     z.string().min(8),
-    role:         z.enum(['super_admin', 'member']).default('member'),
+    role:         z.enum(['super_admin', 'global_reader']).default('global_reader'),
   }).safeParse(body)
   if (!parsed.success) return err(c, 'invalid request body')
 
@@ -62,7 +63,7 @@ users.patch('/users/:id', async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = z.object({
     display_name: z.string().min(1).optional(),
-    role:         z.enum(['super_admin', 'member']).optional(),
+    role:         z.enum(['super_admin', 'global_reader']).optional(),
     is_active:    z.boolean().optional(),
     new_password: z.string().min(8).optional(),
   }).safeParse(body)
@@ -71,7 +72,7 @@ users.patch('/users/:id', async (c) => {
   const { display_name, role, is_active, new_password } = parsed.data
 
   // Cannot demote the last super_admin
-  if (role === 'member') {
+  if (role === 'global_reader') {
     const superAdminCount = (db.prepare(
       "SELECT COUNT(*) as n FROM users WHERE role = 'super_admin' AND deleted_at IS NULL AND id != ?"
     ).get(id) as { n: number }).n
@@ -94,6 +95,22 @@ users.patch('/users/:id', async (c) => {
 
   const user = db.prepare('SELECT id, email, display_name, role, is_active, created_at FROM users WHERE id = ?').get(id)
   return ok(c, user)
+})
+
+// GET /users/:id/project-access — all projects with this user's role (null = no access)
+users.get('/users/:id/project-access', (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return err(c, 'invalid id', 404)
+
+  const rows = db.prepare(`
+    SELECT p.id AS project_id, p.name AS project_name, pa.role
+    FROM projects p
+    LEFT JOIN project_access pa ON pa.project_id = p.id AND pa.user_id = ?
+    WHERE p.deleted_at IS NULL
+    ORDER BY p.name
+  `).all(id) as { project_id: number; project_name: string; role: string | null }[]
+
+  return ok(c, rows)
 })
 
 users.delete('/users/:id', (c) => {

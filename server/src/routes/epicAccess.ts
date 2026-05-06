@@ -40,6 +40,10 @@ epicAccess.post('/epics/:id/access', async (c) => {
 
   const { user_id, role } = parsed.data
 
+  if (role === 'epic_admin' && user.role !== 'super_admin') {
+    return err(c, 'only super_admin can grant the epic_admin role', 403)
+  }
+
   const targetUser = db.prepare('SELECT id FROM users WHERE id = ? AND deleted_at IS NULL').get(user_id)
   if (!targetUser) return err(c, 'user not found', 404)
 
@@ -69,6 +73,10 @@ epicAccess.patch('/epics/:epicId/access/:userId', async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = z.object({ role: z.enum(['epic_admin', 'contributor', 'reader']) }).safeParse(body)
   if (!parsed.success) return err(c, 'invalid request body')
+
+  if (parsed.data.role === 'epic_admin' && user.role !== 'super_admin') {
+    return err(c, 'only super_admin can grant the epic_admin role', 403)
+  }
 
   const existing = db.prepare('SELECT id FROM epic_access WHERE user_id = ? AND epic_id = ?').get(targetUserId, epicId)
   if (!existing) return err(c, 'access entry not found', 404)

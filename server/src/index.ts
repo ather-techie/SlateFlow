@@ -16,7 +16,7 @@ import epics from './routes/epics.js'
 import features from './routes/features.js'
 import authRoutes from './routes/auth.js'
 import users from './routes/users.js'
-import epicAccess from './routes/epicAccess.js'
+import projectAccess from './routes/projectAccess.js'
 import notifications from './routes/notifications.js'
 import sse from './routes/sse.js'
 import dependencies from './routes/dependencies.js'
@@ -55,7 +55,7 @@ app.route('/api', testcases)
 app.route('/api', epics)
 app.route('/api', features)
 app.route('/api', users)
-app.route('/api', epicAccess)
+app.route('/api', projectAccess)
 app.route('/api', notifications)
 app.route('/api', sse)
 app.route('/api', dependencies)

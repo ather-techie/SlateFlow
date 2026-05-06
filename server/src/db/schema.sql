@@ -172,14 +172,14 @@ CREATE TABLE IF NOT EXISTS users (
   email         TEXT    NOT NULL UNIQUE COLLATE NOCASE,
   display_name  TEXT    NOT NULL,
   password_hash TEXT    NOT NULL,
-  role          TEXT    NOT NULL DEFAULT 'member' CHECK(role IN ('super_admin', 'member')),
+  role          TEXT    NOT NULL DEFAULT 'global_reader' CHECK(role IN ('super_admin', 'global_reader')),
   is_active     INTEGER NOT NULL DEFAULT 1,
   deleted_at    TEXT,
   created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
--- Epic-scoped role assignments (one row per user–epic pair)
+-- Epic-scoped role assignments (one row per user–epic pair) — kept for backward compat
 CREATE TABLE IF NOT EXISTS epic_access (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    INTEGER NOT NULL REFERENCES users(id),
@@ -188,6 +188,17 @@ CREATE TABLE IF NOT EXISTS epic_access (
   granted_by INTEGER REFERENCES users(id),
   created_at TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE(user_id, epic_id)
+);
+
+-- Project-scoped role assignments (one row per user–project pair)
+CREATE TABLE IF NOT EXISTS project_access (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  role       TEXT    NOT NULL DEFAULT 'reader' CHECK(role IN ('project_admin','contributor','reader')),
+  granted_by INTEGER REFERENCES users(id),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, project_id)
 );
 
 -- Notification inbox (mentions, assignments, board events)
@@ -205,6 +216,8 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_epic_access_user ON epic_access(user_id);
 CREATE INDEX IF NOT EXISTS idx_epic_access_epic ON epic_access(epic_id);
+CREATE INDEX IF NOT EXISTS idx_project_access_user ON project_access(user_id);
+CREATE INDEX IF NOT EXISTS idx_project_access_project ON project_access(project_id);
 
 -- Story dependency relationships (blocks / blocked-by)
 CREATE TABLE IF NOT EXISTS story_dependencies (

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { api } from '../api'
 import { useAuthStore } from '../store/authStore'
 import type { User } from '../types'
+import ProjectAccessModal from '../components/ProjectAccessModal'
 
 type Tab = 'users'
 
@@ -13,7 +14,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'member' | 'super_admin'>('member')
+  const [role, setRole] = useState<'global_reader' | 'super_admin'>('global_reader')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -21,7 +22,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
     e.preventDefault()
     setLoading(true)
     try {
-      const user = await api.users.create({ email, display_name: displayName, password, role })
+      const user = await api.users.create({ email, display_name: displayName, password, role } as Parameters<typeof api.users.create>[0])
       onCreated(user)
       toast.success(`User ${displayName} created`)
       onClose()
@@ -72,8 +73,8 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1">Role</label>
-            <select value={role} onChange={e => setRole(e.target.value as 'member' | 'super_admin')} className={inputCls}>
-              <option value="member">Member</option>
+            <select value={role} onChange={e => setRole(e.target.value as 'global_reader' | 'super_admin')} className={inputCls}>
+              <option value="global_reader">Global Reader</option>
               <option value="super_admin">Super Admin</option>
             </select>
           </div>
@@ -95,6 +96,7 @@ function UsersTab() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [projectAccessTarget, setProjectAccessTarget] = useState<User | null>(null)
   const currentUser = useAuthStore(s => s.user)
 
   useEffect(() => {
@@ -125,7 +127,7 @@ function UsersTab() {
     }
   }
 
-  async function handleRoleChange(user: User, role: 'member' | 'super_admin') {
+  async function handleRoleChange(user: User, role: 'global_reader' | 'super_admin') {
     try {
       const updated = await api.users.update(user.id, { role })
       setUsers(prev => prev.map(u => u.id === updated.id ? updated : u))
@@ -166,15 +168,15 @@ function UsersTab() {
                 <td className="px-4 py-3">
                   {user.id === currentUser?.id ? (
                     <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
-                      {user.role === 'super_admin' ? 'Super Admin' : 'Member'}
+                      {user.role === 'super_admin' ? 'Super Admin' : 'Global Reader'}
                     </span>
                   ) : (
                     <select
                       value={user.role}
-                      onChange={e => handleRoleChange(user, e.target.value as 'member' | 'super_admin')}
+                      onChange={e => handleRoleChange(user, e.target.value as 'global_reader' | 'super_admin')}
                       className="bg-slate-700 border border-slate-600 rounded px-2 py-0.5 text-xs text-slate-200 focus:outline-none"
                     >
-                      <option value="member">Member</option>
+                      <option value="global_reader">Global Reader</option>
                       <option value="super_admin">Super Admin</option>
                     </select>
                   )}
@@ -187,6 +189,13 @@ function UsersTab() {
                 <td className="px-4 py-3 text-right space-x-2">
                   {user.id !== currentUser?.id && (
                     <>
+                      <button
+                        onClick={() => setProjectAccessTarget(user)}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded hover:bg-slate-700"
+                        title="Manage project access"
+                      >
+                        Project Access
+                      </button>
                       <button
                         onClick={() => handleToggleActive(user)}
                         className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded hover:bg-slate-700"
@@ -212,6 +221,13 @@ function UsersTab() {
         <CreateUserModal
           onClose={() => setShowCreate(false)}
           onCreated={user => setUsers(prev => [user, ...prev])}
+        />
+      )}
+
+      {projectAccessTarget && (
+        <ProjectAccessModal
+          user={projectAccessTarget}
+          onClose={() => setProjectAccessTarget(null)}
         />
       )}
     </div>

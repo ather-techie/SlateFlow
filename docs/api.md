@@ -36,13 +36,13 @@ Clears the `sf_token` cookie.
 ```bash
 curl -b cookies.txt http://localhost:3000/api/auth/me
 ```
-Returns the current user object including `epic_access` array:
+Returns the current user object including `project_access` array:
 ```json
 {
   "data": {
     "id": 1, "email": "admin@flow.local", "display_name": "Administrator",
     "role": "super_admin",
-    "epic_access": [{ "epic_id": 3, "role": "contributor" }]
+    "project_access": [{ "project_id": 1, "role": "project_admin" }]
   }
 }
 ```
@@ -72,7 +72,7 @@ curl -b cookies.txt 'http://localhost:3000/api/users/search?q=alice'
 ```bash
 curl -b cookies.txt -X POST http://localhost:3000/api/users \
   -H 'Content-Type: application/json' \
-  -d '{"email":"alice@example.com","display_name":"Alice Smith","password":"Secret1234!","role":"member"}'
+  -d '{"email":"alice@example.com","display_name":"Alice Smith","password":"Secret1234!","role":"global_reader"}'
 ```
 
 ### Update user
@@ -87,37 +87,52 @@ curl -b cookies.txt -X PATCH http://localhost:3000/api/users/2 \
 curl -b cookies.txt -X DELETE http://localhost:3000/api/users/2
 ```
 
+### Get project access for a user
+```bash
+curl -b cookies.txt http://localhost:3000/api/users/2/project-access
+```
+Returns all projects with this user's assigned role (`null` = no project-level access):
+```json
+{
+  "data": [
+    { "project_id": 1, "project_name": "Alpha", "role": "contributor" },
+    { "project_id": 2, "project_name": "Beta", "role": null }
+  ]
+}
+```
+Super Admin only. Used by the Admin Panel "Project Access" modal.
+
 ---
 
-## Epic Access
+## Project Access
 
-Epic-scoped roles (`epic_admin`, `contributor`, `reader`) are managed per user–epic pair.  
-All endpoints require the caller to be `super_admin` or `epic_admin` of the target epic.
+Project-scoped roles (`project_admin`, `contributor`, `reader`) are managed per user–project pair.  
+`super_admin` can assign any role to any project. `project_admin` can only assign `contributor` or `reader` within their own project(s).
 
-> **Default Epic:** All authenticated users automatically have `contributor` access to each project's Default Epic — no explicit grant is needed or shown.
+> **Global reader:** All new users default to `global_reader` — read-only access to all projects. A project-level role overrides this for that specific project.
 
-### List access entries for an epic
+### List access entries for a project
 ```bash
-curl -b cookies.txt http://localhost:3000/api/epics/5/access
+curl -b cookies.txt http://localhost:3000/api/projects/1/access
 ```
 
 ### Grant access
 ```bash
-curl -b cookies.txt -X POST http://localhost:3000/api/epics/5/access \
+curl -b cookies.txt -X POST http://localhost:3000/api/projects/1/access \
   -H 'Content-Type: application/json' \
   -d '{"user_id":2,"role":"contributor"}'
 ```
 
 ### Update role
 ```bash
-curl -b cookies.txt -X PATCH http://localhost:3000/api/epics/5/access/2 \
+curl -b cookies.txt -X PATCH http://localhost:3000/api/projects/1/access/2 \
   -H 'Content-Type: application/json' \
   -d '{"role":"reader"}'
 ```
 
 ### Revoke access
 ```bash
-curl -b cookies.txt -X DELETE http://localhost:3000/api/epics/5/access/2
+curl -b cookies.txt -X DELETE http://localhost:3000/api/projects/1/access/2
 ```
 
 ---
@@ -160,24 +175,28 @@ Each event's `data` field is a JSON string matching the updated resource shape.
 
 ## Work-Item Hierarchy
 
-SlateFlow uses a 4-level hierarchy modelled after Azure DevOps:
+SlateFlow uses a 6-level hierarchy modelled after Azure DevOps:
 
 ```
 Project
-└── Epic          (top-level theme or initiative)
-    └── Feature   (deliverable within an epic)
-        └── Story (board card that moves across swim lanes)
-            └── Task (sub-item of a story; has to-do / in-progress / done status)
+└── Sprint        (time-boxed iteration; stories are always assigned to a sprint)
+Epic              (top-level theme or initiative; scoped to a project)
+└── Feature       (deliverable within an epic)
+    └── Story     (board card that moves across swim lanes)
+        └── Task  (sub-item of a story; has to-do / in-progress / done status)
 ```
 
-| Level   | DB table  | Default item    | Cannot delete default? |
-|---------|-----------|-----------------|------------------------|
-| Epic    | `epics`   | Default Epic    | Yes — returns 409      |
-| Feature | `features`| Default Feature | Yes — returns 409      |
-| Story   | `cards`   | —               | —                      |
-| Task    | `tasks`   | —               | —                      |
+| Level   | DB table  | Default item      | Cannot delete default? |
+|---------|-----------|-------------------|------------------------|
+| Project | `projects`| Default Project   | Yes — returns 409      |
+| Sprint  | `sprints` | Default Sprint    | Yes — returns 409      |
+| Epic    | `epics`   | Default Epic      | Yes — returns 409      |
+| Feature | `features`| Default Feature   | Yes — returns 409      |
+| Story   | `cards`   | —                 | —                      |
+| Task    | `tasks`   | —                 | —                      |
 
 **Auto-assignment rules:**
+- A Story created without `sprint_id` is assigned to the project's **Default Sprint**.
 - A Story created without `feature_id` is assigned to the project's **Default Feature**.
 - A Feature created without `epic_id` is assigned to the project's **Default Epic**.
 - A Task must always have a parent Story (`story_id` is required).
@@ -813,7 +832,9 @@ Returns runs newest-first.
 | Status | Meaning                            |
 |--------|------------------------------------|
 | 400    | Bad request / invalid ID           |
+| 401    | Unauthenticated — no valid session cookie |
+| 403    | Forbidden — insufficient role or project access |
 | 404    | Resource not found                 |
-| 409    | Conflict (e.g. deleting a lane with cards, or deleting a Default Epic/Feature) |
+| 409    | Conflict (e.g. deleting a lane with cards, or deleting a Default Epic/Feature/Sprint/Project) |
 | 422    | Validation error (zod)             |
 | 500    | Server error                       |

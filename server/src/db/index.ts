@@ -155,6 +155,9 @@ if (projectsNeedingDefaultSprint.length > 0) {
   console.info(`[db] Seeded Default Sprint for ${projectsNeedingDefaultSprint.length} existing project(s)`)
 }
 
+// Migrate legacy 'member' role to 'global_reader'
+db.prepare("UPDATE users SET role = 'global_reader' WHERE role = 'member'").run()
+
 // Seed the super admin user on first run
 const adminExists = db.prepare("SELECT id FROM users WHERE email = 'admin@flow.local'").get()
 if (!adminExists) {

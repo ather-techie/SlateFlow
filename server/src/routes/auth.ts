@@ -44,16 +44,16 @@ auth.post('/auth/logout', (c) => {
 
 auth.get('/auth/me', requireAuth, (c) => {
   const user = c.get('user')
-  const epicAccess = db.prepare(
-    'SELECT epic_id, role FROM epic_access WHERE user_id = ?'
-  ).all(user.id) as { epic_id: number; role: string }[]
+  const projectAccess = db.prepare(
+    'SELECT project_id, role FROM project_access WHERE user_id = ?'
+  ).all(user.id) as { project_id: number; role: string }[]
 
   return ok(c, {
     id: user.id,
     email: user.email,
     display_name: user.display_name,
     role: user.role,
-    epic_access: epicAccess,
+    project_access: projectAccess,
   })
 })
 

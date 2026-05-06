@@ -549,6 +549,7 @@ function EpicRow({
               </svg>
             </button>
           )}
+          {/* Project Access button — rendered once ProjectAccessModal is implemented */}
           {!epic.is_default && (
             <button
               onClick={e => { e.stopPropagation(); deleteEpic() }}
@@ -835,6 +836,8 @@ export default function EpicsPage() {
           onDelete={() => setSelectedCard(null)}
         />
       )}
+
+      {/* ProjectAccessModal will be rendered here once implemented */}
     </div>
   )
 }

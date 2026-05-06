@@ -26,7 +26,7 @@ export default function LoginPage() {
         toast.error(json.error)
         return
       }
-      // Fetch full user with epic_access
+      // Fetch full user with project_access
       const meRes = await fetch('/api/auth/me', { credentials: 'include' })
       const me = await meRes.json()
       setUser(me.data)

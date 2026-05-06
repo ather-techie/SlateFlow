@@ -1,4 +1,4 @@
-import type { ActivityLog, ActivityItem, AuthUser, BacklogCard, CapacityEntry, Card, Column, Comment, CycleTimeEntry, DashboardStats, Dependency, DependencyList, Epic, EpicAccessEntry, Feature, Label, Lane, LanePreset, Notification, Project, ProjectSummary, RoadmapEpic, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite, User, VelocityEntry } from './types'
+import type { ActivityLog, ActivityItem, AuthUser, BacklogCard, CapacityEntry, Card, Column, Comment, CycleTimeEntry, DashboardStats, Dependency, DependencyList, Epic, ProjectAccessEntry, Feature, Label, Lane, LanePreset, Notification, Project, ProjectSummary, RoadmapEpic, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite, User, VelocityEntry } from './types'
 import { useAuthStore } from './store/authStore'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -188,7 +188,7 @@ export const api = {
     login: (data: { email: string; password: string }) =>
       request<AuthUser>('/auth/login', { method: 'POST', ...json(data) }),
     logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
-    me: () => request<AuthUser & { epic_access: EpicAccessEntry[] }>('/auth/me'),
+    me: () => request<AuthUser & { project_access: ProjectAccessEntry[] }>('/auth/me'),
     updateMe: (data: { display_name?: string; current_password?: string; new_password?: string }) =>
       request<AuthUser>('/auth/me', { method: 'PATCH', ...json(data) }),
   },
@@ -202,17 +202,21 @@ export const api = {
     update: (id: number, data: { display_name?: string; role?: string; is_active?: boolean; new_password?: string }) =>
       request<User>(`/users/${id}`, { method: 'PATCH', ...json(data) }),
     delete: (id: number) => request<{ id: number }>(`/users/${id}`, { method: 'DELETE' }),
+    projectAccess: (userId: number) =>
+      request<{ project_id: number; project_name: string; role: 'project_admin' | 'contributor' | 'reader' | null }[]>(
+        `/users/${userId}/project-access`
+      ),
   },
 
-  // ── Epic Access ───────────────────────────────────────────────────────────────
-  epicAccess: {
-    list: (epicId: number) => request<EpicAccessEntry[]>(`/epics/${epicId}/access`),
-    grant: (epicId: number, data: { user_id: number; role: string }) =>
-      request<EpicAccessEntry>(`/epics/${epicId}/access`, { method: 'POST', ...json(data) }),
-    update: (epicId: number, userId: number, data: { role: string }) =>
-      request<EpicAccessEntry>(`/epics/${epicId}/access/${userId}`, { method: 'PATCH', ...json(data) }),
-    revoke: (epicId: number, userId: number) =>
-      request<{ user_id: number; epic_id: number }>(`/epics/${epicId}/access/${userId}`, { method: 'DELETE' }),
+  // ── Project Access ────────────────────────────────────────────────────────────
+  projectAccess: {
+    list: (projectId: number) => request<ProjectAccessEntry[]>(`/projects/${projectId}/access`),
+    grant: (projectId: number, data: { user_id: number; role: string }) =>
+      request<ProjectAccessEntry>(`/projects/${projectId}/access`, { method: 'POST', ...json(data) }),
+    update: (projectId: number, userId: number, data: { role: string }) =>
+      request<ProjectAccessEntry>(`/projects/${projectId}/access/${userId}`, { method: 'PATCH', ...json(data) }),
+    revoke: (projectId: number, userId: number) =>
+      request<{ user_id: number; project_id: number }>(`/projects/${projectId}/access/${userId}`, { method: 'DELETE' }),
   },
 
   // ── Notifications ─────────────────────────────────────────────────────────────
