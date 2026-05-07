@@ -1,26 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs -I {} find {} -maxdepth 3)",
-      "Bash(docker build *)",
-      "Bash(docker info *)",
-      "Bash(docker context *)",
-      "Bash(git init *)",
-      "Bash(git add *)",
-      "Bash(git commit -m ' *)",
-      "Bash(git tag *)",
-      "Bash(git rm *)",
-      "Bash(node -e ' *)",
-      "Bash(DATABASE_PATH=\":memory:\" npx tsx src/db/index.ts)",
-      "Bash(docker --version)",
-      "Bash(docker-compose build *)",
-      "Bash(docker --context default info)",
-      "Read(//c/c/repo/**)",
-      "Bash(xargs grep *)"
     ],
     "additionalDirectories": [
-      "C:\\repo\\slateFlow\\client",
-      "c:\\repo\\slateFlow"
     ]
   }
 }

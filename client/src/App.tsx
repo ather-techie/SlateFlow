@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { api } from './api/index'
 import { useAuthStore } from './store/authStore'
+import { useFeatureFlagStore } from './store/featureFlagStore'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
@@ -41,6 +42,7 @@ function RootRedirect() {
 
 export default function App() {
   const { setUser, setLoading } = useAuthStore()
+  const { setFlags, setLoading: setFlagsLoading } = useFeatureFlagStore()
 
   // Hydrate auth state on mount
   useEffect(() => {
@@ -52,6 +54,15 @@ export default function App() {
       })
       .catch(() => setUser(null))
   }, [setUser])
+
+  // Hydrate feature flags on mount (public endpoint, no auth required)
+  useEffect(() => {
+    fetch('/api/config', { credentials: 'include' })
+      .then(r => r.json())
+      .then(json => { if (json.data) setFlags(json.data.features) })
+      .catch(() => setFlags({ ai: false }))
+      .finally(() => setFlagsLoading(false))
+  }, [setFlags, setFlagsLoading])
 
   return (
     <BrowserRouter>

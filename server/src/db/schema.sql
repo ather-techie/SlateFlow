@@ -245,3 +245,11 @@ CREATE TABLE IF NOT EXISTS story_dependencies (
 
 CREATE INDEX IF NOT EXISTS idx_story_dep_blocker ON story_dependencies(blocker_id);
 CREATE INDEX IF NOT EXISTS idx_story_dep_blocked ON story_dependencies(blocked_id);
+
+-- Enterprise feature flag runtime overrides (env var is the hard ceiling)
+CREATE TABLE IF NOT EXISTS feature_overrides (
+  flag        TEXT    NOT NULL PRIMARY KEY,
+  enabled     INTEGER NOT NULL DEFAULT 0,
+  updated_by  INTEGER REFERENCES users(id),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);

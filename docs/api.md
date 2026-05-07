@@ -828,6 +828,62 @@ Returns runs newest-first.
 
 ---
 
+---
+
+## Feature Flags
+
+### Get resolved feature flags (public — no auth required)
+```bash
+curl http://localhost:3000/api/config
+```
+Returns enabled/disabled state for all enterprise features. The frontend hydrates this on boot to conditionally render AI controls.
+```json
+{ "data": { "features": { "ai": false } }, "error": null }
+```
+
+---
+
+## Admin Settings (super_admin only)
+
+### List feature overrides
+```bash
+curl -b cookies.txt http://localhost:3000/api/admin/feature-overrides
+```
+Returns one entry per known flag with `env_enabled` (read from env var), `db_override` (nullable runtime override), and `resolved` (effective value).
+```json
+{
+  "data": [
+    { "flag": "ai", "env_enabled": true, "db_override": null, "resolved": true }
+  ],
+  "error": null
+}
+```
+
+### Toggle a feature at runtime
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/admin/feature-overrides/ai \
+  -H 'Content-Type: application/json' \
+  -d '{"enabled": false}'
+```
+Applies a DB override. The env var remains the hard ceiling — a DB override of `true` has no effect when `FEATURE_AI=false`. Returns the full updated flag list (same shape as GET).
+
+---
+
+## AI (requires `FEATURE_AI=true`)
+
+All AI routes return `404` when the feature flag is disabled, regardless of auth.
+
+### Summarize a story card
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/ai/cards/1/summarize
+```
+Fetches the card's title and description, passes them to the configured AI provider, and returns a one-paragraph summary.
+```json
+{ "data": { "summary": "This card tracks…" }, "error": null }
+```
+
+---
+
 ## Error codes
 
 | Status | Meaning                            |

@@ -17,6 +17,7 @@ A lightweight, self-hostable Kanban board for agile teams — sprints, backlog m
 - **Activity log** — automatic `create`, `update`, and `move` events per card
 - **Test management** — attach test cases to cards; group into test suites; record pass/fail/blocked runs; track status with a per-card summary bar
 - **Labels & comments** — tag cards and leave threaded comments
+- **AI features** — card summarisation powered by a provider-agnostic interface; supports Anthropic Claude, Google Gemini, OpenAI, Azure OpenAI, and Ollama; gated by `FEATURE_AI=true`
 - **Self-host** — single Docker container, SQLite database on a named volume; no external services required
 
 ### Planning & Visibility

@@ -4,7 +4,7 @@ declare module 'hono' {
       id: number
       email: string
       display_name: string
-      role: 'super_admin' | 'member'
+      role: 'super_admin' | 'global_reader'
       is_active: number
     }
   }

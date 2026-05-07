@@ -22,6 +22,9 @@ import sse from './routes/sse.js'
 import dependencies from './routes/dependencies.js'
 import roadmap from './routes/roadmap.js'
 import reports from './routes/reports.js'
+import configRoute from './routes/config.js'
+import adminSettings from './routes/adminSettings.js'
+import aiRoutes from './routes/ai.js'
 import { requireAuth } from './middleware/requireAuth.js'
 import { testCaseOpenApi } from './lib/openapi.js'
 
@@ -35,8 +38,9 @@ app.use('/api/*', cors({ origin: 'http://localhost:5173', credentials: true }))
 
 app.get('/api/health', (c) => c.json({ data: { status: 'ok', service: 'slateflow' }, error: null }))
 
-// Public auth routes must be registered BEFORE the requireAuth middleware
+// Public routes — registered BEFORE the requireAuth middleware
 app.route('/api', authRoutes)
+app.route('/api', configRoute)
 
 // All subsequent /api/* routes require authentication
 app.use('/api/*', requireAuth)
@@ -61,6 +65,8 @@ app.route('/api', sse)
 app.route('/api', dependencies)
 app.route('/api', roadmap)
 app.route('/api', reports)
+app.route('/api', adminSettings)
+app.route('/api', aiRoutes)
 
 app.get('/api/openapi.json', (c) => c.json(testCaseOpenApi))
 

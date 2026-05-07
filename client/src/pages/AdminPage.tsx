@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { api } from '../api'
 import { useAuthStore } from '../store/authStore'
+import { useFeatureFlagStore } from '../store/featureFlagStore'
 import type { Project, User } from '../types'
 import ProjectAccessModal from '../components/ProjectAccessModal'
 
-type Tab = 'users'
+type Tab = 'users' | 'settings'
 
 type ProjectAssignment = { project_id: number; role: 'project_admin' | 'contributor' | 'reader' }
 
@@ -333,12 +334,108 @@ function UsersTab() {
   )
 }
 
+// ─── Settings Tab ─────────────────────────────────────────────────────────────
+
+interface FlagStatus {
+  flag: string
+  env_enabled: boolean
+  db_override: boolean | null
+  resolved: boolean
+}
+
+function SettingsTab() {
+  const [flags, setFlags] = useState<FlagStatus[]>([])
+  const [loading, setLoading] = useState(true)
+  const { setFlags: setStoreFlags } = useFeatureFlagStore()
+
+  useEffect(() => {
+    fetch('/api/admin/feature-overrides', { credentials: 'include' })
+      .then(r => r.json())
+      .then(json => { if (json.data) setFlags(json.data) })
+      .catch(() => toast.error('Failed to load feature flags'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function handleToggle(flag: string, newEnabled: boolean) {
+    try {
+      const res = await fetch(`/api/admin/feature-overrides/${flag}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newEnabled }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Failed')
+      setStoreFlags(json.data.features)
+      // Re-fetch to get updated db_override state
+      const statusRes = await fetch('/api/admin/feature-overrides', { credentials: 'include' })
+      const statusJson = await statusRes.json()
+      if (statusJson.data) setFlags(statusJson.data)
+      toast.success(`AI features ${newEnabled ? 'enabled' : 'disabled'}`)
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update feature flag')
+    }
+  }
+
+  if (loading) return <p className="text-slate-400 text-sm">Loading…</p>
+
+  const featureMeta: Record<string, { label: string; description: string }> = {
+    ai: {
+      label: 'AI Features',
+      description: 'Enable AI-powered features such as card summarization, auto-prioritization, and natural-language search. Requires AI_PROVIDER and AI_API_KEY to be configured.',
+    },
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-400">
+        Enterprise feature flags. Set the environment variable to <code className="text-indigo-400 text-xs bg-slate-800 px-1 py-0.5 rounded">true</code> to allow runtime control via this panel.
+      </p>
+      {flags.map(f => {
+        const meta = featureMeta[f.flag] ?? { label: f.flag, description: '' }
+        const canToggle = f.env_enabled
+        const isOn = f.resolved
+        return (
+          <div key={f.flag} className="bg-slate-900 border border-slate-700 rounded-xl p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-sm font-semibold text-slate-100">{meta.label}</h3>
+                  <span className={`text-xs px-2 py-0.5 rounded font-mono ${f.env_enabled ? 'bg-green-900/60 text-green-300' : 'bg-slate-700 text-slate-400'}`}>
+                    FEATURE_{f.flag.toUpperCase()}={(f.env_enabled ? 'true' : 'false')}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">{meta.description}</p>
+                {!canToggle && (
+                  <p className="text-xs text-amber-500 mt-1.5">
+                    Set FEATURE_{f.flag.toUpperCase()}=true in your environment to enable runtime control.
+                  </p>
+                )}
+              </div>
+              <button
+                disabled={!canToggle}
+                onClick={() => handleToggle(f.flag, !isOn)}
+                title={canToggle ? undefined : `Set FEATURE_${f.flag.toUpperCase()}=true to unlock`}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+                  isOn ? 'bg-indigo-600' : 'bg-slate-600'
+                } ${!canToggle ? 'opacity-40 cursor-not-allowed' : ''}`}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isOn ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
   const navigate = useNavigate()
   const { user, isSuperAdmin } = useAuthStore()
-  const [activeTab] = useState<Tab>('users')
+  const [activeTab, setActiveTab] = useState<Tab>('users')
 
   // Redirect non-super_admin users
   useEffect(() => {
@@ -362,12 +459,22 @@ export default function AdminPage() {
 
         {/* Tabs */}
         <div className="flex border-b border-slate-800 mb-6">
-          <button className="px-4 py-2.5 text-sm font-medium border-b-2 border-indigo-500 text-indigo-400">
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'users' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          >
             Users
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'settings' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          >
+            Settings
           </button>
         </div>
 
         {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'settings' && <SettingsTab />}
       </div>
     </div>
   )
