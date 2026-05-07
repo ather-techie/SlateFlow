@@ -24,6 +24,7 @@ adminSettings.get('/admin/feature-overrides', async (c) => {
     return {
       flag,
       env_enabled: envEnabled,
+      can_toggle: process.env[envKey] !== 'false',
       db_override: dbRow !== undefined ? dbRow === 1 : null,
       resolved,
     }
@@ -45,6 +46,18 @@ adminSettings.patch('/admin/feature-overrides/:flag', async (c) => {
 
   const user = c.get('user')
   await setFlag(flag, parsed.data.enabled, user.id)
+
+  const features = await getAllFlags()
+  return ok(c, { features })
+})
+
+adminSettings.delete('/admin/feature-overrides/:flag', async (c) => {
+  const flag = c.req.param('flag') as FeatureFlag
+  const knownFlags: FeatureFlag[] = ['ai']
+  if (!knownFlags.includes(flag)) return err(c, 'unknown feature flag', 404)
+
+  const { db } = await import('../db/index.js')
+  await db.run('DELETE FROM feature_overrides WHERE flag = ?', flag)
 
   const features = await getAllFlags()
   return ok(c, { features })

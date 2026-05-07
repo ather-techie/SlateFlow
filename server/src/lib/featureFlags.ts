@@ -10,13 +10,14 @@ interface OverrideRow {
 
 async function isEnabled(flag: FeatureFlag): Promise<boolean> {
   const envKey = `FEATURE_${flag.toUpperCase()}`
-  if (process.env[envKey] !== 'true') return false
+  const envVal = process.env[envKey]
+  if (envVal === 'false') return false
   const row = await db.get<OverrideRow>(
     'SELECT enabled FROM feature_overrides WHERE flag = ?',
     flag
   )
   if (row !== undefined) return row.enabled === 1
-  return true
+  return envVal === 'true'
 }
 
 async function getAllFlags(): Promise<Record<FeatureFlag, boolean>> {

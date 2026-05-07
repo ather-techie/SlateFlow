@@ -339,6 +339,7 @@ function UsersTab() {
 interface FlagStatus {
   flag: string
   env_enabled: boolean
+  can_toggle: boolean
   db_override: boolean | null
   resolved: boolean
 }
@@ -348,10 +349,14 @@ function SettingsTab() {
   const [loading, setLoading] = useState(true)
   const { setFlags: setStoreFlags } = useFeatureFlagStore()
 
+  async function refetchFlags() {
+    const res = await fetch('/api/admin/feature-overrides', { credentials: 'include' })
+    const json = await res.json()
+    if (json.data) setFlags(json.data)
+  }
+
   useEffect(() => {
-    fetch('/api/admin/feature-overrides', { credentials: 'include' })
-      .then(r => r.json())
-      .then(json => { if (json.data) setFlags(json.data) })
+    refetchFlags()
       .catch(() => toast.error('Failed to load feature flags'))
       .finally(() => setLoading(false))
   }, [])
@@ -367,13 +372,26 @@ function SettingsTab() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? 'Failed')
       setStoreFlags(json.data.features)
-      // Re-fetch to get updated db_override state
-      const statusRes = await fetch('/api/admin/feature-overrides', { credentials: 'include' })
-      const statusJson = await statusRes.json()
-      if (statusJson.data) setFlags(statusJson.data)
+      await refetchFlags()
       toast.success(`AI features ${newEnabled ? 'enabled' : 'disabled'}`)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to update feature flag')
+    }
+  }
+
+  async function handleReset(flag: string) {
+    try {
+      const res = await fetch(`/api/admin/feature-overrides/${flag}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Failed')
+      setStoreFlags(json.data.features)
+      await refetchFlags()
+      toast.success('Feature flag reset to default')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reset feature flag')
     }
   }
 
@@ -389,11 +407,11 @@ function SettingsTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">
-        Enterprise feature flags. Set the environment variable to <code className="text-indigo-400 text-xs bg-slate-800 px-1 py-0.5 rounded">true</code> to allow runtime control via this panel.
+        Enterprise feature flags. Toggle flags here or set the environment variable to force a value.
       </p>
       {flags.map(f => {
         const meta = featureMeta[f.flag] ?? { label: f.flag, description: '' }
-        const canToggle = f.env_enabled
+        const canToggle = f.can_toggle
         const isOn = f.resolved
         return (
           <div key={f.flag} className="bg-slate-900 border border-slate-700 rounded-xl p-5">
@@ -404,24 +422,45 @@ function SettingsTab() {
                   <span className={`text-xs px-2 py-0.5 rounded font-mono ${f.env_enabled ? 'bg-green-900/60 text-green-300' : 'bg-slate-700 text-slate-400'}`}>
                     FEATURE_{f.flag.toUpperCase()}={(f.env_enabled ? 'true' : 'false')}
                   </span>
+                  {f.db_override !== null && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300">
+                      DB override: {f.db_override ? 'on' : 'off'}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-400">{meta.description}</p>
                 {!canToggle && (
                   <p className="text-xs text-amber-500 mt-1.5">
-                    Set FEATURE_{f.flag.toUpperCase()}=true in your environment to enable runtime control.
+                    FEATURE_{f.flag.toUpperCase()}=false is set in your environment — this flag cannot be enabled here.
+                  </p>
+                )}
+                {canToggle && !f.env_enabled && (
+                  <p className="text-xs text-slate-500 mt-1.5">
+                    FEATURE_{f.flag.toUpperCase()} is not set — this toggle is the active control.
                   </p>
                 )}
               </div>
-              <button
-                disabled={!canToggle}
-                onClick={() => handleToggle(f.flag, !isOn)}
-                title={canToggle ? undefined : `Set FEATURE_${f.flag.toUpperCase()}=true to unlock`}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
-                  isOn ? 'bg-indigo-600' : 'bg-slate-600'
-                } ${!canToggle ? 'opacity-40 cursor-not-allowed' : ''}`}
-              >
-                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isOn ? 'translate-x-5' : 'translate-x-0'}`} />
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {f.db_override !== null && (
+                  <button
+                    onClick={() => handleReset(f.flag)}
+                    className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
+                    title="Clear DB override and revert to environment default"
+                  >
+                    Reset
+                  </button>
+                )}
+                <button
+                  disabled={!canToggle}
+                  onClick={() => handleToggle(f.flag, !isOn)}
+                  title={canToggle ? undefined : `FEATURE_${f.flag.toUpperCase()}=false prevents enabling this flag`}
+                  className={`relative inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+                    isOn ? 'bg-indigo-600' : 'bg-slate-600'
+                  } ${!canToggle ? 'opacity-40 cursor-not-allowed' : ''}`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isOn ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
             </div>
           </div>
         )
