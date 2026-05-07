@@ -161,12 +161,15 @@ if ((presetCountRow?.n ?? 0) === 0) {
 
 async function seed() {
   await db.transaction(async () => {
+    // ── Project ──────────────────────────────────────────────────────────────
     const { lastID: projectId } = await db.run(
-      'INSERT INTO projects (name, description) VALUES (?, ?)',
+      'INSERT INTO projects (name, description, color) VALUES (?, ?, ?)',
       'SlateFlow Demo',
-      'Default project — delete or rename to get started.',
+      'Demo project — explore the full work-item hierarchy.',
+      '#6366f1',
     )
 
+    // ── Defaults (required by the app) ───────────────────────────────────────
     const { lastID: defaultEpicId } = await db.run(
       `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
        VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`,
@@ -183,33 +186,156 @@ async function seed() {
       projectId,
     )
 
-    const cols = [
-      { name: 'To Do',       position: 0, color: '#94a3b8' },
-      { name: 'In Progress', position: 1, color: '#f59e0b' },
-      { name: 'Done',        position: 2, color: '#22c55e' },
-    ]
+    // ── Swim Lanes ───────────────────────────────────────────────────────────
+    const { lastID: todoLaneId } = await db.run(
+      `INSERT INTO swim_lanes (project_id, name, position, color, is_done_col) VALUES (?, 'To Do', 0, '#94a3b8', 0)`,
+      projectId,
+    )
+    const { lastID: inProgressLaneId } = await db.run(
+      `INSERT INTO swim_lanes (project_id, name, position, color, is_done_col) VALUES (?, 'In Progress', 1, '#f59e0b', 0)`,
+      projectId,
+    )
+    const { lastID: doneLaneId } = await db.run(
+      `INSERT INTO swim_lanes (project_id, name, position, color, is_done_col) VALUES (?, 'Done', 2, '#22c55e', 1)`,
+      projectId,
+    )
 
-    const colIds: number[] = []
-    for (const { name, position, color } of cols) {
-      const { lastID } = await db.run(
-        'INSERT INTO columns (project_id, name, position, color) VALUES (?, ?, ?, ?)',
-        projectId, name, position, color,
-      )
-      colIds.push(lastID)
-    }
+    // ── Named Sprints ────────────────────────────────────────────────────────
+    const { lastID: sprint1Id } = await db.run(
+      `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
+       VALUES (?, 'Sprint 1 – MVP Core', 'Ship core auth and board features', date('now', '-14 days'), date('now', '+14 days'), 'active', 0)`,
+      projectId,
+    )
+    const { lastID: sprint2Id } = await db.run(
+      `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
+       VALUES (?, 'Sprint 2 – User Mgmt', 'Deliver role management and sprint tooling', date('now', '+14 days'), date('now', '+28 days'), 'planned', 0)`,
+      projectId,
+    )
 
-    const [todoId] = colIds
-    await db.run(
-      `INSERT INTO cards (column_id, title, description, priority, story_points, position) VALUES (?, ?, ?, ?, ?, ?)`,
-      todoId, 'Set up project board', 'Configure columns, labels, and invite the team.', 'p1', 2, 0,
+    // ── Epics ────────────────────────────────────────────────────────────────
+    const { lastID: authEpicId } = await db.run(
+      `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
+       VALUES (?, 'Authentication & Security', 'Covers login, sessions, and access control.', 'p1', 'active', 0, 1)`,
+      projectId,
+    )
+    const { lastID: boardEpicId } = await db.run(
+      `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
+       VALUES (?, 'Board & Workflow', 'Kanban board mechanics and sprint planning tools.', 'p2', 'new', 0, 2)`,
+      projectId,
+    )
+
+    // ── Features ─────────────────────────────────────────────────────────────
+    const { lastID: loginFeatureId } = await db.run(
+      `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+       VALUES (?, ?, 'Login & Session Management', 'User login, logout, and JWT session handling.', 'p1', 'active', 0, 1)`,
+      projectId, authEpicId,
+    )
+    const { lastID: rbacFeatureId } = await db.run(
+      `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+       VALUES (?, ?, 'Role-Based Access Control', 'Assign and enforce project-level roles.', 'p2', 'new', 0, 2)`,
+      projectId, authEpicId,
+    )
+    const { lastID: kanbanFeatureId } = await db.run(
+      `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+       VALUES (?, ?, 'Kanban Board', 'Drag-and-drop lane management and card workflow.', 'p1', 'active', 0, 1)`,
+      projectId, boardEpicId,
+    )
+    const { lastID: sprintFeatureId } = await db.run(
+      `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+       VALUES (?, ?, 'Sprint Planning', 'Create, activate, and complete sprints.', 'p2', 'new', 0, 2)`,
+      projectId, boardEpicId,
+    )
+
+    // ── Stories (cards) ──────────────────────────────────────────────────────
+    const { lastID: loginFormId } = await db.run(
+      `INSERT INTO cards (swim_lane_id, sprint_id, feature_id, title, description, priority, story_points, position)
+       VALUES (?, ?, ?, 'User login form', 'Build the login page with email/password fields and validation.', 'p1', 3, 0)`,
+      inProgressLaneId, sprint1Id, loginFeatureId,
+    )
+    const { lastID: jwtRefreshId } = await db.run(
+      `INSERT INTO cards (swim_lane_id, sprint_id, feature_id, title, description, priority, story_points, position)
+       VALUES (?, ?, ?, 'JWT token refresh', 'Implement silent token refresh before expiry.', 'p2', 2, 1)`,
+      todoLaneId, sprint1Id, loginFeatureId,
     )
     await db.run(
-      `INSERT INTO cards (column_id, title, description, priority, story_points, position) VALUES (?, ?, ?, ?, ?, ?)`,
-      todoId, 'Define sprint goals', 'Agree on the scope and success criteria for Sprint 1.', 'p2', 3, 1,
+      `INSERT INTO cards (swim_lane_id, sprint_id, feature_id, title, description, priority, story_points, position)
+       VALUES (?, ?, ?, 'Assign roles to users', 'Admin UI to grant project_admin / contributor / reader roles.', 'p1', 5, 0)`,
+      todoLaneId, sprint1Id, rbacFeatureId,
+    )
+    const { lastID: dndCardId } = await db.run(
+      `INSERT INTO cards (swim_lane_id, sprint_id, feature_id, title, description, priority, story_points, position)
+       VALUES (?, ?, ?, 'Drag and drop cards', 'Enable pointer-based DnD across swim lanes using @dnd-kit.', 'p1', 3, 0)`,
+      doneLaneId, sprint1Id, kanbanFeatureId,
+    )
+    const { lastID: labelsCardId } = await db.run(
+      `INSERT INTO cards (swim_lane_id, sprint_id, feature_id, title, description, priority, story_points, position)
+       VALUES (?, ?, ?, 'Add card labels', 'Create, assign, and filter stories by colour-coded labels.', 'p2', 2, 0)`,
+      inProgressLaneId, sprint2Id, kanbanFeatureId,
     )
     await db.run(
-      `INSERT INTO cards (column_id, title, description, priority, story_points, position) VALUES (?, ?, ?, ?, ?, ?)`,
-      todoId, 'Connect your first integration', 'Link your repo or CI pipeline to surface build status on cards.', 'p3', 1, 2,
+      `INSERT INTO cards (swim_lane_id, sprint_id, feature_id, title, description, priority, story_points, position)
+       VALUES (?, ?, ?, 'Create and manage sprints', 'Sprint create/edit form with goal, dates, and status transitions.', 'p2', 3, 0)`,
+      todoLaneId, sprint2Id, sprintFeatureId,
+    )
+
+    // ── Tasks ────────────────────────────────────────────────────────────────
+    await db.run(`INSERT INTO tasks (story_id, title, status, position) VALUES (?, 'Design login UI mockup',        'done',        0)`, loginFormId)
+    await db.run(`INSERT INTO tasks (story_id, title, status, position) VALUES (?, 'Implement form validation',     'in-progress', 1)`, loginFormId)
+    await db.run(`INSERT INTO tasks (story_id, title, status, position) VALUES (?, 'Write accessibility tests',     'to-do',       2)`, loginFormId)
+
+    await db.run(`INSERT INTO tasks (story_id, title, status, position) VALUES (?, 'Research DnD library options',  'done', 0)`, dndCardId)
+    await db.run(`INSERT INTO tasks (story_id, title, status, position) VALUES (?, 'Implement drag events',         'done', 1)`, dndCardId)
+    await db.run(`INSERT INTO tasks (story_id, title, status, position) VALUES (?, 'Handle edge cases',             'done', 2)`, dndCardId)
+
+    // ── Test Suites & Test Cases ──────────────────────────────────────────────
+    const { lastID: authSuiteId } = await db.run(
+      `INSERT INTO test_suites (project_id, name, description) VALUES (?, 'Authentication Tests', 'Covers login, logout, and token handling.')`,
+      projectId,
+    )
+    const { lastID: boardSuiteId } = await db.run(
+      `INSERT INTO test_suites (project_id, name, description) VALUES (?, 'Board Functionality Tests', 'Covers swim lanes, drag-and-drop, and labels.')`,
+      projectId,
+    )
+
+    await db.run(
+      `INSERT INTO test_cases (suite_id, card_id, project_id, title, status, priority, test_type, steps, expected_result, position)
+       VALUES (?, ?, ?, 'Login with valid credentials', 'passed', 'critical', 'manual',
+               '1. Navigate to /login\n2. Enter valid email and password\n3. Click Sign In',
+               'User is redirected to dashboard with a valid session cookie.',
+               0)`,
+      authSuiteId, loginFormId, projectId,
+    )
+    await db.run(
+      `INSERT INTO test_cases (suite_id, card_id, project_id, title, status, priority, test_type, steps, expected_result, position)
+       VALUES (?, ?, ?, 'Login with invalid password', 'passed', 'high', 'manual',
+               '1. Navigate to /login\n2. Enter valid email and wrong password\n3. Click Sign In',
+               'Error message is shown; no session cookie is set.',
+               1)`,
+      authSuiteId, loginFormId, projectId,
+    )
+    await db.run(
+      `INSERT INTO test_cases (suite_id, card_id, project_id, title, status, priority, test_type, steps, expected_result, position)
+       VALUES (?, ?, ?, 'JWT token expiry check', 'untested', 'medium', 'manual',
+               '1. Log in and note token expiry\n2. Wait for token to expire\n3. Make an authenticated request',
+               'Token is refreshed silently; user session continues uninterrupted.',
+               0)`,
+      authSuiteId, jwtRefreshId, projectId,
+    )
+    await db.run(
+      `INSERT INTO test_cases (suite_id, card_id, project_id, title, status, priority, test_type, steps, expected_result, position)
+       VALUES (?, ?, ?, 'Card moves between swim lanes', 'passed', 'critical', 'manual',
+               '1. Open the board\n2. Drag a card from To Do to In Progress\n3. Release',
+               'Card appears in In Progress lane; position is persisted on reload.',
+               0)`,
+      boardSuiteId, dndCardId, projectId,
+    )
+    await db.run(
+      `INSERT INTO test_cases (suite_id, card_id, project_id, title, status, priority, test_type, steps, expected_result, position)
+       VALUES (?, ?, ?, 'Card label assignment', 'untested', 'medium', 'manual',
+               '1. Open a card\n2. Add a label via the label picker\n3. Save and reopen',
+               'Label is visible on the card in both modal and board view.',
+               0)`,
+      boardSuiteId, labelsCardId, projectId,
     )
   })()
 }
