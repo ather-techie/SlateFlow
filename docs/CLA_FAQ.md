@@ -69,14 +69,7 @@ SlateFlow's rights do not prevent You from using Your contributions however You 
 
 ### Q: The CLA mentions "relicensing without restriction." What does that mean?
 
-**A:** It means SlateFlow can:
-
-- Change the base license of the Project (e.g., from MIT to Apache 2.0)
-- Offer a proprietary, commercial, or cloud-hosted variant that incorporates your contributions
-- Sublicense your contributions under multiple simultaneous licenses
-- Use your contributions in products or services with different licensing
-
-This is the core reason SlateFlow requires a CLA: to enable future business models (e.g., open-source core + commercial SaaS) without needing to renegotiate with contributors.
+**A:** SlateFlow can change the project's base license (e.g. MIT → Apache 2.0), offer proprietary or SaaS variants that incorporate your contributions, sublicense your work under multiple simultaneous licenses, and ship it in products with different licensing — all without renegotiating with contributors. This is the core reason the CLA exists: to keep open-core + commercial business models viable as the project grows.
 
 ---
 
@@ -108,14 +101,7 @@ If You contribute significantly and want special arrangements, discuss with the 
 
 ### Q: What if my employer claims ownership of my contributions?
 
-**A:** The CLA requires You to represent and warrant that:
-- You have authority to enter into this Agreement
-- Your contributions don't violate your employment agreement
-- You've confirmed with your employer that You can contribute
-
-**You are responsible for resolving any conflicts with your employer.** SlateFlow assumes Your representations are accurate.
-
-If your employment agreement claims all your code, you may not be able to contribute unless your employer explicitly permits open-source contributions.
+**A:** By signing, You warrant that You have authority to contribute and that doing so doesn't violate your employment agreement — SlateFlow relies on those representations and won't mediate the dispute. If your employment agreement claims all your code, You can't contribute unless your employer explicitly permits open-source contributions.
 
 ---
 
@@ -197,15 +183,7 @@ For full privacy details, see CLAassistant's [privacy policy](https://claassista
 
 ### Q: I don't want to sign a CLA. Can I still contribute?
 
-**A:** Unfortunately, **no.** All contributions require a CLA signature before merge.
-
-However:
-- The CLA is intentionally lightweight and contributor-friendly
-- Signing takes ~2 minutes
-- Signing covers all your current and future contributions (one-time process)
-- The CLA is based on widely-used templates (Apache, Google, etc.)
-
-If you have specific concerns about the CLA language, contact the maintainers to discuss.
+**A:** No — every PR requires a signature before merge. The CLA is based on the Apache Individual template, takes ~2 minutes to sign, and covers all your past and future contributions. If You have specific concerns about the language, raise them with the maintainers.
 
 ---
 

@@ -1,6 +1,6 @@
 # SlateFlow
 
-A lightweight, self-hostable Kanban board for agile teams — sprints, backlog management, and drag-and-drop in a single deployable container.
+SlateFlow is a self-hosted, single-container project management platform for agile teams. It pairs a drag-and-drop Kanban board with the full Azure DevOps–style hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown, a Gantt-style roadmap, velocity / cycle-time / capacity reports, test case management, real-time collaboration over Server-Sent Events, multi-user RBAC at global / project / epic level, and AI card summarisation across Claude, Gemini, OpenAI, Azure OpenAI, and Ollama. SQLite + Hono + React in a single Docker image — no external services required.
 
 ## Screenshots
 
@@ -16,7 +16,9 @@ A lightweight, self-hostable Kanban board for agile teams — sprints, backlog m
 - **Drag-and-drop** — powered by `@dnd-kit` with pointer sensor support
 - **Activity log** — automatic `create`, `update`, and `move` events per card
 - **Test management** — attach test cases to cards; group into test suites; record pass/fail/blocked runs; track status with a per-card summary bar
-- **Labels & comments** — tag cards and leave threaded comments
+- **Labels & comments** — tag cards and leave threaded comments; `@mention` notifications
+- **Multi-user with RBAC** — JWT auth (httpOnly cookie); roles at global, project, and epic level
+- **Real-time updates** — Server-Sent Events stream board mutations and notifications to every connected client
 - **AI features** — card summarisation powered by a provider-agnostic interface; supports Anthropic Claude, Google Gemini, OpenAI, Azure OpenAI, and Ollama; gated by `FEATURE_AI=true`
 - **Self-host** — single Docker container, SQLite database on a named volume; no external services required
 
@@ -67,25 +69,7 @@ docker-compose down          # stop
 docker-compose build         # rebuild after source changes
 ```
 
-## Freeing Port 3000
-
-If the server port is already in use, kill the process before starting:
-
-**PowerShell:**
-```powershell
-Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process -Force
-```
-
-Or find the PID manually and kill it:
-```powershell
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
-```
-
-**Bash (Git Bash / WSL):**
-```bash
-npx kill-port 3000
-```
+If port 3000 is already in use, see [CONTRIBUTING.md](CONTRIBUTING.md#freeing-port-3000) for PowerShell and Bash recipes to free it.
 
 ## Scripts
 
@@ -103,9 +87,11 @@ npx kill-port 3000
 |-------|------|
 | Frontend | React 18, Vite 5, TypeScript, Tailwind CSS v3, react-router-dom v7, recharts |
 | State | Zustand, react-hot-toast |
-| HTTP client | axios |
+| HTTP client | axios + native fetch |
 | Drag-and-drop | @dnd-kit/core + @dnd-kit/sortable |
-| Backend | Node.js, Hono 4, TypeScript, tsx |
+| Backend | Node.js, Hono 4, TypeScript, tsx, Zod |
+| Auth | JWT in httpOnly cookie (`sf_token`), bcrypt |
+| Real-time | Server-Sent Events (no broker) |
 | Database | SQLite (better-sqlite3), WAL mode |
 | Monorepo | npm workspaces |
 | Container | Docker + Docker Compose (single image) |

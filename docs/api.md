@@ -11,7 +11,9 @@ All responses share this envelope:
 Success → `data` is populated, `error` is `null`.  
 Error → `data` is `null`, `error` is a human-readable message.
 
-> **Authentication required:** All endpoints except `POST /api/auth/login` and `POST /api/auth/logout` require a valid session. Include `credentials: 'include'` (fetch) or `withCredentials: true` (axios) so the `sf_token` httpOnly cookie is sent automatically.
+> **Authentication required:** All endpoints except `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/config` require a valid session. Include `credentials: 'include'` (fetch) or `withCredentials: true` (axios) so the `sf_token` httpOnly cookie is sent automatically.
+
+> **OpenAPI:** A subset (the test-case routes) is published as machine-readable JSON at `GET /api/openapi.json` for tooling integration.
 
 ---
 
@@ -134,6 +136,42 @@ curl -b cookies.txt -X PATCH http://localhost:3000/api/projects/1/access/2 \
 ### Revoke access
 ```bash
 curl -b cookies.txt -X DELETE http://localhost:3000/api/projects/1/access/2
+```
+
+---
+
+## Epic Access
+
+Epic-scoped roles (`epic_admin`, `contributor`, `reader`) gate read/write on a single epic and its child features and stories. Layered on top of the global + project roles — an epic role grants narrower permissions when the user is a `global_reader` and has no project-level role.
+
+> **Default Epic exception:** every project's Default Epic (`is_default = 1`) auto-grants `contributor` to every authenticated user. Non-default epics require an explicit access entry.
+
+`super_admin` has implicit access to every epic and is the only role that can grant `epic_admin`.
+
+### List access entries for an epic
+```bash
+curl -b cookies.txt http://localhost:3000/api/epics/12/access
+```
+Caller must have `canManageUsers` on the epic (super_admin or `epic_admin`).
+
+### Grant epic access
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/epics/12/access \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":3,"role":"contributor"}'
+```
+`role` is one of `epic_admin`, `contributor`, `reader`. `epic_admin` requires the caller to be `super_admin`. Returns `409` if the user already has an entry — use `PATCH` to change the role.
+
+### Update role
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/epics/12/access/3 \
+  -H 'Content-Type: application/json' \
+  -d '{"role":"reader"}'
+```
+
+### Revoke access
+```bash
+curl -b cookies.txt -X DELETE http://localhost:3000/api/epics/12/access/3
 ```
 
 ---
@@ -390,6 +428,12 @@ curl -X PATCH http://localhost:3000/api/cards/1/move \
 curl -X DELETE http://localhost:3000/api/cards/1
 ```
 
+### Search stories (typeahead)
+```bash
+curl -b cookies.txt 'http://localhost:3000/api/projects/1/stories/search?q=login'
+```
+Returns up to 20 cards whose `title` matches `LIKE %q%` within the project. Empty array when `q` is shorter than 2 characters. Used by the "Add dependency" picker in `CardModal`.
+
 ---
 
 ## Sprints
@@ -606,6 +650,40 @@ Returns all tasks across all stories in the project, each including `story_title
 
 ---
 
+## Story Dependencies
+
+Story-to-story `blocks` / `blocked_by` graph backed by the `story_dependencies` table.
+
+### List dependencies for a story
+```bash
+curl -b cookies.txt http://localhost:3000/api/cards/1/dependencies
+```
+Response:
+```json
+{
+  "data": {
+    "blocks":     [{ "dep_id": 7, "id": 14, "title": "Cleanup task", "priority": "p2", ... }],
+    "blocked_by": [{ "dep_id": 5, "id": 9,  "title": "API contract",  "priority": "p1", ... }]
+  }
+}
+```
+
+### Add dependency
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/cards/1/dependencies \
+  -H 'Content-Type: application/json' \
+  -d '{"target_id":9,"type":"blocked_by"}'
+```
+`type` is `blocks` (story 1 blocks the target) or `blocked_by` (story 1 is blocked by the target). `target_id === id` returns `400`. Duplicate edge returns `409`.
+
+### Remove dependency
+```bash
+curl -b cookies.txt -X DELETE http://localhost:3000/api/dependencies/7
+```
+The path takes the dependency-row `id`, not a card id.
+
+---
+
 ## Activity
 
 ### Card activity
@@ -641,6 +719,62 @@ Returns each project with its lanes (including `card_count` per lane), `total_ca
 curl http://localhost:3000/api/dashboard/activity
 ```
 Returns the 10 most recent activity items across all projects, each annotated with `card_title`, `project_id`, and `project_name`.
+
+---
+
+## Roadmap
+
+```bash
+curl -b cookies.txt http://localhost:3000/api/projects/1/roadmap
+```
+Returns the project's epics with `start_date`, `end_date`, `status`, `priority`, `feature_count`, `story_count`, and a nested `features` array (each with its own dates, `story_count`, `done_story_count`). Used by `RoadmapPage` to render the Gantt timeline.
+
+For non-`super_admin` callers, only the Default Epic (`is_default = 1`) and epics with an explicit `epic_access` row for that user are returned.
+
+---
+
+## Reports
+
+### Velocity (story points per sprint)
+```bash
+curl -b cookies.txt http://localhost:3000/api/projects/1/velocity
+```
+Returns one row per non-default sprint:
+```json
+{ "sprint_id": 2, "sprint_name": "Sprint 1", "status": "completed",
+  "start_date": "...", "end_date": "...",
+  "total_points": 21, "completed_points": 18,
+  "total_stories": 8, "completed_stories": 6 }
+```
+"Completed" means the story is in the lane flagged `is_done_col = 1`.
+
+### Cycle time per lane
+```bash
+curl -b cookies.txt http://localhost:3000/api/projects/1/cycle-time
+```
+Returns one row per swim lane: `{ lane_id, lane_name, avg_days, sample_size }`. `avg_days` is the mean number of days a card spent in the lane before moving on, computed from `activity_log` create/move events. `null` when no card has yet exited the lane.
+
+### Capacity (per assignee, for one sprint)
+```bash
+curl -b cookies.txt 'http://localhost:3000/api/projects/1/capacity?sprint_id=2'
+```
+`sprint_id` is required. Returns one row per assignee in the sprint: `{ assignee, story_count, story_points }`, ordered by points DESC. Stories without an assignee are bucketed as `"Unassigned"`.
+
+### CSV export
+```bash
+# All non-default epics + features + stories in the project (default)
+curl -b cookies.txt -o backlog.csv \
+  'http://localhost:3000/api/projects/1/export/csv?type=backlog'
+
+# Only stories from one sprint
+curl -b cookies.txt -o sprint.csv \
+  'http://localhost:3000/api/projects/1/export/csv?type=sprint&sprint_id=2'
+
+# Same as backlog (full hierarchy)
+curl -b cookies.txt -o full.csv \
+  'http://localhost:3000/api/projects/1/export/csv?type=full'
+```
+`type` is `backlog` (default), `sprint`, or `full`. Returns `text/csv` with a `Content-Disposition` attachment header. Columns: `ID, Type, Title, Sprint, Epic, Feature, Assignee, Priority, Story Points, Status, Created`.
 
 ---
 

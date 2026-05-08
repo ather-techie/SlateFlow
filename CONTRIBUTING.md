@@ -108,84 +108,26 @@ See [CLAUDE.md](CLAUDE.md) for a detailed architecture walkthrough, API referenc
 
 ## Adding Test Cases to a Card
 
-Test cases are attached to individual Kanban cards and are organised into optional **test suites**. Each test case has a lifecycle status (`untested → passed / failed / blocked / skipped`) that is updated by recording **test runs**.
+Test cases are attached to individual Kanban cards and grouped into optional **test suites**. Each case has a lifecycle status (`untested → passed / failed / blocked / skipped`) that is updated by appending **test runs**; the parent case's status is auto-mirrored from the most recent run, and the result is written to `activity_log`.
 
-### Data model
+For the full request/response surface (creating cases, recording runs, suite management, the per-card `summary` shape that drives the card-tile indicator), see **[docs/api.md §Test Cases](docs/api.md#test-cases)**, **§Test Suites**, and **§Test Runs**.
 
+## Freeing Port 3000
+
+If the API server port is already in use, kill the process before starting:
+
+**PowerShell:**
+```powershell
+Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess | Stop-Process -Force
+# or, manually:
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
 ```
-cards
- └── test_cases   (suite_id nullable → test_suites)
-      └── test_runs
-```
 
-A `test_case` belongs to exactly one card (and therefore one project). `test_runs` are append-only execution records; the most recent run's status is mirrored back to the parent `test_case.status` automatically.
-
-### Creating a test case
-
+**Bash (Git Bash / WSL):**
 ```bash
-# POST /api/cards/:cardId/test-cases
-curl -s -X POST http://localhost:3000/api/cards/42/test-cases \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "title": "User can log in with valid credentials",
-    "priority": "critical",
-    "test_type": "manual",
-    "steps": [
-      { "step": "Open /login",                      "expected": "Login form is visible" },
-      { "step": "Enter valid email and password",    "expected": "Fields accept input" },
-      { "step": "Click \"Sign in\"",                "expected": "Redirect to dashboard" }
-    ],
-    "preconditions": "A test account exists with role user",
-    "expected_result": "User lands on /dashboard and session cookie is set",
-    "assigned_to": "qa@example.com"
-  }'
+npx kill-port 3000
 ```
-
-The new case starts with `status = "untested"`.
-
-### Recording a test run
-
-```bash
-# POST /api/test-cases/:id/runs
-curl -s -X POST http://localhost:3000/api/test-cases/7/runs \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "status": "failed",
-    "notes": "Login button unresponsive on Firefox 122",
-    "run_by": "qa@example.com"
-  }'
-```
-
-This call:
-1. Inserts a `test_runs` row with the provided status, notes, and tester identity.
-2. Sets `test_cases.status = "failed"` on the parent case.
-3. Writes a `test_run` action to `activity_log` so the result appears in the dashboard activity feed and the card's history.
-
-### How the card tile indicator is updated
-
-`GET /api/cards/:cardId/test-cases` returns a `summary` object:
-
-```json
-{ "total": 4, "passed": 1, "failed": 1, "untested": 2, "blocked": 0, "skipped": 0 }
-```
-
-The `CardContent` component reads this summary whenever the card modal is opened and renders a colour-coded mini progress bar at the bottom of the card tile (green = passed, red = failed, amber = blocked, gray = untested/skipped). Recording a new run via the API will be reflected on the next fetch.
-
-### Grouping test cases into suites
-
-```bash
-# 1. Create a suite
-curl -s -X POST http://localhost:3000/api/projects/1/test-suites \
-  -H 'Content-Type: application/json' \
-  -d '{ "name": "Auth flows", "description": "Login, logout, and token refresh" }'
-
-# 2. Assign a test case to the suite
-curl -s -X PATCH http://localhost:3000/api/test-cases/7 \
-  -H 'Content-Type: application/json' \
-  -d '{ "suite_id": 1 }'
-```
-
-Deleting a suite sets `suite_id = null` on its test cases but does not delete the cases themselves.
 
 ## Reporting Issues
 
