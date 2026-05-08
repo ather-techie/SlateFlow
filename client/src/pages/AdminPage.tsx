@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { api } from '../api'
+import { api as newApi } from '../api/index'
 import { useAuthStore } from '../store/authStore'
 import { useFeatureFlagStore } from '../store/featureFlagStore'
-import type { Project, User } from '../types'
+import type { CalendarHoliday, Project, User } from '../types'
 import ProjectAccessModal from '../components/ProjectAccessModal'
+import EntryFormModal, { type EntryEditing } from '../components/Calendar/EntryFormModal'
 
-type Tab = 'users' | 'settings'
+type Tab = 'users' | 'settings' | 'holidays'
 
 type ProjectAssignment = { project_id: number; role: 'project_admin' | 'contributor' | 'reader' }
 
@@ -373,7 +375,7 @@ function SettingsTab() {
       if (!res.ok) throw new Error(json.error ?? 'Failed')
       setStoreFlags(json.data.features)
       await refetchFlags()
-      toast.success(`AI features ${newEnabled ? 'enabled' : 'disabled'}`)
+      toast.success(`Feature ${newEnabled ? 'enabled' : 'disabled'}`)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to update feature flag')
     }
@@ -401,6 +403,14 @@ function SettingsTab() {
     ai: {
       label: 'AI Features',
       description: 'Enable AI-powered features such as card summarization, auto-prioritization, and natural-language search. Requires AI_PROVIDER and AI_API_KEY to be configured.',
+    },
+    retrospective: {
+      label: 'Retrospective Board',
+      description: 'Per-sprint retrospective with three columns (Went well / To improve / Action items). Drag-and-drop notes with live updates across users.',
+    },
+    calendar: {
+      label: 'Calendar',
+      description: 'Month view of sprints, epics, and features alongside user-managed holidays, project events, and vacations.',
     },
   }
 
@@ -469,6 +479,120 @@ function SettingsTab() {
   )
 }
 
+// ─── Holidays Tab ─────────────────────────────────────────────────────────────
+
+function HolidaysTab() {
+  const calendarEnabled = useFeatureFlagStore(s => s.isEnabled('calendar'))
+  const [holidays, setHolidays] = useState<CalendarHoliday[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'edit'; entry: EntryEditing } | null>(null)
+
+  function loadHolidays() {
+    if (!calendarEnabled) { setLoading(false); return }
+    setLoading(true)
+    const year = new Date().getFullYear()
+    const from = `${year - 1}-01-01`
+    const to   = `${year + 5}-12-31`
+    // The read endpoint is project-scoped; we fetch the default project to obtain the global holidays list.
+    api.getProjects()
+      .then(projects => {
+        const defaultProject = projects.find(p => p.is_default === 1) ?? projects[0]
+        if (!defaultProject) {
+          setHolidays([])
+          return
+        }
+        return newApi.calendar.get(defaultProject.id, from, to).then(d => setHolidays(d.holidays))
+      })
+      .catch(() => toast.error('Failed to load holidays'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(loadHolidays, [calendarEnabled])
+
+  if (!calendarEnabled) {
+    return (
+      <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 text-sm text-slate-400">
+        Enable the <span className="font-semibold text-slate-200">Calendar</span> feature flag in Settings to manage holidays.
+      </div>
+    )
+  }
+
+  if (loading) return <p className="text-slate-400 text-sm">Loading…</p>
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-slate-400">{holidays.length} holiday{holidays.length !== 1 ? 's' : ''} (global)</p>
+        <button onClick={() => setModal({ mode: 'create' })} className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg px-4 py-2">
+          + New holiday
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-slate-700">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-800 text-slate-400 text-xs uppercase">
+            <tr>
+              <th className="text-left px-4 py-3">Title</th>
+              <th className="text-left px-4 py-3">Start</th>
+              <th className="text-left px-4 py-3">End</th>
+              <th className="text-right px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {holidays.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-8 text-center text-slate-500">No global holidays yet.</td>
+              </tr>
+            )}
+            {holidays.map(h => (
+              <tr key={h.id} className="bg-slate-900 hover:bg-slate-800/50">
+                <td className="px-4 py-3">
+                  <p className="text-slate-100 font-medium">{h.title}</p>
+                  {h.description && <p className="text-slate-500 text-xs">{h.description}</p>}
+                </td>
+                <td className="px-4 py-3 text-slate-300">{h.start_date}</td>
+                <td className="px-4 py-3 text-slate-300">{h.end_date}</td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => setModal({ mode: 'edit', entry: {
+                      id: h.id, kind: 'holiday', title: h.title, description: h.description,
+                      start_date: h.start_date, end_date: h.end_date, color: h.color,
+                    }})}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded hover:bg-slate-700"
+                  >
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {modal?.mode === 'create' && (
+        <EntryFormModal
+          projectId={0}
+          initialKind="holiday"
+          allowedKinds={['holiday']}
+          onClose={() => setModal(null)}
+          onSaved={loadHolidays}
+        />
+      )}
+      {modal?.mode === 'edit' && (
+        <EntryFormModal
+          projectId={0}
+          editing={modal.entry}
+          allowedKinds={['holiday']}
+          canDelete
+          onClose={() => setModal(null)}
+          onSaved={loadHolidays}
+          onDeleted={loadHolidays}
+        />
+      )}
+    </div>
+  )
+}
+
 // ─── Admin Page ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -505,6 +629,12 @@ export default function AdminPage() {
             Users
           </button>
           <button
+            onClick={() => setActiveTab('holidays')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'holidays' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+          >
+            Holidays
+          </button>
+          <button
             onClick={() => setActiveTab('settings')}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'settings' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
@@ -513,6 +643,7 @@ export default function AdminPage() {
         </div>
 
         {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'holidays' && <HolidaysTab />}
         {activeTab === 'settings' && <SettingsTab />}
       </div>
     </div>

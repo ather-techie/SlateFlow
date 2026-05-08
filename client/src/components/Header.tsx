@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import type { Project, Sprint } from '../types'
 
@@ -15,7 +15,6 @@ function fmt(dateStr: string) {
 }
 
 export default function Header({ project, sprints, selectedSprintId, onSprintChange }: Props) {
-  const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const location = useLocation()
   const [projects, setProjects] = useState<Project[]>([])
@@ -28,6 +27,8 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
     if (location.pathname.endsWith('/backlog')) return 'backlog'
     if (location.pathname.endsWith('/sprints')) return 'sprints'
     if (location.pathname.endsWith('/epics')) return 'epics'
+    if (location.pathname.endsWith('/retrospective')) return 'retrospective'
+    if (location.pathname.endsWith('/calendar')) return 'calendar'
     return 'board'
   }
 
@@ -37,9 +38,6 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
   }
 
   const activeSprint = sprints.find(s => s.status === 'active')
-
-  const navClass = ({ isActive }: { isActive: boolean }) =>
-    `text-sm font-medium transition-colors ${isActive ? 'text-white' : 'text-slate-400 hover:text-slate-200'}`
 
   return (
     <header className="h-14 bg-slate-900 text-white flex items-center px-6 gap-4 flex-shrink-0 border-b border-slate-800">

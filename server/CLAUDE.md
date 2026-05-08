@@ -69,6 +69,8 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 | `routes/sse.ts` | `GET /events` (EventSource stream) |
 | `routes/adminSettings.ts` | Super Admin: `GET/PATCH/DELETE /admin/feature-overrides[/:flag]` |
 | `routes/ai.ts` | `POST /ai/cards/:id/summarize` (gated by `FEATURE_AI`) |
+| `routes/retrospectives.ts` | `GET /sprints/:id/retrospective` (auto-creates), `POST/PATCH/DELETE` on `/retrospectives/:id/items` and `/retrospective-items/:id`, `POST /retrospectives/:id/reorder` (gated by `FEATURE_RETROSPECTIVE`) |
+| `routes/calendar.ts` | `GET /projects/:id/calendar?from=&to=` (sprints/epics/features/holidays/events/vacations); event CRUD on `/projects/:id/calendar/events` + `/calendar/events/:id`; vacation CRUD on `/vacations[/:id]`; super-admin holiday CRUD on `/admin/holidays[/:id]` (all gated by `FEATURE_CALENDAR`) |
 | `lib/openapi.ts` | `GET /api/openapi.json` (test-case OpenAPI subset) |
 
 Full request/response shapes + curl examples live in [../docs/api.md](../docs/api.md). Keep that file synced when adding endpoints.
@@ -110,6 +112,9 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 | `notifications` | id | `user_id` FK, `type`, `entity_type`, `entity_id`, `is_read`, `message` |
 | `feature_overrides` | flag | `enabled` (0/1), `updated_by`, `updated_at` |
 | `lane_presets` | id | `lanes` JSON |
+| `retrospectives` | id | `sprint_id` UNIQUE FK → sprints (one retro per sprint, cascade) |
+| `retrospective_items` | id | `retrospective_id` FK + `category` (went_well/to_improve/action) + `body` + `position` + `author_id` |
+| `calendar_entries` | id | `kind` (holiday/event/vacation), nullable `project_id` (events only) and `user_id` (vacations only), `start_date`, `end_date`, `color`, `created_by` |
 
 Indexes: `notifications(user_id, is_read, created_at DESC)`, `epic_access(user_id, epic_id)`, `project_access(user_id, project_id)`, `story_dependencies(blocker_id, blocked_id)`.
 
@@ -127,6 +132,8 @@ If you add a new "Default X" concept, also add a backfill step that creates the 
 ## Real-time (SSE)
 
 [lib/eventBus.ts](src/lib/eventBus.ts) is a process-local `EventEmitter`. Route handlers call `eventBus.emit('card:moved', payload)` after a successful mutation. [routes/sse.ts](src/routes/sse.ts) is the only subscriber — it forwards every emitted event onto the `EventSource` stream, plus a `ping` every 25s.
+
+Event types currently emitted: `card:created`, `card:updated`, `card:moved`, `card:deleted`, `epic:updated`, `notification` (per-user), `retro:item:created`, `retro:item:updated`, `retro:item:deleted`, `calendar:entry:created`, `calendar:entry:updated`, `calendar:entry:deleted`. The two latter groups carry `projectId: number | null` (calendar entries are global for holidays/vacations).
 
 When mutating a board entity, **emit AFTER the DB commit, not before**, so a failed insert never produces a phantom event. Pattern: `await db.run(...)` then `eventBus.emit(...)` then `return ok(c, ...)`.
 

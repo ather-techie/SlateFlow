@@ -253,3 +253,50 @@ CREATE TABLE IF NOT EXISTS feature_overrides (
   updated_by  INTEGER REFERENCES users(id),
   updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ── Retrospectives (per-sprint) ───────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS retrospectives (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  sprint_id  INTEGER NOT NULL UNIQUE REFERENCES sprints(id) ON DELETE CASCADE,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS retrospective_items (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  retrospective_id INTEGER NOT NULL REFERENCES retrospectives(id) ON DELETE CASCADE,
+  category         TEXT    NOT NULL CHECK (category IN ('went_well','to_improve','action')),
+  body             TEXT    NOT NULL,
+  position         INTEGER NOT NULL DEFAULT 0,
+  author_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_retro_items_retro ON retrospective_items(retrospective_id);
+
+-- ── Calendar entries (holidays, events, vacations) ────────────────────────────
+-- holiday  : project_id NULL, user_id NULL  — global, super_admin only
+-- event    : project_id NOT NULL, user_id NULL — project-scoped, contributor+
+-- vacation : project_id NULL, user_id NOT NULL — user-owned, self/admin
+
+CREATE TABLE IF NOT EXISTS calendar_entries (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind        TEXT    NOT NULL CHECK (kind IN ('holiday','event','vacation')),
+  project_id  INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  title       TEXT    NOT NULL,
+  description TEXT,
+  start_date  TEXT    NOT NULL,
+  end_date    TEXT    NOT NULL,
+  color       TEXT,
+  created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendar_entries_project ON calendar_entries(project_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_entries_user    ON calendar_entries(user_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_entries_dates   ON calendar_entries(start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_entries_kind    ON calendar_entries(kind);

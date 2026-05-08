@@ -25,6 +25,8 @@ import reports from './routes/reports.js'
 import configRoute from './routes/config.js'
 import adminSettings from './routes/adminSettings.js'
 import aiRoutes from './routes/ai.js'
+import retrospectives from './routes/retrospectives.js'
+import calendar from './routes/calendar.js'
 import { requireAuth } from './middleware/requireAuth.js'
 import { testCaseOpenApi } from './lib/openapi.js'
 
@@ -67,6 +69,8 @@ app.route('/api', roadmap)
 app.route('/api', reports)
 app.route('/api', adminSettings)
 app.route('/api', aiRoutes)
+app.route('/api', retrospectives)
+app.route('/api', calendar)
 
 app.get('/api/openapi.json', (c) => c.json(testCaseOpenApi))
 

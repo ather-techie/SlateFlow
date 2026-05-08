@@ -17,7 +17,10 @@ import ProjectSetupPage from './pages/ProjectSetupPage'
 import AdminPage from './pages/AdminPage'
 import RoadmapPage from './pages/RoadmapPage'
 import ReportsPage from './pages/ReportsPage'
+import RetrospectivePage from './pages/RetrospectivePage'
+import CalendarPage from './pages/CalendarPage'
 import NotFoundPage from './pages/NotFoundPage'
+import { FeatureGate } from './components/FeatureGate'
 
 function RootRedirect() {
   const [hasProjects, setHasProjects] = useState<boolean | null>(null)
@@ -41,7 +44,7 @@ function RootRedirect() {
 }
 
 export default function App() {
-  const { setUser, setLoading } = useAuthStore()
+  const { setUser } = useAuthStore()
   const { setFlags, setLoading: setFlagsLoading } = useFeatureFlagStore()
 
   // Hydrate auth state on mount
@@ -60,7 +63,7 @@ export default function App() {
     fetch('/api/config', { credentials: 'include' })
       .then(r => r.json())
       .then(json => { if (json.data) setFlags(json.data.features) })
-      .catch(() => setFlags({ ai: false }))
+      .catch(() => setFlags({ ai: false, retrospective: false, calendar: false }))
       .finally(() => setFlagsLoading(false))
   }, [setFlags, setFlagsLoading])
 
@@ -100,6 +103,14 @@ export default function App() {
           <Route path="/projects/:projectId/tests" element={<TestSuitePage />} />
           <Route path="/projects/:projectId/roadmap" element={<RoadmapPage />} />
           <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
+          <Route
+            path="/projects/:projectId/retrospective"
+            element={<FeatureGate flag="retrospective" fallback={<NotFoundPage />}><RetrospectivePage /></FeatureGate>}
+          />
+          <Route
+            path="/projects/:projectId/calendar"
+            element={<FeatureGate flag="calendar" fallback={<NotFoundPage />}><CalendarPage /></FeatureGate>}
+          />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

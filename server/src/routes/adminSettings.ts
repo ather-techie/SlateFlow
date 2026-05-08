@@ -15,7 +15,7 @@ adminSettings.get('/admin/feature-overrides', async (c) => {
   )
   const overrideMap = new Map(rows.map((r) => [r.flag, r.enabled]))
 
-  const flags: FeatureFlag[] = ['ai']
+  const flags: FeatureFlag[] = ['ai', 'retrospective', 'calendar']
   const result = await Promise.all(flags.map(async (flag) => {
     const envKey = `FEATURE_${flag.toUpperCase()}`
     const envEnabled = process.env[envKey] === 'true'
@@ -37,7 +37,7 @@ const PatchBody = z.object({ enabled: z.boolean() })
 
 adminSettings.patch('/admin/feature-overrides/:flag', async (c) => {
   const flag = c.req.param('flag') as FeatureFlag
-  const knownFlags: FeatureFlag[] = ['ai']
+  const knownFlags: FeatureFlag[] = ['ai', 'retrospective', 'calendar']
   if (!knownFlags.includes(flag)) return err(c, 'unknown feature flag', 404)
 
   const body = await c.req.json().catch(() => null)
@@ -53,7 +53,7 @@ adminSettings.patch('/admin/feature-overrides/:flag', async (c) => {
 
 adminSettings.delete('/admin/feature-overrides/:flag', async (c) => {
   const flag = c.req.param('flag') as FeatureFlag
-  const knownFlags: FeatureFlag[] = ['ai']
+  const knownFlags: FeatureFlag[] = ['ai', 'retrospective', 'calendar']
   if (!knownFlags.includes(flag)) return err(c, 'unknown feature flag', 404)
 
   const { db } = await import('../db/index.js')

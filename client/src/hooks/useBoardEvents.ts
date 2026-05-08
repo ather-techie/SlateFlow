@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
 import { useBoardStore } from '../store/boardStore'
-import type { Card } from '../types'
+import { useRetroStore } from '../store/retroStore'
+import type { Card, RetroItem } from '../types'
 
 export function useBoardEvents(projectId: number) {
   const { updateCard, deleteCard, addCard } = useBoardStore()
+  const { addItem: addRetroItem, updateItem: updateRetroItem, removeItem: removeRetroItem } = useRetroStore()
 
   useEffect(() => {
     const es = new EventSource('/api/events', { withCredentials: true })
@@ -26,6 +28,17 @@ export function useBoardEvents(projectId: number) {
       deleteCard(id)
     })
 
+    es.addEventListener('retro:item:created', (e: MessageEvent) => {
+      addRetroItem(JSON.parse(e.data) as RetroItem)
+    })
+    es.addEventListener('retro:item:updated', (e: MessageEvent) => {
+      updateRetroItem(JSON.parse(e.data) as RetroItem)
+    })
+    es.addEventListener('retro:item:deleted', (e: MessageEvent) => {
+      const { id } = JSON.parse(e.data) as { id: number }
+      removeRetroItem(id)
+    })
+
     return () => es.close()
-  }, [projectId, addCard, updateCard, deleteCard])
+  }, [projectId, addCard, updateCard, deleteCard, addRetroItem, updateRetroItem, removeRetroItem])
 }

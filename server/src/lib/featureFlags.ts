@@ -1,8 +1,8 @@
 import { db } from '../db/index.js'
 
-export type FeatureFlag = 'ai'
+export type FeatureFlag = 'ai' | 'retrospective' | 'calendar'
 
-const KNOWN_FLAGS: FeatureFlag[] = ['ai']
+const KNOWN_FLAGS: FeatureFlag[] = ['ai', 'retrospective', 'calendar']
 
 interface OverrideRow {
   enabled: number

@@ -316,3 +316,102 @@ export interface Notification {
   is_read: number
   created_at: string
 }
+
+// ── Retrospectives ────────────────────────────────────────────────────────────
+
+export type RetroCategory = 'went_well' | 'to_improve' | 'action'
+
+export interface Retrospective {
+  id: number
+  sprint_id: number
+  created_at: string
+  updated_at: string
+}
+
+export interface RetroItem {
+  id: number
+  retrospective_id: number
+  category: RetroCategory
+  body: string
+  position: number
+  author_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+// ── Calendar ──────────────────────────────────────────────────────────────────
+
+export type CalendarEntryKind = 'holiday' | 'event' | 'vacation'
+
+export interface CalendarSprintEntry {
+  id: number
+  name: string
+  start_date: string
+  end_date: string
+  status: 'active' | 'completed' | 'planned'
+}
+
+export interface CalendarEpicEntry {
+  id: number
+  title: string
+  start_date: string
+  end_date: string
+  status: Epic['status']
+  priority: Epic['priority']
+}
+
+export interface CalendarFeatureEntry {
+  id: number
+  title: string
+  start_date: string
+  end_date: string
+  status: Feature['status']
+  priority: Feature['priority']
+  epic_id: number | null
+}
+
+export interface CalendarHoliday {
+  id: number
+  title: string
+  description: string | null
+  start_date: string
+  end_date: string
+  color: string | null
+  created_by: number | null
+  created_at: string
+}
+
+export interface CalendarEvent {
+  id: number
+  project_id: number
+  title: string
+  description: string | null
+  start_date: string
+  end_date: string
+  color: string | null
+  created_by: number | null
+  created_at: string
+}
+
+export interface CalendarVacation {
+  id: number
+  user_id: number
+  title: string
+  description: string | null
+  start_date: string
+  end_date: string
+  color: string | null
+  created_by: number | null
+  created_at: string
+  user_display_name: string | null
+  user_email: string | null
+}
+
+export interface CalendarRange {
+  sprints: CalendarSprintEntry[]
+  epics: CalendarEpicEntry[]
+  features: CalendarFeatureEntry[]
+  holidays: CalendarHoliday[]
+  events: CalendarEvent[]
+  vacations: CalendarVacation[]
+}

@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { api } from '../api'
 import { useAuthStore } from '../store/authStore'
+import { useFeatureFlagStore } from '../store/featureFlagStore'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,22 @@ function ReportsIcon() {
   return (
     <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  )
+}
+
+function RetroIcon() {
+  return (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  )
+}
+
+function CalendarIcon() {
+  return (
+    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
     </svg>
   )
 }
@@ -235,6 +252,8 @@ export default function Layout() {
   const { projectId } = useParams<{ projectId?: string }>()
   const navigate = useNavigate()
   const { logout } = useAuthStore()
+  const retrospectiveEnabled = useFeatureFlagStore(s => s.isEnabled('retrospective'))
+  const calendarEnabled = useFeatureFlagStore(s => s.isEnabled('calendar'))
   const [expanded, setExpanded] = useState(false)
   const [hasFailedTests, setHasFailedTests] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -311,6 +330,15 @@ export default function Layout() {
             expanded={expanded}
             disabled={!projectId}
           />
+          {calendarEnabled && (
+            <NavItem
+              to={projectId ? `/projects/${projectId}/calendar` : undefined}
+              icon={<CalendarIcon />}
+              label="Calendar"
+              expanded={expanded}
+              disabled={!projectId}
+            />
+          )}
           <NavItem
             to={projectId ? `/projects/${projectId}/board` : undefined}
             icon={<BoardIcon />}
@@ -332,6 +360,15 @@ export default function Layout() {
             expanded={expanded}
             disabled={!projectId}
           />
+          {retrospectiveEnabled && (
+            <NavItem
+              to={projectId ? `/projects/${projectId}/retrospective` : undefined}
+              icon={<RetroIcon />}
+              label="Retro"
+              expanded={expanded}
+              disabled={!projectId}
+            />
+          )}
           <NavItem
             to={projectId ? `/projects/${projectId}/tests` : undefined}
             icon={<TestsIcon />}

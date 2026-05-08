@@ -1018,6 +1018,144 @@ Fetches the card's title and description, passes them to the configured AI provi
 
 ---
 
+## Retrospectives
+
+> All endpoints are gated by `FEATURE_RETROSPECTIVE`. When the flag is off they return `404`.
+
+Retrospectives are per-sprint. Each retro has three fixed categories: `went_well`, `to_improve`, `action`. The retro is auto-created on first read for a sprint.
+
+### Get retrospective for a sprint
+```bash
+curl -b cookies.txt http://localhost:3000/api/sprints/12/retrospective
+```
+```json
+{
+  "data": {
+    "retrospective": { "id": 4, "sprint_id": 12, "created_at": "...", "updated_at": "..." },
+    "items": [
+      { "id": 17, "retrospective_id": 4, "category": "went_well", "body": "Fast deploy", "position": 0, "author_id": 3, "created_at": "...", "updated_at": "..." }
+    ]
+  },
+  "error": null
+}
+```
+
+### Add an item
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/retrospectives/4/items \
+  -H 'Content-Type: application/json' \
+  -d '{ "category": "to_improve", "body": "Flaky CI" }'
+```
+Requires `canWrite` on the parent project.
+
+### Update an item
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/retrospective-items/17 \
+  -H 'Content-Type: application/json' \
+  -d '{ "body": "Fast deploy (kudos to release crew)", "category": "went_well", "position": 0 }'
+```
+All fields optional; supplying `category` or `position` moves the note within / across columns.
+
+### Delete an item
+```bash
+curl -b cookies.txt -X DELETE http://localhost:3000/api/retrospective-items/17
+```
+
+### Reorder a column
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/retrospectives/4/reorder \
+  -H 'Content-Type: application/json' \
+  -d '{ "category": "went_well", "item_ids": [22, 17, 19] }'
+```
+All `item_ids` must belong to the retrospective AND the given category. Server returns the full reordered list.
+
+---
+
+## Calendar
+
+> All endpoints are gated by `FEATURE_CALENDAR`. When the flag is off they return `404`. Holiday admin endpoints additionally require `super_admin`.
+
+The calendar surfaces existing scheduled work (sprints, epics with dates, features with dates) alongside three user-managed entry kinds:
+
+| `kind` | Scope | Who can manage |
+|---|---|---|
+| `holiday` | Global (no project) | super_admin |
+| `event` | Project-scoped | `canWrite` on project (project_admin / contributor / super_admin) |
+| `vacation` | User-owned | self, plus any project_admin or super_admin |
+
+### Get the calendar for a project + date range
+```bash
+curl -b cookies.txt 'http://localhost:3000/api/projects/1/calendar?from=2026-05-01&to=2026-05-31'
+```
+Returns every item that overlaps the requested range:
+```json
+{
+  "data": {
+    "sprints": [{ "id": 12, "name": "Sprint 12", "start_date": "2026-05-05", "end_date": "2026-05-19", "status": "active" }],
+    "epics":   [{ "id": 8, "title": "Auth", "start_date": "2026-04-15", "end_date": "2026-06-10", "status": "active", "priority": "p1" }],
+    "features":[{ "id": 14, "title": "SSO", "start_date": "2026-05-02", "end_date": "2026-05-22", "status": "active", "priority": "p2", "epic_id": 8 }],
+    "holidays":[{ "id": 1,  "title": "Memorial Day", "start_date": "2026-05-25", "end_date": "2026-05-25", "color": null, "description": null, "created_by": 1, "created_at": "..." }],
+    "events":  [{ "id": 22, "project_id": 1, "title": "Demo day", "start_date": "2026-05-15", "end_date": "2026-05-15", "color": null, "description": null, "created_by": 3, "created_at": "..." }],
+    "vacations":[{ "id": 31, "user_id": 4, "title": "Alex on vacation", "start_date": "2026-05-12", "end_date": "2026-05-16", "color": null, "description": null, "created_by": 4, "created_at": "...", "user_display_name": "Alex Chen", "user_email": "alex@example.com" }]
+  },
+  "error": null
+}
+```
+Epics are filtered by `epic_access` for non-super-admins; default epics are always visible.
+
+### Create a project event
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/projects/1/calendar/events \
+  -H 'Content-Type: application/json' \
+  -d '{ "title": "Demo day", "start_date": "2026-05-15", "end_date": "2026-05-15", "description": "Stakeholder demo", "color": "#d97706" }'
+```
+
+### Update an event
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/calendar/events/22 \
+  -H 'Content-Type: application/json' \
+  -d '{ "end_date": "2026-05-16" }'
+```
+
+### Delete an event
+```bash
+curl -b cookies.txt -X DELETE http://localhost:3000/api/calendar/events/22
+```
+
+### Create a vacation
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/vacations \
+  -H 'Content-Type: application/json' \
+  -d '{ "start_date": "2026-05-12", "end_date": "2026-05-16" }'
+```
+`user_id` defaults to the caller. To create a vacation for someone else, super_admin or any project_admin can pass `"user_id": 4` in the body. `title` defaults to `"<display_name> on vacation"`.
+
+### Update / delete a vacation
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/vacations/31 \
+  -H 'Content-Type: application/json' \
+  -d '{ "end_date": "2026-05-17" }'
+curl -b cookies.txt -X DELETE http://localhost:3000/api/vacations/31
+```
+Owner OR project_admin / super_admin only.
+
+### Create a global holiday (super_admin)
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/admin/holidays \
+  -H 'Content-Type: application/json' \
+  -d '{ "title": "Memorial Day", "start_date": "2026-05-25", "end_date": "2026-05-25" }'
+```
+
+### Update / delete a holiday (super_admin)
+```bash
+curl -b cookies.txt -X PATCH http://localhost:3000/api/admin/holidays/1 \
+  -H 'Content-Type: application/json' \
+  -d '{ "title": "Memorial Day (US)" }'
+curl -b cookies.txt -X DELETE http://localhost:3000/api/admin/holidays/1
+```
+
+---
+
 ## Error codes
 
 | Status | Meaning                            |

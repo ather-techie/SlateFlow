@@ -1,6 +1,6 @@
 # SlateFlow
 
-SlateFlow is a self-hosted, single-container project management platform for agile teams. It pairs a drag-and-drop Kanban board with the full Azure DevOps–style hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown, a Gantt-style roadmap, velocity / cycle-time / capacity reports, test case management, real-time collaboration over Server-Sent Events, multi-user RBAC at global / project / epic level, and AI card summarisation across Claude, Gemini, OpenAI, Azure OpenAI, and Ollama. SQLite + Hono + React in a single Docker image — no external services required.
+SlateFlow is a self-hosted, single-container project management platform for agile teams. It pairs a drag-and-drop Kanban board with the full Azure DevOps–style hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown, a per-sprint Retrospective Board, a calendar that blends sprints/epics/features with team holidays, events, and vacations, a Gantt-style roadmap, velocity / cycle-time / capacity reports, test case management, real-time collaboration over Server-Sent Events, multi-user RBAC at global / project / epic level, and AI card summarisation across Claude, Gemini, OpenAI, Azure OpenAI, and Ollama. SQLite + Hono + React in a single Docker image — no external services required.
 
 ## Screenshots
 
@@ -20,6 +20,8 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 - **Multi-user with RBAC** — JWT auth (httpOnly cookie); roles at global, project, and epic level
 - **Real-time updates** — Server-Sent Events stream board mutations and notifications to every connected client
 - **AI features** — card summarisation powered by a provider-agnostic interface; supports Anthropic Claude, Google Gemini, OpenAI, Azure OpenAI, and Ollama; gated by `FEATURE_AI=true`
+- **Retrospective Board** — per-sprint reflection with three fixed columns (Went well / To improve / Action items) and live drag-and-drop reorder; gated by `FEATURE_RETROSPECTIVE=true`
+- **Calendar** — month view of sprints, epics, and features alongside super-admin-managed global holidays, project events, and per-user vacations; gated by `FEATURE_CALENDAR=true`
 - **Self-host** — single Docker container, SQLite database on a named volume; no external services required
 
 ### Planning & Visibility

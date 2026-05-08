@@ -2,6 +2,10 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import type {
   ActivityItem,
+  CalendarEvent,
+  CalendarHoliday,
+  CalendarRange,
+  CalendarVacation,
   Card,
   Comment,
   DashboardStats,
@@ -10,6 +14,9 @@ import type {
   Lane,
   Project,
   ProjectSummary,
+  RetroCategory,
+  RetroItem,
+  Retrospective,
   Task,
   TestCase,
   TestCaseSummary,
@@ -155,5 +162,42 @@ export const api = {
     listRuns: (id: number) => unwrap<TestRun[]>(http.get(`/test-cases/${id}/runs`)),
     addRun: (id: number, data: { status: string; notes?: string; run_by?: string }) =>
       unwrap<TestRun>(http.post(`/test-cases/${id}/runs`, data)),
+  },
+  retrospectives: {
+    getBySprint: (sprintId: number) =>
+      unwrap<{ retrospective: Retrospective; items: RetroItem[] }>(http.get(`/sprints/${sprintId}/retrospective`)),
+    addItem: (retroId: number, data: { category: RetroCategory; body: string }) =>
+      unwrap<RetroItem>(http.post(`/retrospectives/${retroId}/items`, data)),
+    updateItem: (itemId: number, data: { body?: string; category?: RetroCategory; position?: number }) =>
+      unwrap<RetroItem>(http.patch(`/retrospective-items/${itemId}`, data)),
+    deleteItem: (itemId: number) =>
+      unwrap<{ id: number }>(http.delete(`/retrospective-items/${itemId}`)),
+    reorder: (retroId: number, category: RetroCategory, item_ids: number[]) =>
+      unwrap<RetroItem[]>(http.post(`/retrospectives/${retroId}/reorder`, { category, item_ids })),
+  },
+  calendar: {
+    get: (projectId: number, from: string, to: string) =>
+      unwrap<CalendarRange>(http.get(`/projects/${projectId}/calendar`, { params: { from, to } })),
+    events: {
+      create: (projectId: number, data: { title: string; description?: string | null; start_date: string; end_date: string; color?: string | null }) =>
+        unwrap<CalendarEvent>(http.post(`/projects/${projectId}/calendar/events`, data)),
+      update: (id: number, data: Partial<{ title: string; description: string | null; start_date: string; end_date: string; color: string | null }>) =>
+        unwrap<CalendarEvent>(http.patch(`/calendar/events/${id}`, data)),
+      delete: (id: number) => unwrap<{ id: number }>(http.delete(`/calendar/events/${id}`)),
+    },
+    vacations: {
+      create: (data: { user_id?: number; title?: string; description?: string | null; start_date: string; end_date: string; color?: string | null }) =>
+        unwrap<CalendarVacation>(http.post('/vacations', data)),
+      update: (id: number, data: Partial<{ title: string; description: string | null; start_date: string; end_date: string; color: string | null }>) =>
+        unwrap<CalendarVacation>(http.patch(`/vacations/${id}`, data)),
+      delete: (id: number) => unwrap<{ id: number }>(http.delete(`/vacations/${id}`)),
+    },
+    holidays: {
+      create: (data: { title: string; description?: string | null; start_date: string; end_date: string; color?: string | null }) =>
+        unwrap<CalendarHoliday>(http.post('/admin/holidays', data)),
+      update: (id: number, data: Partial<{ title: string; description: string | null; start_date: string; end_date: string; color: string | null }>) =>
+        unwrap<CalendarHoliday>(http.patch(`/admin/holidays/${id}`, data)),
+      delete: (id: number) => unwrap<{ id: number }>(http.delete(`/admin/holidays/${id}`)),
+    },
   },
 }

@@ -4,7 +4,7 @@ Top-level guidance for Claude Code working in this repo. **Scoped detail lives i
 
 ## What SlateFlow is
 
-A self-hosted, single-container project management platform. Drag-and-drop Kanban + Azure DevOps–style hierarchy (Project → Sprint → Epic → Feature → Story → Task) + sprint planning + roadmap + reporting + test management + multi-user RBAC + AI summarisation. SQLite + Hono + React monorepo via npm workspaces (`client/`, `server/`).
+A self-hosted, single-container project management platform. Drag-and-drop Kanban + Azure DevOps–style hierarchy (Project → Sprint → Epic → Feature → Story → Task) + sprint planning + roadmap + reporting + test management + multi-user RBAC + AI summarisation + per-sprint Retrospective Board + Calendar (sprints/epics/features alongside holidays, events, and vacations). SQLite + Hono + React monorepo via npm workspaces (`client/`, `server/`).
 
 ## Commands
 
@@ -27,6 +27,8 @@ No test suite is configured.
 | `DATABASE_PATH` | `server/slateflow.db` | SQLite file path; Docker sets to `/data/slateflow.db` |
 | `PORT` | `3000` | Server listen port |
 | `FEATURE_AI` | `false` | Enterprise gate — `true` enables all AI endpoints and UI surfaces |
+| `FEATURE_RETROSPECTIVE` | `false` | Enables the per-sprint Retrospective Board (sidebar nav + `/api/sprints/:id/retrospective` and item endpoints) |
+| `FEATURE_CALENDAR` | `false` | Enables the Calendar surface (sidebar nav + `/api/projects/:id/calendar` plus event/vacation/holiday CRUD) |
 | `AI_PROVIDER` | _(none)_ | `claude` \| `gemini` \| `openai` \| `azure` \| `ollama` |
 | `AI_MODEL` | provider default | Override the default model |
 | `AI_API_KEY` | _(none)_ | Provider API key (not required for Ollama) |
@@ -83,6 +85,8 @@ resolved flag               → server: requireFeature('ai') middleware
 ```
 
 `GET /api/config` (public) exposes the resolved flags so the client can gate UI without hard-coding. `PATCH /api/admin/feature-overrides/:flag` (super_admin) toggles the runtime override. The env var is the authoritative ceiling for self-hosted deployments.
+
+Three flags are currently registered: `ai`, `retrospective`, `calendar`. When adding a new flag, update **all four** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + `KNOWN_FLAGS`), [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) (three hard-coded lists), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts), and the env-var table above.
 
 ## AI Providers
 

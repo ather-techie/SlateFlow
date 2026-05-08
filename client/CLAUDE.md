@@ -31,6 +31,8 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `/projects/:id/tests` | `TestSuitePage` | Layout |
 | `/projects/:id/roadmap` | `RoadmapPage` | Layout |
 | `/projects/:id/reports` | `ReportsPage` | Layout |
+| `/projects/:id/retrospective` | `RetrospectivePage` (gated by `retrospective` flag) | Layout |
+| `/projects/:id/calendar` | `CalendarPage` (gated by `calendar` flag) | Layout |
 | `*` | `NotFoundPage` | — |
 
 ## Pages
@@ -47,7 +49,9 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `TestSuitePage` | 3-pane: suite navigator / test case table with bulk actions / detail panel; CSV export |
 | `RoadmapPage` | Gantt-style timeline; epic rows with collapsible feature sub-rows; date editor popover |
 | `ReportsPage` | Velocity chart, cycle-time chart, capacity per assignee, CSV export buttons (backlog/sprint/full) |
-| `AdminPage` | Super-admin only; **Users** tab (list, `CreateUserModal`, `ProjectAccessModal`) and **Settings** tab (feature flag toggles) |
+| `AdminPage` | Super-admin only; **Users**, **Holidays** (global, gated by `calendar` flag), and **Settings** (feature flag toggles) tabs |
+| `RetrospectivePage` | Per-sprint retro with three fixed columns (Went well / To improve / Action items) and `@dnd-kit` reorder. Gated by `retrospective` flag |
+| `CalendarPage` | Month view of sprints, epics, features + holidays/events/vacations. Prev/next/today nav; `+` on a day or button to add an entry. Gated by `calendar` flag |
 | `NotFoundPage` | 404 fallback |
 
 ## Components
@@ -55,6 +59,8 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 - `Layout` — sidebar + outlet; renders unread notification bell (clears on click) and failed-test badge driven by SSE
 - `Header` — dark blue top bar; project name, active-sprint label, project + sprint dropdowns, "live" indicator
 - `Board/Card`, `Board/Column`, `Board/AddCardForm` — DnD-aware Kanban primitives in [src/components/Board/](src/components/Board/)
+- `Retro/RetroColumn`, `Retro/RetroNote` — DnD-aware retrospective primitives in [src/components/Retro/](src/components/Retro/) (mirror the Board/ pattern with three fixed categories instead of dynamic lanes)
+- `Calendar/MonthGrid`, `Calendar/EntryBar`, `Calendar/EntryFormModal` — calendar surface in [src/components/Calendar/](src/components/Calendar/). `EntryFormModal` is reused by `AdminPage`'s Holidays tab via `allowedKinds={['holiday']}`
 - `Board/ManageLanesModal` — CRUD lanes (create, rename, recolor, reorder, delete with card-count guard)
 - `CardModal` — full story editor; **5 tabs**: Description (with inline Tasks checklist), Comments, Activity, Tests, Dependencies (blocks / blocked-by). Right sidebar holds Sprint, Feature, Assignee, Priority, Story Points selectors
 - `ProtectedRoute` — auth gate; redirects to `/login` when no session
@@ -70,7 +76,8 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `authStore.ts` | `user`, `loading`; helpers `isSuperAdmin()`, `canReadProject(id)`, `canWriteProject(id)`, `canManageProject(id)` |
 | `projectStore.ts` | `projects`, `currentProject`; `setCurrentProject`, `fetchProjects()` |
 | `boardStore.ts` | `lanes`, `cards`, `testCaseSummary`, `taskSummary`; mutations: `moveCard`, `addCard`, `updateCard`, `deleteCard`, summary setters |
-| `featureFlagStore.ts` | `features` (currently only `ai: boolean`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
+| `retroStore.ts` | `retroId`, `items`; mutations: `setRetro`, `addItem`, `updateItem`, `removeItem`, `setItems`, `clear` (mutations only apply when the incoming item belongs to the active retro) |
+| `featureFlagStore.ts` | `features` (`ai`, `retrospective`, `calendar`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
 
 ## API clients
 
@@ -85,7 +92,7 @@ Vite proxies `/api` → `localhost:3000` in dev (see `vite.config.ts`). Both cli
 
 ## Hooks ([src/hooks/](src/hooks/))
 
-- `useBoardEvents(projectId)` — opens an `EventSource` against `/api/events`, dispatches `card:*` and `epic:*` events into `boardStore`, increments `notification` counts on `Layout`. Use this hook in any new page that needs live board updates.
+- `useBoardEvents(projectId)` — opens an `EventSource` against `/api/events`, dispatches `card:*` and `epic:*` events into `boardStore`, `retro:item:*` into `retroStore`, increments `notification` counts on `Layout`. Use this hook in any new page that needs live board updates. The `CalendarPage` opens its own `EventSource` for `calendar:entry:*` (because it triggers a refetch instead of patching a store).
 
 ## Patterns to reuse
 
