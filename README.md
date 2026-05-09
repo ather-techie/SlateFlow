@@ -18,6 +18,7 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 - **Test management** — attach test cases to cards; group into test suites; record pass/fail/blocked runs; track status with a per-card summary bar
 - **Labels & comments** — tag cards and leave threaded comments; `@mention` notifications
 - **Multi-user with RBAC** — JWT auth (httpOnly cookie); roles at global, project, and epic level
+- **Flexible login methods** — email/password, Google OAuth, and GitHub OAuth, each independently toggleable via feature flags (`FEATURE_AUTH_PASSWORD`, `FEATURE_AUTH_GOOGLE`, `FEATURE_AUTH_GITHUB`); identities stored in a `user_identities` table that's ready for SSO
 - **Real-time updates** — Server-Sent Events stream board mutations and notifications to every connected client
 - **AI features** — card summarisation powered by a provider-agnostic interface; supports Anthropic Claude, Google Gemini, OpenAI, Azure OpenAI, and Ollama; gated by `FEATURE_AI=true`
 - **Retrospective Board** — per-sprint reflection with three fixed columns (Went well / To improve / Action items) and live drag-and-drop reorder; gated by `FEATURE_RETROSPECTIVE=true`

@@ -193,6 +193,21 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Multi-provider identities per user (password / google / github / future SSO).
+-- A user can link multiple providers; provider_user_id is the stable subject from
+-- the provider (sub for Google, numeric id for GitHub, user.id for password).
+CREATE TABLE IF NOT EXISTS user_identities (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider         TEXT    NOT NULL CHECK (provider IN ('password','google','github')),
+  provider_user_id TEXT    NOT NULL,
+  created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (provider, provider_user_id),
+  UNIQUE (user_id, provider)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_identities_user ON user_identities(user_id);
+
 -- Epic-scoped role assignments (one row per user–epic pair) — kept for backward compat
 CREATE TABLE IF NOT EXISTS epic_access (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

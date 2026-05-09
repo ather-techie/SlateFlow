@@ -11,7 +11,7 @@ All responses share this envelope:
 Success → `data` is populated, `error` is `null`.  
 Error → `data` is `null`, `error` is a human-readable message.
 
-> **Authentication required:** All endpoints except `POST /api/auth/login`, `POST /api/auth/logout`, and `GET /api/config` require a valid session. Include `credentials: 'include'` (fetch) or `withCredentials: true` (axios) so the `sf_token` httpOnly cookie is sent automatically.
+> **Authentication required:** All endpoints except `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/{google,github}/{start,callback}`, and `GET /api/config` require a valid session. Include `credentials: 'include'` (fetch) or `withCredentials: true` (axios) so the `sf_token` httpOnly cookie is sent automatically.
 
 > **OpenAPI:** A subset (the test-case routes) is published as machine-readable JSON at `GET /api/openapi.json` for tooling integration.
 
@@ -19,14 +19,43 @@ Error → `data` is `null`, `error` is a human-readable message.
 
 ## Authentication
 
-### Login
+SlateFlow supports three login methods, each independently gated by a feature flag:
+
+- `POST /api/auth/login` — email + password (gated by `auth_password`)
+- `GET /api/auth/google/start` → `/api/auth/google/callback` — Google OAuth (gated by `auth_google`)
+- `GET /api/auth/github/start` → `/api/auth/github/callback` — GitHub OAuth (gated by `auth_github`)
+
+When a flag is disabled (env var `false` or no DB override), the corresponding routes return 404. Toggle flags via `PATCH /api/admin/feature-overrides/:flag` (super_admin only) or via env vars (`FEATURE_AUTH_PASSWORD`, `FEATURE_AUTH_GOOGLE`, `FEATURE_AUTH_GITHUB`).
+
+### Login (email + password)
 ```bash
 curl -c cookies.txt -X POST http://localhost:3000/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@flow.local","password":"Admin1234!"}'
 ```
 Sets an httpOnly `sf_token` cookie (7-day TTL) on success.  
-Response: `{ "data": { "id": 1, "email": "...", "display_name": "Administrator", "role": "super_admin" } }`
+Response: `{ "data": { "id": 1, "email": "...", "display_name": "Administrator", "role": "super_admin" } }`  
+Returns 404 when `auth_password` is disabled.
+
+### Login (Google OAuth)
+1. Browser navigates to `GET /api/auth/google/start`. The server generates a random CSRF token, sets it as the short-lived `sf_oauth_state` cookie, and 302-redirects to Google's consent page.
+2. Google redirects back to `GET /api/auth/google/callback?code=…&state=…`. The server validates the state cookie, exchanges the code for an access token, fetches the user profile (`sub`, `email`, `email_verified`, `name`), upserts the local user via `user_identities`, sets the `sf_token` cookie, and 302-redirects to `/`.
+
+Configure the Google OAuth Client redirect URI as `<OAUTH_REDIRECT_BASE_URL>/api/auth/google/callback` (default `http://localhost:3000/api/auth/google/callback`).
+
+### Login (GitHub OAuth)
+Same flow as Google. Profile is fetched from `https://api.github.com/user` plus `https://api.github.com/user/emails` (the primary verified email is used). Configure the GitHub OAuth App callback URL as `<OAUTH_REDIRECT_BASE_URL>/api/auth/github/callback`.
+
+### OAuth error redirects
+On failure, the callback redirects to `/login?error=<reason>` so the LoginPage can surface a toast. Reasons:
+
+| `error` | Meaning |
+|---|---|
+| `oauth_state_mismatch` | The `sf_oauth_state` cookie was missing/expired or didn't match the `state` query param (possible CSRF / >5 min delay) |
+| `email_not_verified` | The provider returned an unverified email; SlateFlow refuses to auto-create or auto-link |
+| `oauth_failed` | Code exchange or profile lookup failed (provider error, network, or invalid response) |
+| `oauth_misconfigured` | `OAUTH_<PROVIDER>_CLIENT_ID/SECRET` env vars are missing |
+| `account_inactive` | Linked account is soft-deleted or `is_active = 0` |
 
 ### Logout
 ```bash

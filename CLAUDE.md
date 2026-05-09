@@ -29,6 +29,14 @@ No test suite is configured.
 | `FEATURE_AI` | `false` | Enterprise gate — `true` enables all AI endpoints and UI surfaces |
 | `FEATURE_RETROSPECTIVE` | `false` | Enables the per-sprint Retrospective Board (sidebar nav + `/api/sprints/:id/retrospective` and item endpoints) |
 | `FEATURE_CALENDAR` | `false` | Enables the Calendar surface (sidebar nav + `/api/projects/:id/calendar` plus event/vacation/holiday CRUD) |
+| `FEATURE_AUTH_PASSWORD` | `true` (seeded on first boot) | Email/password login (`POST /api/auth/login`). Set to `false` to require all users to authenticate via OAuth/SSO |
+| `FEATURE_AUTH_GOOGLE` | `false` | Enables Google OAuth login (`/api/auth/google/start` + callback). Requires `OAUTH_GOOGLE_*` |
+| `FEATURE_AUTH_GITHUB` | `false` | Enables GitHub OAuth login (`/api/auth/github/start` + callback). Requires `OAUTH_GITHUB_*` |
+| `OAUTH_REDIRECT_BASE_URL` | `http://localhost:3000` | Public origin used to build OAuth callback URLs |
+| `OAUTH_GOOGLE_CLIENT_ID` | _(none)_ | From Google Cloud Console (OAuth 2.0 Client ID) |
+| `OAUTH_GOOGLE_CLIENT_SECRET` | _(none)_ | |
+| `OAUTH_GITHUB_CLIENT_ID` | _(none)_ | From a GitHub OAuth App |
+| `OAUTH_GITHUB_CLIENT_SECRET` | _(none)_ | |
 | `AI_PROVIDER` | _(none)_ | `claude` \| `gemini` \| `openai` \| `azure` \| `ollama` |
 | `AI_MODEL` | provider default | Override the default model |
 | `AI_API_KEY` | _(none)_ | Provider API key (not required for Ollama) |
@@ -36,7 +44,15 @@ No test suite is configured.
 
 ## Authentication & RBAC
 
-JWT in httpOnly cookie (`sf_token`, 7-day TTL). The `requireAuth` middleware applies to all `/api/*` except `/api/auth/login`, `/api/auth/logout`, `/api/config`, and injects `c.set('user', user)`.
+JWT in httpOnly cookie (`sf_token`, 7-day TTL). Three login methods are available, each gated by an independent feature flag so a deployment can run "password-only", "GitHub + Google only", or any combination:
+
+- **Email + password** (`POST /api/auth/login`) — gated by `auth_password`
+- **Google OAuth** (`GET /api/auth/google/start` → `/api/auth/google/callback`) — gated by `auth_google`
+- **GitHub OAuth** (`GET /api/auth/github/start` → `/api/auth/github/callback`) — gated by `auth_github`
+
+Identities live in the `user_identities` table — a single user can have multiple linked providers. OAuth-only users are created with a locked random `password_hash` so they can never password-login. When a provider returns an email matching an existing user, the OAuth identity is auto-linked **only if the provider verified the email** (`email_verified=true` for Google; primary + verified email from GitHub `/user/emails`); otherwise the login is rejected with a `?error=email_not_verified` redirect.
+
+The `requireAuth` middleware applies to all `/api/*` except `/api/auth/*` (login, logout, OAuth start/callback) and `/api/config`, and injects `c.set('user', user)`.
 
 Three role layers exist; **a higher layer always wins**:
 
@@ -86,7 +102,7 @@ resolved flag               → server: requireFeature('ai') middleware
 
 `GET /api/config` (public) exposes the resolved flags so the client can gate UI without hard-coding. `PATCH /api/admin/feature-overrides/:flag` (super_admin) toggles the runtime override. The env var is the authoritative ceiling for self-hosted deployments.
 
-Three flags are currently registered: `ai`, `retrospective`, `calendar`. When adding a new flag, update **all four** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + `KNOWN_FLAGS`), [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) (three hard-coded lists), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts), and the env-var table above.
+Six flags are currently registered: `ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`. When adding a new flag, update **all four** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + `KNOWN_FLAGS`), [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) (two hard-coded lists), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
 
 ## AI Providers
 

@@ -144,6 +144,36 @@ if (!adminExists) {
   console.info('[db] Seeded admin@flow.local (super_admin) — change password after first login')
 }
 
+// Backfill: every existing user gets a 'password' identity row so the table is
+// consistent on legacy DBs. provider_user_id is just users.id as a placeholder —
+// password auth still verifies against users.password_hash, not this row.
+await db.run(`
+  INSERT OR IGNORE INTO user_identities (user_id, provider, provider_user_id)
+  SELECT id, 'password', CAST(id AS TEXT) FROM users
+`)
+
+await db.run(`
+  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by,updated_at)
+  VALUES ('ai', 1,1, datetime('now'))
+`)
+
+// Default-on for password login so existing deployments don't lose login on upgrade.
+// Env var FEATURE_AUTH_PASSWORD still wins (false hard-blocks).
+await db.run(`
+  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by,updated_at)
+  VALUES ('auth_password', 1,1, datetime('now'))
+`)
+
+await db.run(`
+  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by, updated_at)
+  VALUES ('auth_google', 1,1, datetime('now'))
+`)
+
+await db.run(`
+  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by, updated_at)
+  VALUES ('auth_github', 1,1, datetime('now'))
+`)
+
 // Seed only when the database is empty (excluding the Default Project)
 const projectCountRow = await db.get<{ n: number }>('SELECT COUNT(*) as n FROM projects WHERE is_default = 0')
 if ((projectCountRow?.n ?? 0) === 0) {

@@ -39,7 +39,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 
 | File | Purpose |
 |---|---|
-| `LoginPage` | Email/password form; on success calls `/api/auth/me`, hydrates `authStore`, redirects |
+| `LoginPage` | Renders Google / GitHub / email-password sign-in, each gated by its `auth_*` flag. OAuth buttons full-page-navigate to `/api/auth/<provider>/start`; the password form posts to `/api/auth/login` and then calls `/api/auth/me`. Surfaces `?error=…` query params (e.g. `email_not_verified`) as toasts and strips them from the URL |
 | `DashboardPage` | All-projects overview — stats, active sprints, recent activity, project create/edit/delete |
 | `ProjectSetupPage` | Project creation wizard; lane preset chooser or custom-lane builder with live DnD preview |
 | `BoardPage` | Kanban board (lanes + cards) with @dnd-kit DnD; Epic/Feature/Sprint filter dropdowns; ManageLanesModal; opens `CardModal` on card click |
@@ -77,7 +77,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `projectStore.ts` | `projects`, `currentProject`; `setCurrentProject`, `fetchProjects()` |
 | `boardStore.ts` | `lanes`, `cards`, `testCaseSummary`, `taskSummary`; mutations: `moveCard`, `addCard`, `updateCard`, `deleteCard`, summary setters |
 | `retroStore.ts` | `retroId`, `items`; mutations: `setRetro`, `addItem`, `updateItem`, `removeItem`, `setItems`, `clear` (mutations only apply when the incoming item belongs to the active retro) |
-| `featureFlagStore.ts` | `features` (`ai`, `retrospective`, `calendar`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
+| `featureFlagStore.ts` | `features` (`ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
 
 ## API clients
 

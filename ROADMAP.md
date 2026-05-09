@@ -27,8 +27,8 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 > Target: v1.0
 
 ### Authentication & Multi-User
-- [ ] User registration and login (email/password)
-- [ ] OAuth support (GitHub, Google)
+- [x] User registration and login (email/password)
+- [x] OAuth support (GitHub, Google) — feature-flagged per provider; ready for SSO via the `user_identities` table
 - [ ] Role-based permissions per project (Admin, Member, Viewer)
 - [ ] Team / organization support for shared instances
 - [ ] User profile and avatar management

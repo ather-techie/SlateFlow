@@ -1,10 +1,15 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie'
 import { z } from 'zod'
+import { randomBytes } from 'crypto'
 import { db } from '../db/index.js'
 import { ok, err } from '../lib/response.js'
 import { signToken, verifyToken, hashPassword, verifyPassword } from '../lib/auth.js'
 import { requireAuth } from '../middleware/requireAuth.js'
+import { requireFeature } from '../middleware/requireRole.js'
+import { google } from '../lib/oauth/google.js'
+import { github } from '../lib/oauth/github.js'
+import type { OAuthProvider, OAuthProfile } from '../lib/oauth/types.js'
 
 const auth = new Hono()
 
@@ -16,7 +21,15 @@ const COOKIE_OPTS = {
   secure: process.env.NODE_ENV === 'production',
 }
 
-auth.post('/auth/login', async (c) => {
+const STATE_COOKIE = 'sf_oauth_state'
+const STATE_COOKIE_OPTS = {
+  ...COOKIE_OPTS,
+  maxAge: 5 * 60,
+}
+
+const PROVIDERS: Record<'google' | 'github', OAuthProvider> = { google, github }
+
+auth.post('/auth/login', requireFeature('auth_password'), async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = z.object({ email: z.string().email(), password: z.string().min(1) }).safeParse(body)
   if (!parsed.success) return err(c, 'email and password are required')
@@ -92,5 +105,109 @@ auth.patch('/auth/me', requireAuth, async (c) => {
   const updated = await db.get('SELECT id, email, display_name, role FROM users WHERE id = ?', user.id)
   return ok(c, updated)
 })
+
+// ── OAuth (Google + GitHub) ───────────────────────────────────────────────────
+
+function startHandler(provider: OAuthProvider) {
+  return async (c: Context) => {
+    const state = randomBytes(16).toString('hex')
+    setCookie(c, STATE_COOKIE, `${provider.name}:${state}`, STATE_COOKIE_OPTS)
+    try {
+      return c.redirect(provider.buildAuthUrl(state))
+    } catch (e) {
+      console.error(`[oauth/${provider.name}] start failed`, e)
+      return c.redirect('/login?error=oauth_misconfigured')
+    }
+  }
+}
+
+async function findOrCreateUser(profile: OAuthProfile, provider: OAuthProvider['name']): Promise<{ id: number; email: string; role: string } | { error: string }> {
+  // 1. existing identity
+  const linked = await db.get<{ user_id: number }>(
+    'SELECT user_id FROM user_identities WHERE provider = ? AND provider_user_id = ?',
+    provider, profile.providerUserId,
+  )
+  if (linked) {
+    const u = await db.get<{ id: number; email: string; role: string; is_active: number; deleted_at: string | null }>(
+      'SELECT id, email, role, is_active, deleted_at FROM users WHERE id = ?',
+      linked.user_id,
+    )
+    if (!u || u.deleted_at || !u.is_active) return { error: 'account_inactive' }
+    return { id: u.id, email: u.email, role: u.role }
+  }
+
+  // 2. existing user by email — auto-link only if provider verified the email
+  const byEmail = await db.get<{ id: number; email: string; role: string; is_active: number; deleted_at: string | null }>(
+    'SELECT id, email, role, is_active, deleted_at FROM users WHERE email = ? COLLATE NOCASE',
+    profile.email,
+  )
+  if (byEmail) {
+    if (byEmail.deleted_at || !byEmail.is_active) return { error: 'account_inactive' }
+    if (!profile.emailVerified) return { error: 'email_not_verified' }
+    await db.run(
+      'INSERT INTO user_identities (user_id, provider, provider_user_id) VALUES (?, ?, ?)',
+      byEmail.id, provider, profile.providerUserId,
+    )
+    return { id: byEmail.id, email: byEmail.email, role: byEmail.role }
+  }
+
+  // 3. brand-new user — create with a locked random password_hash
+  if (!profile.emailVerified) return { error: 'email_not_verified' }
+  const lockedHash = hashPassword(randomBytes(32).toString('hex'))
+  const create = db.transaction(async () => {
+    const { lastID } = await db.run(
+      'INSERT INTO users (email, display_name, password_hash, role) VALUES (?, ?, ?, ?)',
+      profile.email, profile.displayName, lockedHash, 'global_reader',
+    )
+    await db.run(
+      'INSERT INTO user_identities (user_id, provider, provider_user_id) VALUES (?, ?, ?)',
+      lastID, provider, profile.providerUserId,
+    )
+    return lastID
+  })
+  const newId = await create()
+  return { id: newId, email: profile.email, role: 'global_reader' }
+}
+
+function callbackHandler(provider: OAuthProvider) {
+  return async (c: Context) => {
+    const code = c.req.query('code')
+    const stateParam = c.req.query('state')
+    const stateCookie = getCookie(c, STATE_COOKIE)
+    deleteCookie(c, STATE_COOKIE, { path: '/' })
+
+    if (!code || !stateParam) return c.redirect('/login?error=oauth_failed')
+    if (!stateCookie || stateCookie !== `${provider.name}:${stateParam}`) {
+      return c.redirect('/login?error=oauth_state_mismatch')
+    }
+
+    let profile: OAuthProfile
+    try {
+      profile = await provider.exchangeCode(code)
+    } catch (e) {
+      console.error(`[oauth/${provider.name}] exchange failed`, e)
+      return c.redirect('/login?error=oauth_failed')
+    }
+
+    let result: { id: number; email: string; role: string } | { error: string }
+    try {
+      result = await findOrCreateUser(profile, provider.name)
+    } catch (e) {
+      console.error(`[oauth/${provider.name}] user upsert failed`, e)
+      return c.redirect('/login?error=oauth_failed')
+    }
+
+    if ('error' in result) return c.redirect(`/login?error=${encodeURIComponent(result.error)}`)
+
+    const token = await signToken({ sub: result.id, email: result.email, role: result.role })
+    setCookie(c, 'sf_token', token, COOKIE_OPTS)
+    return c.redirect('/')
+  }
+}
+
+auth.get('/auth/google/start',    requireFeature('auth_google'),  startHandler(PROVIDERS.google))
+auth.get('/auth/google/callback', requireFeature('auth_google'),  callbackHandler(PROVIDERS.google))
+auth.get('/auth/github/start',    requireFeature('auth_github'),  startHandler(PROVIDERS.github))
+auth.get('/auth/github/callback', requireFeature('auth_github'),  callbackHandler(PROVIDERS.github))
 
 export default auth

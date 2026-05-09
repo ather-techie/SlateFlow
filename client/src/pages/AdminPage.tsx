@@ -412,6 +412,18 @@ function SettingsTab() {
       label: 'Calendar',
       description: 'Month view of sprints, epics, and features alongside user-managed holidays, project events, and vacations.',
     },
+    auth_password: {
+      label: 'Email/Password Login',
+      description: 'Built-in email + password sign-in. Disable to require all users to authenticate via OAuth or SSO.',
+    },
+    auth_google: {
+      label: 'Google Login',
+      description: 'Sign-in with Google OAuth. Requires OAUTH_GOOGLE_CLIENT_ID and OAUTH_GOOGLE_CLIENT_SECRET to be configured.',
+    },
+    auth_github: {
+      label: 'GitHub Login',
+      description: 'Sign-in with GitHub OAuth. Requires OAUTH_GITHUB_CLIENT_ID and OAUTH_GITHUB_CLIENT_SECRET to be configured.',
+    },
   }
 
   return (

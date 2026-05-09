@@ -44,7 +44,7 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 
 | File | Exposed paths |
 |---|---|
-| `routes/auth.ts` | `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/me` |
+| `routes/auth.ts` | `POST /auth/login` (gated by `auth_password`), `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/me`, `GET /auth/google/start` + `/callback` (gated by `auth_google`), `GET /auth/github/start` + `/callback` (gated by `auth_github`). OAuth flow: server-side authorization-code, CSRF-protected via short-lived `sf_oauth_state` cookie, identity stored in `user_identities` |
 | `routes/config.ts` | `GET /config` (public) |
 | `routes/projects.ts` | CRUD on `/projects` and `/projects/:id`; auto-creates Default Epic/Feature/Sprint; DELETE→409 for Default Project |
 | `routes/lanes.ts` | CRUD on `/projects/:id/lanes` and `/lanes/:id`; bulk `POST /projects/:id/lanes/reorder` |
@@ -92,6 +92,7 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 |---|---|---|
 | `projects` | id | `is_default` (0/1), `color` |
 | `users` | id | `email` UNIQUE, `role` (super_admin/global_reader), `password_hash`, `is_active`, `deleted_at` (soft) |
+| `user_identities` | id | `user_id` FK → users, `provider` (password/google/github), `provider_user_id`; UNIQUE (`provider`, `provider_user_id`) AND (`user_id`, `provider`) — one user may link multiple providers |
 | `project_access` | id | (`user_id`, `project_id`) UNIQUE, `role` (project_admin/contributor/reader) |
 | `epic_access` | id | (`user_id`, `epic_id`) UNIQUE, `role` (epic_admin/contributor/reader) |
 | `epics` | id | `project_id` FK, `is_default`, `position`, `start_date`, `end_date`, `priority`, `status`, `assignee` |
@@ -136,6 +137,20 @@ If you add a new "Default X" concept, also add a backfill step that creates the 
 Event types currently emitted: `card:created`, `card:updated`, `card:moved`, `card:deleted`, `epic:updated`, `notification` (per-user), `retro:item:created`, `retro:item:updated`, `retro:item:deleted`, `calendar:entry:created`, `calendar:entry:updated`, `calendar:entry:deleted`. The two latter groups carry `projectId: number | null` (calendar entries are global for holidays/vacations).
 
 When mutating a board entity, **emit AFTER the DB commit, not before**, so a failed insert never produces a phantom event. Pattern: `await db.run(...)` then `eventBus.emit(...)` then `return ok(c, ...)`.
+
+## OAuth providers
+
+[lib/oauth/](src/lib/oauth/) holds one module per provider, each conforming to the `OAuthProvider` interface in [lib/oauth/types.ts](src/lib/oauth/types.ts):
+
+```ts
+interface OAuthProvider {
+  name: 'google' | 'github'
+  buildAuthUrl(state: string): string
+  exchangeCode(code: string): Promise<OAuthProfile>
+}
+```
+
+Each provider uses native `fetch` (no `googleapis`/`octokit`/passport). Add a new provider by creating a new module and registering it in the `PROVIDERS` map and route table at the bottom of [routes/auth.ts](src/routes/auth.ts). The `state` cookie name (`sf_oauth_state`), TTL (5 min), and the user-upsert logic in `findOrCreateUser` are shared across providers — reuse them.
 
 ## AI providers
 

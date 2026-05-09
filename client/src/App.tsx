@@ -63,7 +63,14 @@ export default function App() {
     fetch('/api/config', { credentials: 'include' })
       .then(r => r.json())
       .then(json => { if (json.data) setFlags(json.data.features) })
-      .catch(() => setFlags({ ai: false, retrospective: false, calendar: false }))
+      .catch(() => setFlags({
+        ai: false,
+        retrospective: false,
+        calendar: false,
+        auth_password: true,
+        auth_google: false,
+        auth_github: false,
+      }))
       .finally(() => setFlagsLoading(false))
   }, [setFlags, setFlagsLoading])
 
