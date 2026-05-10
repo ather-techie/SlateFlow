@@ -21,6 +21,14 @@ Requirement:
 - There should be option to add custom tags to user stories
 - Allowed User to @mention and sends alert/notification to that user
 
+Issue: 4
+Type: Enhancement
+Page/Screen: Project Settings
+Priority: High
+Requirement: 
+- Settings to consume AI to generate user stories
+- Feature flag at Project level
+
 
 
 
