@@ -181,6 +181,11 @@ await db.run(`
   VALUES ('auth_github', 1,1, datetime('now'))
 `)
 
+await db.run(`
+  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by, updated_at)
+  VALUES ('auth_sso', 1,1, datetime('now'))
+`)
+
 // Seed only when the database is empty (excluding the Default Project)
 const projectCountRow = await db.get<{ n: number }>('SELECT COUNT(*) as n FROM projects WHERE is_default = 0')
 if ((projectCountRow?.n ?? 0) === 0) {
