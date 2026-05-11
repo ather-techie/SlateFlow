@@ -147,10 +147,15 @@ interface OAuthProvider {
   name: 'google' | 'github'
   buildAuthUrl(state: string): string
   exchangeCode(code: string): Promise<OAuthProfile>
+  isConfigured(): boolean
 }
 ```
 
 Each provider uses native `fetch` (no `googleapis`/`octokit`/passport). Add a new provider by creating a new module and registering it in the `PROVIDERS` map and route table at the bottom of [routes/auth.ts](src/routes/auth.ts). The `state` cookie name (`sf_oauth_state`), TTL (5 min), and the user-upsert logic in `findOrCreateUser` are shared across providers — reuse them.
+
+`isConfigured()` is a synchronous check that both `OAUTH_<PROVIDER>_CLIENT_ID` and `_CLIENT_SECRET` are set. `featureFlags.isEnabled()` consults it for `auth_google` / `auth_github`, so a flag with missing credentials resolves to false (button hidden, route 404s) even when the env or DB override turns it on. The `oauth_misconfigured` catch in [routes/auth.ts](src/routes/auth.ts) is now a defense-in-depth safety net.
+
+Env vars come from the repo-root `.env` file via [loadEnv.ts](src/loadEnv.ts), which is imported first in [index.ts](src/index.ts).
 
 ## AI providers
 

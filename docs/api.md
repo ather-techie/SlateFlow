@@ -54,7 +54,7 @@ On failure, the callback redirects to `/login?error=<reason>` so the LoginPage c
 | `oauth_state_mismatch` | The `sf_oauth_state` cookie was missing/expired or didn't match the `state` query param (possible CSRF / >5 min delay) |
 | `email_not_verified` | The provider returned an unverified email; SlateFlow refuses to auto-create or auto-link |
 | `oauth_failed` | Code exchange or profile lookup failed (provider error, network, or invalid response) |
-| `oauth_misconfigured` | `OAUTH_<PROVIDER>_CLIENT_ID/SECRET` env vars are missing |
+| `oauth_misconfigured` | Defense-in-depth: `OAUTH_<PROVIDER>_CLIENT_ID/SECRET` missing at click time. Normally unreachable — the corresponding flag now resolves to `false` when credentials are missing, so the button is hidden and the route 404s instead |
 | `account_inactive` | Linked account is soft-deleted or `is_active = 0` |
 
 ### Logout
@@ -1012,15 +1012,17 @@ Returns enabled/disabled state for all enterprise features. The frontend hydrate
 ```bash
 curl -b cookies.txt http://localhost:3000/api/admin/feature-overrides
 ```
-Returns one entry per known flag with `env_enabled` (read from env var), `db_override` (nullable runtime override), and `resolved` (effective value).
+Returns one entry per known flag with `env_enabled` (read from env var), `can_toggle` (false when env explicitly forces `false`), `db_override` (nullable runtime override), `resolved` (effective value), and `configured` (OAuth-only — whether `OAUTH_<PROVIDER>_CLIENT_ID` and `_SECRET` are both set; `null` for non-OAuth flags).
 ```json
 {
   "data": [
-    { "flag": "ai", "env_enabled": true, "db_override": null, "resolved": true }
+    { "flag": "ai", "env_enabled": true, "can_toggle": true, "db_override": null, "resolved": true, "configured": null },
+    { "flag": "auth_github", "env_enabled": false, "can_toggle": true, "db_override": true, "resolved": false, "configured": false }
   ],
   "error": null
 }
 ```
+When `configured` is `false`, the OAuth flag resolves to `false` even if the env or DB override turns it on — populate `OAUTH_<PROVIDER>_CLIENT_ID/SECRET` in `.env` and restart the server.
 
 ### Toggle a feature at runtime
 ```bash

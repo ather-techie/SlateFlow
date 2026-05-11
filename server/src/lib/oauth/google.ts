@@ -72,4 +72,8 @@ async function exchangeCode(code: string): Promise<OAuthProfile> {
   }
 }
 
-export const google: OAuthProvider = { name: 'google', buildAuthUrl, exchangeCode }
+function isConfigured(): boolean {
+  return !!process.env.OAUTH_GOOGLE_CLIENT_ID && !!process.env.OAUTH_GOOGLE_CLIENT_SECRET
+}
+
+export const google: OAuthProvider = { name: 'google', buildAuthUrl, exchangeCode, isConfigured }

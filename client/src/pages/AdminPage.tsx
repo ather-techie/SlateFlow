@@ -344,6 +344,7 @@ interface FlagStatus {
   can_toggle: boolean
   db_override: boolean | null
   resolved: boolean
+  configured: boolean | null
 }
 
 function SettingsTab() {
@@ -459,6 +460,14 @@ function SettingsTab() {
                 {canToggle && !f.env_enabled && (
                   <p className="text-xs text-slate-500 mt-1.5">
                     FEATURE_{f.flag.toUpperCase()} is not set — this toggle is the active control.
+                  </p>
+                )}
+                {f.configured === false && (
+                  <p className="text-xs text-amber-500 mt-1.5">
+                    OAuth credentials are not set — populate{' '}
+                    <code className="font-mono">OAUTH_{f.flag === 'auth_google' ? 'GOOGLE' : 'GITHUB'}_CLIENT_ID</code> and{' '}
+                    <code className="font-mono">OAUTH_{f.flag === 'auth_google' ? 'GOOGLE' : 'GITHUB'}_CLIENT_SECRET</code>{' '}
+                    in <code className="font-mono">.env</code>, then restart the server.
                   </p>
                 )}
               </div>

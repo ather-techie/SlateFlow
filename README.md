@@ -58,7 +58,9 @@ The SQLite database (`server/slateflow.db`) is created and seeded with a demo pr
 **Prerequisites:** Docker and Docker Compose
 
 ```bash
-# (Optional) copy and edit env vars — defaults work out of the box
+# Copy and edit env vars (required if you want OAuth, AI, or to change SECRET/PORT).
+# The dev server reads this file at startup; Docker passes through anything set
+# here via docker-compose.yml.
 cp .env.example .env
 
 # Build and start on port 3000

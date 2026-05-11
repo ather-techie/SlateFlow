@@ -1,12 +1,19 @@
 import sqlite3 from 'sqlite3'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { dirname, isAbsolute, join, resolve } from 'path'
 import bcrypt from 'bcryptjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const REPO_ROOT = resolve(__dirname, '..', '..', '..')
 
-const DB_PATH = process.env.DATABASE_PATH ?? join(__dirname, '..', '..', 'slateflow.db')
+function resolveDbPath(): string {
+  const env = process.env.DATABASE_PATH
+  if (!env) return join(__dirname, '..', '..', 'slateflow.db')
+  return isAbsolute(env) ? env : resolve(REPO_ROOT, env)
+}
+
+const DB_PATH = resolveDbPath()
 const SCHEMA_PATH = join(__dirname, 'schema.sql')
 
 const rawDb = new sqlite3.Database(DB_PATH)

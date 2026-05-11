@@ -83,4 +83,8 @@ async function exchangeCode(code: string): Promise<OAuthProfile> {
   }
 }
 
-export const github: OAuthProvider = { name: 'github', buildAuthUrl, exchangeCode }
+function isConfigured(): boolean {
+  return !!process.env.OAUTH_GITHUB_CLIENT_ID && !!process.env.OAUTH_GITHUB_CLIENT_SECRET
+}
+
+export const github: OAuthProvider = { name: 'github', buildAuthUrl, exchangeCode, isConfigured }

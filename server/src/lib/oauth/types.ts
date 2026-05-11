@@ -11,4 +11,5 @@ export interface OAuthProvider {
   name: OAuthProviderName
   buildAuthUrl(state: string): string
   exchangeCode(code: string): Promise<OAuthProfile>
+  isConfigured(): boolean
 }

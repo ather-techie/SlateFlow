@@ -1,4 +1,6 @@
 import { db } from '../db/index.js'
+import { google } from './oauth/google.js'
+import { github } from './oauth/github.js'
 
 export type FeatureFlag =
   | 'ai'
@@ -29,8 +31,13 @@ async function isEnabled(flag: FeatureFlag): Promise<boolean> {
     'SELECT enabled FROM feature_overrides WHERE flag = ?',
     flag
   )
-  if (row !== undefined) return row.enabled === 1
-  return envVal === 'true'
+  const flagOn = row !== undefined ? row.enabled === 1 : envVal === 'true'
+  if (!flagOn) return false
+
+  if (flag === 'auth_google' && !google.isConfigured()) return false
+  if (flag === 'auth_github' && !github.isConfigured()) return false
+
+  return true
 }
 
 async function getAllFlags(): Promise<Record<FeatureFlag, boolean>> {

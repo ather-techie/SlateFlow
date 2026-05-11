@@ -108,6 +108,12 @@ auth.patch('/auth/me', requireAuth, async (c) => {
 
 // ── OAuth (Google + GitHub) ───────────────────────────────────────────────────
 
+function postLoginRedirectUrl(): string {
+  const base = process.env.OAUTH_FRONTEND_URL?.trim()
+  if (!base) return '/'
+  return base.replace(/\/$/, '') + '/'
+}
+
 function startHandler(provider: OAuthProvider) {
   return async (c: Context) => {
     const state = randomBytes(16).toString('hex')
@@ -201,7 +207,7 @@ function callbackHandler(provider: OAuthProvider) {
 
     const token = await signToken({ sub: result.id, email: result.email, role: result.role })
     setCookie(c, 'sf_token', token, COOKIE_OPTS)
-    return c.redirect('/')
+    return c.redirect(postLoginRedirectUrl())
   }
 }
 

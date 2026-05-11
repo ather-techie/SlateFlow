@@ -21,6 +21,8 @@ No test suite is configured.
 
 ## Environment Variables
 
+The dev server loads `.env` at the repo root on startup via `dotenv` ([server/src/loadEnv.ts](server/src/loadEnv.ts), imported first by [server/src/index.ts](server/src/index.ts)). Copy `.env.example` → `.env` and fill in the values you need. In Docker, env vars come from `docker-compose.yml` / your orchestrator — dotenv silently no-ops because `/app/.env` is absent inside the image.
+
 | Variable | Default | Notes |
 |---|---|---|
 | `JWT_SECRET` | `dev-secret-change-in-production` | Signs auth tokens. **Must be changed in production.** |
@@ -33,6 +35,7 @@ No test suite is configured.
 | `FEATURE_AUTH_GOOGLE` | `false` | Enables Google OAuth login (`/api/auth/google/start` + callback). Requires `OAUTH_GOOGLE_*` |
 | `FEATURE_AUTH_GITHUB` | `false` | Enables GitHub OAuth login (`/api/auth/github/start` + callback). Requires `OAUTH_GITHUB_*` |
 | `OAUTH_REDIRECT_BASE_URL` | `http://localhost:3000` | Public origin used to build OAuth callback URLs |
+| `OAUTH_FRONTEND_URL` | _(unset)_ | Origin to redirect to after successful OAuth login. Unset = redirect to `/` on the API origin (same-origin deploys). Set when frontend and API are on different origins |
 | `OAUTH_GOOGLE_CLIENT_ID` | _(none)_ | From Google Cloud Console (OAuth 2.0 Client ID) |
 | `OAUTH_GOOGLE_CLIENT_SECRET` | _(none)_ | |
 | `OAUTH_GITHUB_CLIENT_ID` | _(none)_ | From a GitHub OAuth App |
@@ -51,6 +54,8 @@ JWT in httpOnly cookie (`sf_token`, 7-day TTL). Three login methods are availabl
 - **GitHub OAuth** (`GET /api/auth/github/start` → `/api/auth/github/callback`) — gated by `auth_github`
 
 Identities live in the `user_identities` table — a single user can have multiple linked providers. OAuth-only users are created with a locked random `password_hash` so they can never password-login. When a provider returns an email matching an existing user, the OAuth identity is auto-linked **only if the provider verified the email** (`email_verified=true` for Google; primary + verified email from GitHub `/user/emails`); otherwise the login is rejected with a `?error=email_not_verified` redirect.
+
+If `FEATURE_AUTH_GOOGLE` / `FEATURE_AUTH_GITHUB` is enabled (env or DB override) but the matching `OAUTH_<PROVIDER>_CLIENT_ID/SECRET` is unset, the flag resolves to **false**: the login button is hidden and the route 404s. Super-admins see a "credentials missing" hint next to the toggle in Admin → Settings.
 
 The `requireAuth` middleware applies to all `/api/*` except `/api/auth/*` (login, logout, OAuth start/callback) and `/api/config`, and injects `c.set('user', user)`.
 

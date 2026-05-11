@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { ok, err } from '../lib/response.js'
 import { requireSuperAdmin } from '../middleware/requireRole.js'
 import { getAllFlags, setFlag, isEnabled, type FeatureFlag } from '../lib/featureFlags.js'
+import { google } from '../lib/oauth/google.js'
+import { github } from '../lib/oauth/github.js'
 
 const adminSettings = new Hono()
 
@@ -21,12 +23,17 @@ adminSettings.get('/admin/feature-overrides', async (c) => {
     const envEnabled = process.env[envKey] === 'true'
     const dbRow = overrideMap.get(flag)
     const resolved = await isEnabled(flag)
+    const configured =
+      flag === 'auth_google' ? google.isConfigured() :
+      flag === 'auth_github' ? github.isConfigured() :
+      null
     return {
       flag,
       env_enabled: envEnabled,
       can_toggle: process.env[envKey] !== 'false',
       db_override: dbRow !== undefined ? dbRow === 1 : null,
       resolved,
+      configured,
     }
   }))
 
