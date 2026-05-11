@@ -4,7 +4,24 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 
 ## Screenshots
 
-> Screenshots live in the [`screenshots/`](screenshots/) folder. See that folder for a `PLACEHOLDER.md` with instructions on adding your own.
+| | |
+|---|---|
+| ![Login](screenshots/login.png) | ![Dashboard](screenshots/dashboard.png) |
+| ![Board](screenshots/board.png) | ![Backlog](screenshots/backlog.png) |
+| ![Roadmap](screenshots/roadmap.png) | ![Sprint](screenshots/sprint.png) |
+| ![Reports](screenshots/reports.png) | ![Calendar](screenshots/calandar.png) |
+
+<details>
+<summary>Admin panel</summary>
+
+| | |
+|---|---|
+| ![Users](screenshots/aminPanel-users.png) | ![Holidays](screenshots/adminPanel-Holidays.png) |
+| ![Feature flags](screenshots/adminPanel-featureflag.png) | |
+
+</details>
+
+> Full list of screenshots: [`screenshots/`](screenshots/)
 
 ## Features
 
