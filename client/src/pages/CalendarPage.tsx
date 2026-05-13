@@ -6,6 +6,8 @@ import type { CalendarEvent, CalendarHoliday, CalendarRange, CalendarVacation, P
 import Header from '../components/Header'
 import MonthGrid from '../components/Calendar/MonthGrid'
 import EntryFormModal, { type EntryEditing } from '../components/Calendar/EntryFormModal'
+import { FeatureGate } from '../components/FeatureGate'
+import { NLItemInput } from '../components/NLItemInput'
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -172,12 +174,21 @@ export default function CalendarPage() {
             →
           </button>
           {canWrite && (
-            <button
-              onClick={() => setModalState({ mode: 'create' })}
-              className="text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors font-medium"
-            >
-              + New entry
-            </button>
+            <>
+              <FeatureGate flag="ai">
+                <NLItemInput
+                  allowedTypes={['calendar']}
+                  context={{ projectId: pid }}
+                  onCreated={refetch}
+                />
+              </FeatureGate>
+              <button
+                onClick={() => setModalState({ mode: 'create' })}
+                className="text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors font-medium"
+              >
+                + New entry
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -4,6 +4,8 @@ import { api } from '../api'
 import type { Card, Epic, Feature, Task } from '../types'
 import PriorityBadge from '../components/PriorityBadge'
 import CardModal from '../components/CardModal'
+import { FeatureGate } from '../components/FeatureGate'
+import { NLItemInput } from '../components/NLItemInput'
 
 const STATUS_COLORS: Record<string, string> = {
   new: 'bg-slate-700 text-slate-300',
@@ -727,6 +729,13 @@ export default function EpicsPage() {
           <p className="text-xs text-slate-500 mt-0.5">Epic → Feature → Story → Task hierarchy</p>
         </div>
         <div className="flex items-center gap-2">
+          <FeatureGate flag="ai">
+            <NLItemInput
+              allowedTypes={['epic', 'feature', 'story']}
+              context={{ projectId }}
+              onCreated={loadEpics}
+            />
+          </FeatureGate>
           <button
             onClick={() => setShowAddFeature(true)}
             className="flex items-center gap-1.5 text-sm bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-600 border border-slate-600"

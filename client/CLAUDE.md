@@ -65,6 +65,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 - `CardModal` — full story editor; **5 tabs**: Description (with inline Tasks checklist), Comments, Activity, Tests, Dependencies (blocks / blocked-by). Right sidebar holds Sprint, Feature, Assignee, Priority, Story Points selectors
 - `ProtectedRoute` — auth gate; redirects to `/login` when no session
 - `FeatureGate` — `<FeatureGate flag="ai">{children}</FeatureGate>`; renders only when the flag resolves true
+- `NLItemInput` — universal natural-language work item creation (gated by `FEATURE_AI`). Props: `allowedTypes` (array of types the parser can return), `context` (projectId/epicId/laneId), `lanes` (for story lane picker), `cards` (for task parent picker), `onCreated` (refresh callback). State machine: idle → input → loading → preview → confirming. Editable fields appear based on inferred type (priority/assignee for epics/features/stories, dates for sprints/calendar, parent selectors as needed). Wrapped in `<FeatureGate flag="ai">` at every mount site: BoardPage, EpicsPage, SprintsPage, CalendarPage, DashboardPage
 - `ProjectAccessModal` — per-user table of all projects with role dropdowns; saves inline on change
 - `CreateUserModal` (inline in AdminPage) — chains `POST /users` then `POST /projects/:id/access` per assigned project
 - `SettingsTab` (inline in AdminPage) — feature flag toggles; toggle is disabled when the env var is `false` (env is the ceiling)
@@ -84,9 +85,14 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 Two files exist; the codebase is mid-migration:
 
 - [src/api.ts](src/api.ts) — fetch-based, flat function exports. Most existing pages import from `'../api'` which resolves to this file (TS prefers the `.ts` over the `api/` directory).
-- [src/api/index.ts](src/api/index.ts) — newer axios namespace (`api.projects.list()`, `api.cards.create()`, …). More complete coverage of new endpoints (roadmap, reports, projectAccess).
+- [src/api/index.ts](src/api/index.ts) — newer axios namespace (`api.projects.list()`, `api.cards.create()`, …). More complete coverage of new endpoints (roadmap, reports, projectAccess, ai).
 
 **When adding new endpoints:** add to the axios namespace in `api/index.ts`. Don't extend `api.ts` further. If you touch a page that's still on fetch, leave the migration for a separate change unless trivial — do NOT mix axios and fetch in the same component.
+
+**AI methods and types exported from `api/index.ts`:**
+- `api.ai.parseItem(data)` — `(input: string, context?: { projectId?, epicId?, laneId?, allowedTypes? }) => Promise<ParsedIntent>` — parses natural-language input into a work item
+- `type ParsedIntent = { type, payload } | { type: "unknown", reason }` — discriminated union returned by the `/api/ai/parse-item` endpoint; `type` is one of `"epic"`, `"feature"`, `"story"`, `"task"`, `"project"`, `"sprint"`, `"calendar"`, or `"unknown"`; each type carries different fields in `payload` (e.g., epic/feature/story have priority + assignee, sprint has dates + goal, task has assignee only)
+- `type NLAllowedType = "epic" | "feature" | "story" | "task" | "project" | "sprint" | "calendar"` — work item types the parser can infer
 
 Vite proxies `/api` → `localhost:3000` in dev (see `vite.config.ts`). Both clients send credentials so the `sf_token` cookie is included.
 

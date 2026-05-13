@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
-import { ok, err, parseId } from '../lib/response.js'
+import { z } from 'zod'
+import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { requireFeature } from '../middleware/requireRole.js'
 import { getProvider } from '../lib/ai.js'
 import { db } from '../db/index.js'
@@ -37,6 +38,57 @@ ai.post('/ai/cards/:id/summarize', async (c) => {
       maxTokens: 256,
     })
     return ok(c, { summary })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'AI provider error'
+    return err(c, message, 500)
+  }
+})
+
+const ALLOWED_TYPES = ['epic', 'feature', 'story', 'task', 'project', 'sprint', 'calendar'] as const
+
+const parseItemBodySchema = z.object({
+  input: z.string().min(1).max(1000),
+  context: z.object({
+    projectId: z.number().optional(),
+    epicId: z.number().optional(),
+    laneId: z.number().optional(),
+    allowedTypes: z.array(z.enum(ALLOWED_TYPES)).min(1).optional(),
+  }).optional(),
+})
+
+ai.post('/ai/parse-item', async (c) => {
+  const raw = await c.req.json().catch(() => null)
+  if (!raw) return err(c, 'invalid body', 400)
+
+  const parsed = parseItemBodySchema.safeParse(raw)
+  if (!parsed.success) return err(c, zodErr(parsed.error.issues))
+
+  const { input, context } = parsed.data
+  const allowedTypes = context?.allowedTypes ?? [...ALLOWED_TYPES]
+
+  const typeDescriptions: Record<string, string> = {
+    epic: '{"type":"epic","payload":{"title":"...","description":"...","priority":"low"|"medium"|"high"|"critical","assignee":null|"name"}}',
+    feature: '{"type":"feature","payload":{"title":"...","description":"...","priority":"low"|"medium"|"high"|"critical","assignee":null|"name"}}',
+    story: '{"type":"story","payload":{"title":"...","description":"...","priority":"low"|"medium"|"high"|"critical","assignee":null|"name","estimate":null|number}}',
+    task: '{"type":"task","payload":{"title":"...","description":"...","assignee":null|"name"}}',
+    project: '{"type":"project","payload":{"name":"...","description":"..."}}',
+    sprint: '{"type":"sprint","payload":{"name":"...","goal":"...","start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD"}}',
+    calendar: '{"type":"calendar","payload":{"title":"...","description":"...","start_date":"YYYY-MM-DD","end_date":"YYYY-MM-DD"}}',
+  }
+  const shapes = allowedTypes.map((t) => typeDescriptions[t]).join('\n')
+
+  const systemPrompt = `You are a project management assistant. Parse the user's work item request and return ONLY valid JSON matching exactly one of these shapes:\n${shapes}\n{"type":"unknown","reason":"why ambiguous"}\nRules: priority defaults to "medium"; assignee is null if no person is mentioned; for dates use today's date as default if unspecified; if no explicit description is provided, infer a brief one from the title/context; use "unknown" only if genuinely ambiguous.`
+
+  try {
+    const provider = await getProvider()
+    const response = await provider.complete(`Parse this work item: ${input}`, {
+      systemPrompt,
+      maxTokens: 512,
+    })
+    const match = response.match(/\{[\s\S]*\}/)
+    if (!match) return err(c, 'AI returned unparseable response', 500)
+    const result = JSON.parse(match[0])
+    return ok(c, result)
   } catch (e) {
     const message = e instanceof Error ? e.message : 'AI provider error'
     return err(c, message, 500)

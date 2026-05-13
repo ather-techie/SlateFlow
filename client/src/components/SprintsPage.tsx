@@ -15,6 +15,8 @@ import { api } from '../api'
 import type { CapacityEntry, Card, Column, Project, Sprint } from '../types'
 import Header from './Header'
 import PriorityBadge from './PriorityBadge'
+import { FeatureGate } from './FeatureGate'
+import { NLItemInput } from './NLItemInput'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -678,12 +680,26 @@ export default function SprintsPage() {
               <h1 className="text-xl font-semibold text-slate-800">Sprints</h1>
               <p className="text-sm text-slate-500 mt-0.5">{displayed.length} sprint{displayed.length !== 1 ? 's' : ''}</p>
             </div>
-            <button
-              onClick={() => setShowForm(p => !p)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {showForm ? 'Cancel' : '+ New Sprint'}
-            </button>
+            <div className="flex items-center gap-2">
+              <FeatureGate flag="ai">
+                <NLItemInput
+                  allowedTypes={['sprint']}
+                  context={{ projectId: pid }}
+                  onCreated={() => {
+                    ;(async () => {
+                      const sps = await api.getSprints(pid)
+                      setSprints(sps)
+                    })()
+                  }}
+                />
+              </FeatureGate>
+              <button
+                onClick={() => setShowForm(p => !p)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {showForm ? 'Cancel' : '+ New Sprint'}
+              </button>
+            </div>
           </div>
 
           {showForm && (

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import type { ActivityItem, DashboardStats, Project, ProjectSummary } from '../types'
+import { FeatureGate } from '../components/FeatureGate'
+import { NLItemInput } from '../components/NLItemInput'
 
 const PROJECT_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6']
 
@@ -540,15 +542,25 @@ export default function DashboardPage() {
             </div>
             <span className="font-bold text-slate-900">SlateFlow</span>
           </div>
-          <button
-            onClick={() => navigate('/projects/new')}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition active:scale-95"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            New Project
-          </button>
+          <div className="flex items-center gap-2">
+            <FeatureGate flag="ai">
+              <NLItemInput
+                allowedTypes={['project']}
+                onCreated={() => {
+                  api.getProjects().then((projects: any) => setProjects(projects)).catch(() => {})
+                }}
+              />
+            </FeatureGate>
+            <button
+              onClick={() => navigate('/projects/new')}
+              className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition active:scale-95"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              New Project
+            </button>
+          </div>
         </div>
       </header>
 

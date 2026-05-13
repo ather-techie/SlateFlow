@@ -17,12 +17,26 @@ import type {
   RetroCategory,
   RetroItem,
   Retrospective,
+  Sprint,
   Task,
   TestCase,
   TestCaseSummary,
   TestRun,
   TestSuite,
 } from '../types'
+
+type Priority = 'low' | 'medium' | 'high' | 'critical'
+
+export type ParsedIntent =
+  | { type: 'epic' | 'feature'; payload: { title: string; description: string; priority: Priority; assignee: string | null } }
+  | { type: 'story'; payload: { title: string; description: string; priority: Priority; assignee: string | null; estimate: number | null } }
+  | { type: 'task'; payload: { title: string; description: string; assignee: string | null } }
+  | { type: 'project'; payload: { name: string; description: string } }
+  | { type: 'sprint'; payload: { name: string; goal: string; start_date: string; end_date: string } }
+  | { type: 'calendar'; payload: { title: string; description: string; start_date: string; end_date: string } }
+  | { type: 'unknown'; reason: string }
+
+export type NLAllowedType = 'epic' | 'feature' | 'story' | 'task' | 'project' | 'sprint' | 'calendar'
 
 export const http = axios.create({ baseURL: '/api', withCredentials: true })
 
@@ -50,7 +64,16 @@ function unwrap<T>(p: Promise<{ data: { data: T } }>): Promise<T> {
   return p.then(r => r.data.data)
 }
 
+// Backward-compatible helper for lane card creation
+function createLaneCard(
+  laneId: number,
+  data: { title: string; priority?: Card['priority']; assignee?: string | null; sprint_id?: number | null },
+): Promise<Card> {
+  return http.post(`/lanes/${laneId}/cards`, data).then(r => r.data.data)
+}
+
 export const api = {
+  createLaneCard,
   projects: {
     list: () => unwrap<Project[]>(http.get('/projects')),
     get: (id: number) => unwrap<Project>(http.get(`/projects/${id}`)),
@@ -80,7 +103,7 @@ export const api = {
     get: (cardId: number) => unwrap<Card>(http.get(`/cards/${cardId}`)),
     create: (
       laneId: number,
-      data: { title: string; priority?: Card['priority']; assignee?: string | null; feature_id?: number | null },
+      data: { title: string; priority?: Card['priority']; assignee?: string | null; feature_id?: number | null; sprint_id?: number | null },
     ) => unwrap<Card>(http.post(`/lanes/${laneId}/cards`, data)),
     update: (
       cardId: number,
@@ -119,6 +142,15 @@ export const api = {
       unwrap<Feature>(http.patch(`/features/${id}`, data)),
     delete: (id: number) => unwrap<{ id: number }>(http.delete(`/features/${id}`)),
     listStories: (featureId: number) => unwrap<Card[]>(http.get(`/features/${featureId}/stories`)),
+  },
+  sprints: {
+    list: (projectId: number) => unwrap<Sprint[]>(http.get(`/projects/${projectId}/sprints`)),
+    get: (id: number) => unwrap<Sprint>(http.get(`/sprints/${id}`)),
+    create: (projectId: number, data: { name: string; goal?: string; start_date: string; end_date: string; status?: Sprint['status'] }) =>
+      unwrap<Sprint>(http.post(`/projects/${projectId}/sprints`, data)),
+    update: (id: number, data: Partial<Pick<Sprint, 'name' | 'goal' | 'start_date' | 'end_date' | 'status'>>) =>
+      unwrap<Sprint>(http.patch(`/sprints/${id}`, data)),
+    delete: (id: number) => unwrap<{ id: number }>(http.delete(`/sprints/${id}`)),
   },
   comments: {
     list: (cardId: number) => unwrap<Comment[]>(http.get(`/cards/${cardId}/comments`)),
@@ -199,5 +231,9 @@ export const api = {
         unwrap<CalendarHoliday>(http.patch(`/admin/holidays/${id}`, data)),
       delete: (id: number) => unwrap<{ id: number }>(http.delete(`/admin/holidays/${id}`)),
     },
+  },
+  ai: {
+    parseItem: (data: { input: string; context?: { projectId?: number; epicId?: number; laneId?: number; allowedTypes?: NLAllowedType[] } }) =>
+      unwrap<ParsedIntent>(http.post('/ai/parse-item', data)),
   },
 }

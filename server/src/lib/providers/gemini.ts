@@ -21,7 +21,7 @@ export class GeminiProvider implements AIProvider {
     this.apiKey = apiKey
     this.model = process.env.AI_MODEL ?? 'gemini-2.0-flash'
     this.baseURL = (
-      process.env.AI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta/models'
+      process.env.AI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/models'
     ).replace(/\/$/, '')
   }
 

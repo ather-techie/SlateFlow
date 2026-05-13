@@ -1047,6 +1047,53 @@ Fetches the card's title and description, passes them to the configured AI provi
 { "data": { "summary": "This card tracks…" }, "error": null }
 ```
 
+### Parse natural language input into work item
+```bash
+curl -b cookies.txt -X POST http://localhost:3000/api/ai/parse-item \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "High-priority story for alice: fix authentication overhaul",
+    "context": { "projectId": 1, "allowedTypes": ["story", "task", "epic", "feature"] }
+  }'
+```
+Parses a natural-language work item request and returns a structured result with an inferred type and extracted fields. The server scopes its AI system prompt to only return types in `allowedTypes`; unrecognized or ambiguous requests return `type: "unknown"` with a reason.
+
+Request:
+- `input` (string, 1–1000 chars, required): the user's work item description
+- `context` (object, optional):
+  - `projectId` (number): context for the request (used when type is epic, feature, story, task, sprint, or calendar)
+  - `epicId` (number): for nested creation context
+  - `laneId` (number): default lane for a story
+  - `allowedTypes` (array of `"epic"|"feature"|"story"|"task"|"project"|"sprint"|"calendar"`, optional): scope the parser to only these types
+
+Response (`200`):
+```json
+{
+  "data": {
+    "type": "story",
+    "payload": {
+      "title": "Fix authentication overhaul",
+      "description": "Backend authentication layer needs a complete refactor to support modern OAuth flows.",
+      "priority": "high",
+      "assignee": "alice",
+      "estimate": null
+    }
+  },
+  "error": null
+}
+```
+
+Possible `type` values and payload shapes:
+- `"epic"` / `"feature"`: `{ title, description, priority, assignee }`
+- `"story"`: `{ title, description, priority, assignee, estimate }`
+- `"task"`: `{ title, description, assignee }`
+- `"project"`: `{ name, description }`
+- `"sprint"`: `{ name, goal, start_date (YYYY-MM-DD), end_date }`
+- `"calendar"`: `{ title, description, start_date (YYYY-MM-DD), end_date }`
+- `"unknown"`: `{ reason }`
+
+The client displays the parsed result in an editable preview card before confirming creation.
+
 ---
 
 ## Retrospectives

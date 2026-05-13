@@ -68,7 +68,7 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 | `routes/notifications.ts` | List + mark-read |
 | `routes/sse.ts` | `GET /events` (EventSource stream) |
 | `routes/adminSettings.ts` | Super Admin: `GET/PATCH/DELETE /admin/feature-overrides[/:flag]` |
-| `routes/ai.ts` | `POST /ai/cards/:id/summarize` (gated by `FEATURE_AI`) |
+| `routes/ai.ts` | `POST /ai/cards/:id/summarize` (card summary) + `POST /ai/parse-item` (natural-language work item parse, returns discriminated union with type + payload for epics, features, stories, tasks, projects, sprints, calendar events, or unknown) (both gated by `FEATURE_AI`) |
 | `routes/retrospectives.ts` | `GET /sprints/:id/retrospective` (auto-creates), `POST/PATCH/DELETE` on `/retrospectives/:id/items` and `/retrospective-items/:id`, `POST /retrospectives/:id/reorder` (gated by `FEATURE_RETROSPECTIVE`) |
 | `routes/calendar.ts` | `GET /projects/:id/calendar?from=&to=` (sprints/epics/features/holidays/events/vacations); event CRUD on `/projects/:id/calendar/events` + `/calendar/events/:id`; vacation CRUD on `/vacations[/:id]`; super-admin holiday CRUD on `/admin/holidays[/:id]` (all gated by `FEATURE_CALENDAR`) |
 | `lib/openapi.ts` | `GET /api/openapi.json` (test-case OpenAPI subset) |

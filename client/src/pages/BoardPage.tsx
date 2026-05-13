@@ -21,6 +21,8 @@ import CardContent from '../components/CardContent'
 import CardModal from '../components/CardModal'
 import BoardSkeleton from '../components/BoardSkeleton'
 import ManageLanesModal from '../components/Board/ManageLanesModal'
+import { FeatureGate } from '../components/FeatureGate'
+import { NLItemInput } from '../components/NLItemInput'
 
 function fmtDate(d: string) {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -344,6 +346,17 @@ export default function BoardPage() {
               ))}
             </select>
           )}
+          <FeatureGate flag="ai">
+            <NLItemInput
+              allowedTypes={['story', 'task', 'epic', 'feature']}
+              context={{ projectId: pid, laneId: lanes[0]?.id }}
+              lanes={lanes}
+              cards={allCards}
+              onCreated={() => {
+                setAllCards(prev => prev)
+              }}
+            />
+          </FeatureGate>
           <button
             onClick={() => setShowManageLanes(true)}
             className="text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors font-medium"
