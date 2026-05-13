@@ -243,7 +243,7 @@ Each event's `data` field is a JSON string matching the updated resource shape.
 
 ## Work-Item Hierarchy
 
-SlateFlow uses a 6-level hierarchy modelled after Azure DevOps:
+SlateFlow uses a 6-level hierarchy modelled:
 
 ```
 Project

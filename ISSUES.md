@@ -29,7 +29,18 @@ Requirement:
 - Settings to consume AI to generate user stories
 - Feature flag at Project level
 
+Issue: 5
+Type: Enhancement
+Page/Screen: Calandar
+Priority: Low
+Requirement: 
+- Different View : Monthly, Weekly, Daily
+- Sprint Filter is not working
 
 
-
-
+Issue: 6
+Type: Enhancement
+Page/Screen: Theme
+Priority: Low
+Requirement:  
+- Context to implement dark mode: My app need a dark mode implemented across the entire app. Can you create a toggle switch on the header that allows a user to toggle betwee light mode and dark mode? I need you to find a good contrast color that works based on my existing light theme.
