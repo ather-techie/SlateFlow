@@ -15,6 +15,7 @@ import TestSuitePage from './pages/TestSuitePage'
 import EpicsPage from './pages/EpicsPage'
 import ProjectSetupPage from './pages/ProjectSetupPage'
 import AdminPage from './pages/AdminPage'
+import ProjectAdminPage from './pages/ProjectAdminPage'
 import RoadmapPage from './pages/RoadmapPage'
 import ReportsPage from './pages/ReportsPage'
 import RetrospectivePage from './pages/RetrospectivePage'
@@ -112,6 +113,7 @@ export default function App() {
           <Route path="/projects/:projectId/tests" element={<TestSuitePage />} />
           <Route path="/projects/:projectId/roadmap" element={<RoadmapPage />} />
           <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
+          <Route path="/projects/:projectId/admin" element={<ProjectAdminPage />} />
           <Route
             path="/projects/:projectId/retrospective"
             element={<FeatureGate flag="retrospective" fallback={<NotFoundPage />}><RetrospectivePage /></FeatureGate>}

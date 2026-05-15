@@ -46,7 +46,7 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 |---|---|
 | `routes/auth.ts` | `POST /auth/login` (gated by `auth_password`), `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/me`, `GET /auth/google/start` + `/callback` (gated by `auth_google`), `GET /auth/github/start` + `/callback` (gated by `auth_github`). OAuth flow: server-side authorization-code, CSRF-protected via short-lived `sf_oauth_state` cookie, identity stored in `user_identities` |
 | `routes/config.ts` | `GET /config` (public) |
-| `routes/projects.ts` | CRUD on `/projects` and `/projects/:id`; auto-creates Default Epic/Feature/Sprint; DELETE→409 for Default Project |
+| `routes/projects.ts` | CRUD on `/projects` and `/projects/:id`; `PATCH /projects/:id` enforces `canWrite` (contributor or above); auto-creates Default Epic/Feature/Sprint; DELETE→409 for Default Project |
 | `routes/lanes.ts` | CRUD on `/projects/:id/lanes` and `/lanes/:id`; bulk `POST /projects/:id/lanes/reorder` |
 | `routes/presets.ts` | `GET /lane-presets` |
 | `routes/cards.ts` | `/lanes/:id/cards`, `/columns/:id/cards`, `/cards/:id`, `/cards/:id/move`, `/cards/:id/tasks`, `/cards/:id/tasks/reorder`, `/projects/:id/tasks`, `/projects/:id/stories/search?q=` |
@@ -63,7 +63,7 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 | `routes/roadmap.ts` | `GET /projects/:id/roadmap` (epics + nested features with date ranges) |
 | `routes/reports.ts` | `GET /projects/:id/velocity`, `/cycle-time`, `/capacity?sprint_id=`, `/export/csv?type=&sprint_id=` |
 | `routes/users.ts` | Super Admin: CRUD + soft-delete + `/users/search?q=` |
-| `routes/projectAccess.ts` | Grant/revoke/update project-scoped roles |
+| `routes/projectAccess.ts` | Grant/revoke/update project-scoped roles; POST enforces super_admin-only for `project_admin` assignment; PATCH blocks users from changing own role; DELETE blocks removal of project_admins by non-super_admins and self-removal |
 | `routes/epicAccess.ts` | `GET/POST /epics/:id/access`, `PATCH/DELETE /epics/:epicId/access/:userId` (epic-level RBAC) |
 | `routes/notifications.ts` | List + mark-read |
 | `routes/sse.ts` | `GET /events` (EventSource stream) |

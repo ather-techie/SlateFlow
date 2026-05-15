@@ -94,6 +94,8 @@ Project-level access checks: `lib/projectAccess.ts` exposes `canRead` / `canWrit
 
 **Default Epic special-case:** every project's Default Epic (`is_default = 1`) auto-grants `contributor` to every authenticated user — see [server/src/lib/epicAccess.ts:5-17](server/src/lib/epicAccess.ts#L5-L17). Non-default epics need an explicit `epic_access` row.
 
+**Project Admin Panel:** project admins have a dedicated management interface at `/projects/:id/admin` (accessible via sidebar gear icon when `canManageProject` returns true). The panel has three tabs: Members (grant/update/revoke project-level roles, with search-and-add UI; only super_admin can assign `project_admin` role), Settings (edit project name/description/color), and Lanes (swim lane CRUD with inline rename, done-col toggle, reorder, and delete with card-count guards). This mirrors the super-admin `/admin` panel but is scoped to a single project.
+
 ### Default admin
 
 First boot seeds `admin@flow.local` / `Admin1234!` (`super_admin`). Change immediately via `PATCH /api/auth/me`.

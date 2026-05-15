@@ -83,6 +83,10 @@ projectAccess.patch('/projects/:id/access/:userId', async (c) => {
     return err(c, 'forbidden', 403)
   }
 
+  if (caller.id === userId) {
+    return err(c, 'cannot change your own role', 403)
+  }
+
   const body = await c.req.json().catch(() => null)
   const parsed = z.object({
     role: z.enum(['project_admin', 'contributor', 'reader']),
@@ -128,11 +132,19 @@ projectAccess.delete('/projects/:id/access/:userId', async (c) => {
     return err(c, 'forbidden', 403)
   }
 
+  if (caller.id === userId) {
+    return err(c, 'cannot remove yourself from the project', 403)
+  }
+
   const existing = await db.get(
-    'SELECT id FROM project_access WHERE user_id = ? AND project_id = ?',
+    'SELECT role FROM project_access WHERE user_id = ? AND project_id = ?',
     userId, projectId,
   )
   if (!existing) return err(c, 'no access entry found', 404)
+
+  if (caller.role !== 'super_admin' && existing.role === 'project_admin') {
+    return err(c, 'only super_admin can remove project_admin', 403)
+  }
 
   await db.run('DELETE FROM project_access WHERE user_id = ? AND project_id = ?', userId, projectId)
 

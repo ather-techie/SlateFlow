@@ -29,7 +29,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 ### Authentication & Multi-User
 - [x] User registration and login (email/password)
 - [x] OAuth support (GitHub, Google) — feature-flagged per provider; ready for SSO via the `user_identities` table
-- [ ] Role-based permissions per project (Admin, Member, Viewer)
+- [x] Role-based permissions per project (project_admin / contributor / reader) — Project Admin Panel at `/projects/:id/admin`
 - [ ] Team / organization support for shared instances
 - [ ] User profile and avatar management
 

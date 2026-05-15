@@ -98,6 +98,16 @@ curl -b cookies.txt http://localhost:3000/api/users
 ```bash
 curl -b cookies.txt 'http://localhost:3000/api/users/search?q=alice'
 ```
+Returns matching active non-deleted users with fields: `id`, `display_name`, `email`, `role`. Limit 20.  
+Used by the Add Member modal (project admins can search for users to add to their project; super admins are excluded from results). Role field allows clients to filter out super admins or apply other business logic.
+```json
+{
+  "data": [
+    { "id": 2, "display_name": "Alice Smith", "email": "alice@example.com", "role": "global_reader" },
+    { "id": 3, "display_name": "Alice Johnson", "email": "alice.j@example.com", "role": "global_reader" }
+  ]
+}
+```
 
 ### Create user
 ```bash
@@ -138,8 +148,12 @@ Super Admin only. Used by the Admin Panel "Project Access" modal and the Create 
 
 ## Project Access
 
-Project-scoped roles (`project_admin`, `contributor`, `reader`) are managed per user–project pair.  
-`super_admin` can assign any role to any project. `project_admin` can only assign `contributor` or `reader` within their own project(s).
+Project-scoped roles (`project_admin`, `contributor`, `reader`) are managed per user–project pair.
+
+**Role assignment rules:**
+- `super_admin` can assign any role (`project_admin`, `contributor`, `reader`) to any project
+- `project_admin` can only assign `contributor` or `reader` within their own project(s); cannot assign or modify `project_admin` role
+- `project_admin` cannot change their own role and cannot remove themselves from a project
 
 > **Global reader:** All new users default to `global_reader` — read-only access to all projects. A project-level role overrides this for that specific project.
 
@@ -154,6 +168,8 @@ curl -b cookies.txt -X POST http://localhost:3000/api/projects/1/access \
   -H 'Content-Type: application/json' \
   -d '{"user_id":2,"role":"contributor"}'
 ```
+Returns `409` if the user already has access — use `PATCH` to update their role.  
+Returns `403` if the caller is not `super_admin` and attempts to assign `project_admin` role (only super_admins can assign project admin).
 
 ### Update role
 ```bash
@@ -161,11 +177,25 @@ curl -b cookies.txt -X PATCH http://localhost:3000/api/projects/1/access/2 \
   -H 'Content-Type: application/json' \
   -d '{"role":"reader"}'
 ```
+Returns `403` if:
+- Caller attempts to change their own role ("cannot change your own role")
+- Caller is not `super_admin` and attempts to assign `project_admin` role (only super_admins can assign project admin)
 
 ### Revoke access
 ```bash
 curl -b cookies.txt -X DELETE http://localhost:3000/api/projects/1/access/2
 ```
+Returns `403` if:
+- Caller attempts to remove themselves ("cannot remove yourself from the project")
+- Caller is not `super_admin` and attempts to remove a `project_admin` (only super_admins can remove project admins)
+
+Returns `404` if the access entry does not exist.
+
+> **UI:** The Project Admin Panel at `/projects/:id/admin` (accessible to `project_admin` and `super_admin`) exposes all four endpoints above through a user-friendly interface:
+> - **Members table:** Editable roles and remove buttons (with restrictions noted above: project_admins can't change their own role, can't manage other project_admins, can't remove themselves)
+> - **Add Member modal:** Search field that excludes super_admins and users already in the project; role selector (project_admin option disabled for non-super_admins)
+> 
+> See [client/src/pages/ProjectAdminPage.tsx](../client/src/pages/ProjectAdminPage.tsx).
 
 ---
 

@@ -31,6 +31,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `/projects/:id/tests` | `TestSuitePage` | Layout |
 | `/projects/:id/roadmap` | `RoadmapPage` | Layout |
 | `/projects/:id/reports` | `ReportsPage` | Layout |
+| `/projects/:id/admin` | `ProjectAdminPage` | Layout |
 | `/projects/:id/retrospective` | `RetrospectivePage` (gated by `retrospective` flag) | Layout |
 | `/projects/:id/calendar` | `CalendarPage` (gated by `calendar` flag) | Layout |
 | `*` | `NotFoundPage` | — |
@@ -50,6 +51,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `RoadmapPage` | Gantt-style timeline; epic rows with collapsible feature sub-rows; date editor popover |
 | `ReportsPage` | Velocity chart, cycle-time chart, capacity per assignee, CSV export buttons (backlog/sprint/full) |
 | `AdminPage` | Super-admin only; **Users**, **Holidays** (global, gated by `calendar` flag), and **Settings** (feature flag toggles) tabs |
+| `ProjectAdminPage` | Project-scoped admin (accessible to `project_admin` and `super_admin`); **Members** (grant/update/revoke project-level roles with restrictions: project_admins can't change own role/remove self, can't manage other project_admins; search-and-add modal filters out super_admins and existing members), **Settings** (edit project name/description/color), **Lanes** (swim lane CRUD with inline rename, done-col toggle, reorder, delete) |
 | `RetrospectivePage` | Per-sprint retro with three fixed columns (Went well / To improve / Action items) and `@dnd-kit` reorder. Gated by `retrospective` flag |
 | `CalendarPage` | Month view of sprints, epics, features + holidays/events/vacations. Prev/next/today nav; `+` on a day or button to add an entry. Gated by `calendar` flag |
 | `NotFoundPage` | 404 fallback |

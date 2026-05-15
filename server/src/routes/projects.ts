@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
+import { canWrite } from '../lib/projectAccess.js'
 
 const projects = new Hono()
 
@@ -114,6 +115,11 @@ projects.patch('/projects/:id', async (c) => {
 
   const existing = await db.get('SELECT id FROM projects WHERE id = ?', id)
   if (!existing) return err(c, 'project not found', 404)
+
+  const caller = c.get('user')
+  if (!await canWrite(caller.id, id, caller.role)) {
+    return err(c, 'forbidden', 403)
+  }
 
   let body: unknown
   try { body = await c.req.json() } catch { return err(c, 'invalid JSON') }

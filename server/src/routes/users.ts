@@ -10,7 +10,7 @@ const users = new Hono()
 users.get('/users/search', async (c) => {
   const q = c.req.query('q') ?? ''
   const rows = await db.all(
-    `SELECT id, display_name, email FROM users
+    `SELECT id, display_name, email, role FROM users
      WHERE deleted_at IS NULL AND is_active = 1
        AND (display_name LIKE ? OR email LIKE ?)
      ORDER BY display_name LIMIT 20`,
