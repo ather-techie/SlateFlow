@@ -2,6 +2,18 @@
 
 SlateFlow is a self-hosted, single-container project management platform for agile teams. It pairs a drag-and-drop Kanban board with the full Hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown, a per-sprint Retrospective Board, a calendar that blends sprints/epics/features with team holidays, events, and vacations, a Gantt-style roadmap, velocity / cycle-time / capacity reports, test case management, real-time collaboration over Server-Sent Events, multi-user RBAC at global / project / epic level, and AI card summarisation across Claude, Gemini, OpenAI, Azure OpenAI, and Ollama. SQLite + Hono + React in a single Docker image — no external services required.
 
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Docker Quick Start](#docker-quick-start)
+- [Scripts](#scripts)
+- [Stack](#stack)
+- [Contributing](#contributing)
+- [Support](#support)
+- [License](#license)
+
 ## Screenshots
 
 | | |
@@ -121,6 +133,15 @@ If port 3000 is already in use, see [CONTRIBUTING.md](CONTRIBUTING.md#freeing-po
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+## Support
+
+For issues, questions, or contributions:
+
+- Open an issue on [GitHub](https://github.com/your-org/slateflow/issues)
+- Contact: [ather.techie@gmail.com](mailto:ather.techie@gmail.com)
+
+Feedback is always appreciated — if this project has been useful to you, please let the author know via email.
 
 ## License
 

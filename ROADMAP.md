@@ -20,6 +20,13 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - Labels & threaded comments
 - AI card summarisation (Claude, Gemini, OpenAI, Azure OpenAI, Ollama)
 - Self-hosted via Docker + SQLite
+- Multi-user RBAC (super_admin / global_reader / project_admin / contributor / reader) + Project Admin Panel
+- Epic-level access control with contributor auto-grant for Default Epic
+- GitHub & GitLab integration (PR / commit links, webhook events — feature-flagged)
+- Per-sprint Retrospective Board (feature-flagged)
+- Calendar surface with events, vacations, and holidays (feature-flagged)
+- @mention notifications + real-time board updates via SSE
+- AI natural-language work item creation (parse across board, backlog, sprints, calendar)
 
 ---
 
@@ -38,10 +45,15 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [ ] Due dates with overdue highlighting
 - [ ] Subtasks / inline checklists on cards
 - [ ] Card templates for recurring task types (bug, feature, chore)
-- [ ] @mentions in comments with in-app notifications
+- [x] @mentions in comments with in-app notifications
 - [ ] Dark mode
 
 ### Technical
+- [x] Real-time board sync via SSE (card create/update/move/delete events)
+- [ ] In-app feedback module — floating widget for users to submit bug reports, feature requests, and comments; admin panel view with status tracking
+- [ ] Personal API tokens — programmatic access for scripts and integrations
+- [ ] Two-factor authentication (TOTP)
+- [ ] WIP limits per swim lane (Kanban throughput enforcement)
 - [ ] OpenAPI / Swagger documentation for the REST API
 - [ ] Health check endpoint (`/health`) for container orchestration
 - [ ] Backup and restore CLI for SQLite database
@@ -52,12 +64,15 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 > Target: v1.5
 
 ### Version Control
-- [ ] GitHub integration — link pull requests and commits to cards
-- [ ] GitLab integration — mirror GitHub feature set
+- [x] GitHub integration — link pull requests and commits to cards (feature-flagged)
+- [x] GitLab integration — mirror GitHub feature set (feature-flagged)
 - [ ] Auto-move cards when PR is merged (e.g. move to Done)
 
 ### Notifications & Webhooks
 - [ ] Webhook support — push card events to external services
+- [ ] LDAP / SAML SSO — enterprise identity provider support
+- [ ] Zapier / n8n / Make webhook templates — no-code automation triggers
+- [ ] Per-user notification preferences (granular opt-in/out per event type)
 - [ ] Slack integration — sprint summaries and card move notifications
 - [ ] Discord integration
 - [ ] Email notifications for mentions, assignments, and due dates
@@ -71,12 +86,13 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 ## 🤖 Phase 3 — AI Enhancements
 > Target: v2.0
 
+- [x] **Natural language card creation** — create cards by typing plain English commands (parse across board, epics, sprints, calendar)
 - [ ] **AI sprint planning** — suggest backlog items to pull into the next sprint based on velocity history
 - [ ] **Auto-generate subtasks** from a card title or description
 - [ ] **Smart labels** — AI suggests tags based on card content
 - [ ] **Risk detection** — flag cards likely to be blocked or delayed based on patterns
-- [ ] **Sprint retrospective summaries** — AI-generated recap of completed sprints
-- [ ] **Natural language card creation** — create cards by typing plain English commands
+- [ ] **AI-generated sprint retrospective summaries** — AI-generated recap of completed sprints
+- [ ] **Duplicate detection** — warn when a new card looks like an existing one
 
 ---
 
@@ -100,6 +116,12 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [ ] Full WCAG 2.1 AA accessibility compliance
 - [ ] Responsive mobile layout improvements
 
+### Collaboration & Power-user
+- [ ] Card attachments (file uploads, images, screenshots)
+- [ ] Bulk operations — bulk move, assign, label, or delete cards
+- [ ] Dependency graph visualization — interactive view of blocks/blocked-by links
+- [ ] Board view customization — card density, visible fields, group-by options
+
 ---
 
 ## 💡 Ideas Backlog (Under Consideration)
@@ -111,6 +133,11 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - Public project boards (read-only shareable links)
 - Import from Jira / Trello / Linear
 - Audit log for enterprise compliance
+- Guest / external collaborator access (time-limited, read-only project tokens)
+- Sprint templates — save a sprint's lane structure and defaults for reuse
+- Card staleness indicators — highlight cards with no activity in N days
+- SCIM provisioning for automated user lifecycle management
+- Multi-region / multi-tenant hosted offering
 
 ---
 
