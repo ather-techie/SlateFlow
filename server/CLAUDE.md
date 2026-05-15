@@ -71,6 +71,8 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 | `routes/ai.ts` | `POST /ai/cards/:id/summarize` (card summary) + `POST /ai/parse-item` (natural-language work item parse, returns discriminated union with type + payload for epics, features, stories, tasks, projects, sprints, calendar events, or unknown) (both gated by `FEATURE_AI`) |
 | `routes/retrospectives.ts` | `GET /sprints/:id/retrospective` (auto-creates), `POST/PATCH/DELETE` on `/retrospectives/:id/items` and `/retrospective-items/:id`, `POST /retrospectives/:id/reorder` (gated by `FEATURE_RETROSPECTIVE`) |
 | `routes/calendar.ts` | `GET /projects/:id/calendar?from=&to=` (sprints/epics/features/holidays/events/vacations); event CRUD on `/projects/:id/calendar/events` + `/calendar/events/:id`; vacation CRUD on `/vacations[/:id]`; super-admin holiday CRUD on `/admin/holidays[/:id]` (all gated by `FEATURE_CALENDAR`) |
+| `routes/cardLinks.ts` | `GET /cards/:id/links`, `POST /cards/:id/links`, `DELETE /cards/:id/links/:linkId` (authenticated; gated by `github_integration`/`gitlab_integration` per provider) |
+| `routes/webhooks.ts` | `POST /webhooks/github` (public; HMAC-SHA256 signature verification), `POST /webhooks/gitlab` (public; token header verification) — consume merged PR/MR events and auto-move linked cards to done lane |
 | `lib/openapi.ts` | `GET /api/openapi.json` (test-case OpenAPI subset) |
 
 Full request/response shapes + curl examples live in [../docs/api.md](../docs/api.md). Keep that file synced when adding endpoints.
@@ -112,6 +114,7 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 | `story_dependencies` | id | (`blocker_id`, `blocked_id`) UNIQUE; both FKs to cards |
 | `notifications` | id | `user_id` FK, `type`, `entity_type`, `entity_id`, `is_read`, `message` |
 | `feature_overrides` | flag | `enabled` (0/1), `updated_by`, `updated_at` |
+| `card_links` | id | `card_id` FK → cards (CASCADE), `provider` (github/gitlab), `type` (pr/mr/commit), `repo_url`, `number` (nullable), `sha` (nullable), `state` (open/closed/merged), `merged_at`, `created_by` FK → users |
 | `lane_presets` | id | `lanes` JSON |
 | `retrospectives` | id | `sprint_id` UNIQUE FK → sprints (one retro per sprint, cascade) |
 | `retrospective_items` | id | `retrospective_id` FK + `category` (went_well/to_improve/action) + `body` + `position` + `author_id` |

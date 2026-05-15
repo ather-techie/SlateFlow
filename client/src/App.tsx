@@ -70,6 +70,8 @@ export default function App() {
         auth_password: true,
         auth_google: false,
         auth_github: false,
+        github_integration: false,
+        gitlab_integration: false,
       }))
       .finally(() => setFlagsLoading(false))
   }, [setFlags, setFlagsLoading])

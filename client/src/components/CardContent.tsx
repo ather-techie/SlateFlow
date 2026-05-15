@@ -1,6 +1,7 @@
 import type { Card } from '../types'
 import PriorityBadge from './PriorityBadge'
 import { useBoardStore } from '../store/boardStore'
+import { useFeatureFlagStore } from '../store/featureFlagStore'
 
 interface Props {
   card: Card
@@ -11,6 +12,9 @@ interface Props {
 export default function CardContent({ card, className = '', style }: Props) {
   const summary = useBoardStore(s => s.testCaseSummary[card.id])
   const taskSummary = useBoardStore(s => s.taskSummary[card.id])
+  const linkCount = useBoardStore(s => s.linkCount[card.id] ?? 0)
+  const { isEnabled } = useFeatureFlagStore()
+  const showLinks = (isEnabled('github_integration') || isEnabled('gitlab_integration')) && linkCount > 0
 
   const indicatorColor = summary && summary.total > 0
     ? summary.failed > 0
@@ -71,6 +75,21 @@ export default function CardContent({ card, className = '', style }: Props) {
             <path d="M5.5 9l1.5 1.5 3-3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span>{summary.passed}/{summary.total} passed</span>
+        </div>
+      )}
+
+      {showLinks && (
+        <div
+          className="mt-2 flex items-center gap-1 text-xs text-violet-600"
+          title={`${linkCount} linked PR/MR${linkCount !== 1 ? 's' : ''}`}
+        >
+          <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="4" cy="4" r="1.5" />
+            <circle cx="4" cy="12" r="1.5" />
+            <circle cx="12" cy="4" r="1.5" />
+            <path d="M4 5.5v5M4 5.5C4 8 12 8 12 5.5" strokeLinecap="round" />
+          </svg>
+          <span>{linkCount} PR{linkCount !== 1 ? 's' : ''}</span>
         </div>
       )}
     </div>

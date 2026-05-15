@@ -7,6 +7,7 @@ import type {
   CalendarRange,
   CalendarVacation,
   Card,
+  CardLink,
   Comment,
   DashboardStats,
   Epic,
@@ -235,5 +236,10 @@ export const api = {
   ai: {
     parseItem: (data: { input: string; context?: { projectId?: number; epicId?: number; laneId?: number; allowedTypes?: NLAllowedType[] } }) =>
       unwrap<ParsedIntent>(http.post('/ai/parse-item', data)),
+  },
+  cardLinks: {
+    list: (cardId: number) => unwrap<CardLink[]>(http.get(`/cards/${cardId}/links`)),
+    add: (cardId: number, data: { url: string }) => unwrap<CardLink>(http.post(`/cards/${cardId}/links`, data)),
+    remove: (cardId: number, linkId: number) => unwrap<{ id: number }>(http.delete(`/cards/${cardId}/links/${linkId}`)),
   },
 }

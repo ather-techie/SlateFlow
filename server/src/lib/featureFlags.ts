@@ -9,6 +9,8 @@ export type FeatureFlag =
   | 'auth_password'
   | 'auth_google'
   | 'auth_github'
+  | 'github_integration'
+  | 'gitlab_integration'
 
 const KNOWN_FLAGS: FeatureFlag[] = [
   'ai',
@@ -17,6 +19,8 @@ const KNOWN_FLAGS: FeatureFlag[] = [
   'auth_password',
   'auth_google',
   'auth_github',
+  'github_integration',
+  'gitlab_integration',
 ]
 
 interface OverrideRow {

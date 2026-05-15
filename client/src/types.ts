@@ -415,3 +415,21 @@ export interface CalendarRange {
   events: CalendarEvent[]
   vacations: CalendarVacation[]
 }
+
+// ── GitHub / GitLab card links ────────────────────────────────────────────────
+
+export interface CardLink {
+  id: number
+  card_id: number
+  provider: 'github' | 'gitlab'
+  type: 'pr' | 'mr' | 'commit'
+  repo_url: string
+  number: number | null
+  sha: string | null
+  title: string
+  url: string
+  state: 'open' | 'closed' | 'merged'
+  merged_at: string | null
+  created_by: number | null
+  created_at: string
+}

@@ -62,7 +62,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 - `Retro/RetroColumn`, `Retro/RetroNote` — DnD-aware retrospective primitives in [src/components/Retro/](src/components/Retro/) (mirror the Board/ pattern with three fixed categories instead of dynamic lanes)
 - `Calendar/MonthGrid`, `Calendar/EntryBar`, `Calendar/EntryFormModal` — calendar surface in [src/components/Calendar/](src/components/Calendar/). `EntryFormModal` is reused by `AdminPage`'s Holidays tab via `allowedKinds={['holiday']}`
 - `Board/ManageLanesModal` — CRUD lanes (create, rename, recolor, reorder, delete with card-count guard)
-- `CardModal` — full story editor; **5 tabs**: Description (with inline Tasks checklist), Comments, Activity, Tests, Dependencies (blocks / blocked-by). Right sidebar holds Sprint, Feature, Assignee, Priority, Story Points selectors
+- `CardModal` — full story editor; **6 tabs**: Description (with inline Tasks checklist), Comments, Activity, Tests, Dependencies (blocks / blocked-by), Integrations (linked GitHub PRs and GitLab MRs, gated by flags). Right sidebar holds Sprint, Feature, Assignee, Priority, Story Points selectors
 - `ProtectedRoute` — auth gate; redirects to `/login` when no session
 - `FeatureGate` — `<FeatureGate flag="ai">{children}</FeatureGate>`; renders only when the flag resolves true
 - `NLItemInput` — universal natural-language work item creation (gated by `FEATURE_AI`). Props: `allowedTypes` (array of types the parser can return), `context` (projectId/epicId/laneId), `lanes` (for story lane picker), `cards` (for task parent picker), `onCreated` (refresh callback). State machine: idle → input → loading → preview → confirming. Editable fields appear based on inferred type (priority/assignee for epics/features/stories, dates for sprints/calendar, parent selectors as needed). Wrapped in `<FeatureGate flag="ai">` at every mount site: BoardPage, EpicsPage, SprintsPage, CalendarPage, DashboardPage
@@ -76,9 +76,9 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 |---|---|
 | `authStore.ts` | `user`, `loading`; helpers `isSuperAdmin()`, `canReadProject(id)`, `canWriteProject(id)`, `canManageProject(id)` |
 | `projectStore.ts` | `projects`, `currentProject`; `setCurrentProject`, `fetchProjects()` |
-| `boardStore.ts` | `lanes`, `cards`, `testCaseSummary`, `taskSummary`; mutations: `moveCard`, `addCard`, `updateCard`, `deleteCard`, summary setters |
+| `boardStore.ts` | `lanes`, `cards`, `testCaseSummary`, `taskSummary`, `linkCount`; mutations: `moveCard`, `addCard`, `updateCard`, `deleteCard`, summary setters, `setLinkCount` |
 | `retroStore.ts` | `retroId`, `items`; mutations: `setRetro`, `addItem`, `updateItem`, `removeItem`, `setItems`, `clear` (mutations only apply when the incoming item belongs to the active retro) |
-| `featureFlagStore.ts` | `features` (`ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
+| `featureFlagStore.ts` | `features` (`ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
 
 ## API clients
 
@@ -93,6 +93,11 @@ Two files exist; the codebase is mid-migration:
 - `api.ai.parseItem(data)` — `(input: string, context?: { projectId?, epicId?, laneId?, allowedTypes? }) => Promise<ParsedIntent>` — parses natural-language input into a work item
 - `type ParsedIntent = { type, payload } | { type: "unknown", reason }` — discriminated union returned by the `/api/ai/parse-item` endpoint; `type` is one of `"epic"`, `"feature"`, `"story"`, `"task"`, `"project"`, `"sprint"`, `"calendar"`, or `"unknown"`; each type carries different fields in `payload` (e.g., epic/feature/story have priority + assignee, sprint has dates + goal, task has assignee only)
 - `type NLAllowedType = "epic" | "feature" | "story" | "task" | "project" | "sprint" | "calendar"` — work item types the parser can infer
+
+**Card Links methods exported from `api/index.ts`:**
+- `api.cardLinks.list(cardId)` — fetches all linked PRs/MRs for a card
+- `api.cardLinks.add(cardId, { url })` — adds a new link by URL; parses provider/type/number; optionally fetches metadata
+- `api.cardLinks.remove(cardId, linkId)` — deletes a link
 
 Vite proxies `/api` → `localhost:3000` in dev (see `vite.config.ts`). Both clients send credentials so the `sf_token` cookie is included.
 

@@ -11,12 +11,14 @@ interface BoardState {
   cards: Card[]
   testCaseSummary: Record<number, TestCaseSummary>
   taskSummary: Record<number, TaskSummary>
+  linkCount: Record<number, number>
   moveCard: (cardId: number, laneId: number, position: number) => void
   addCard: (card: Card) => void
   updateCard: (card: Card) => void
   deleteCard: (id: number) => void
   setTestCaseSummary: (cardId: number, summary: TestCaseSummary) => void
   setTaskSummary: (cardId: number, summary: TaskSummary) => void
+  setLinkCount: (cardId: number, count: number) => void
 }
 
 export const useBoardStore = create<BoardState>(set => ({
@@ -24,6 +26,7 @@ export const useBoardStore = create<BoardState>(set => ({
   cards: [],
   testCaseSummary: {},
   taskSummary: {},
+  linkCount: {},
   moveCard: (cardId, laneId, position) =>
     set(state => ({
       cards: state.cards.map(c =>
@@ -38,4 +41,6 @@ export const useBoardStore = create<BoardState>(set => ({
     set(state => ({ testCaseSummary: { ...state.testCaseSummary, [cardId]: summary } })),
   setTaskSummary: (cardId, summary) =>
     set(state => ({ taskSummary: { ...state.taskSummary, [cardId]: summary } })),
+  setLinkCount: (cardId, count) =>
+    set(state => ({ linkCount: { ...state.linkCount, [cardId]: count } })),
 }))

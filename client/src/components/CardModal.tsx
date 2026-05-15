@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { ActivityLog, Card, Comment, Dependency, DependencyList, Feature, Label, Lane, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite } from '../types'
+import toast from 'react-hot-toast'
+import type { ActivityLog, Card, CardLink, Comment, Dependency, DependencyList, Feature, Label, Lane, Sprint, Task, TestCase, TestCaseSummary, TestRun, TestSuite } from '../types'
 import { api } from '../api'
+import { api as apiNs } from '../api/index'
 import { useBoardStore } from '../store/boardStore'
+import { useFeatureFlagStore } from '../store/featureFlagStore'
+import { FeatureGate } from './FeatureGate'
 
 interface Props {
   card: Card
@@ -14,7 +18,7 @@ interface Props {
   onDelete: (id: number) => void
 }
 
-type Tab = 'description' | 'comments' | 'activity' | 'tests' | 'dependencies'
+type Tab = 'description' | 'comments' | 'activity' | 'tests' | 'dependencies' | 'integrations'
 
 const PRIORITIES: Card['priority'][] = ['p0', 'p1', 'p2', 'p3']
 const PRIORITY_LABELS: Record<string, string> = {
@@ -587,6 +591,16 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   const [addingDep, setAddingDep] = useState(false)
   const [depSearchResults, setDepSearchResults] = useState<Dependency[]>([])
 
+  // Integrations
+  const [links, setLinks] = useState<CardLink[]>([])
+  const [newLinkUrl, setNewLinkUrl] = useState('')
+  const [addingLink, setAddingLink] = useState(false)
+  const setLinkCount = useBoardStore(s => s.setLinkCount)
+  const { isEnabled } = useFeatureFlagStore()
+  const githubOn = isEnabled('github_integration')
+  const gitlabOn = isEnabled('gitlab_integration')
+  const integrationsVisible = githubOn || gitlabOn
+
   const titleRef    = useRef<HTMLInputElement>(null)
   const labelPickerRef = useRef<HTMLDivElement>(null)
 
@@ -608,7 +622,13 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
       setTasks(ts)
       setTaskSummary(card.id, { total: ts.length, done: ts.filter(t => t.status === 'done').length })
     }).catch(() => {})
-  }, [card.id, projectId])
+    if (githubOn || gitlabOn) {
+      apiNs.cardLinks.list(card.id).then(ls => {
+        setLinks(ls)
+        setLinkCount(card.id, ls.length)
+      }).catch(() => {})
+    }
+  }, [card.id, projectId, githubOn, gitlabOn, setLinkCount])
 
   function syncSummary(cases: TestCase[], overrideSummary?: TestCaseSummary) {
     const s = overrideSummary ?? computeSummary(cases)
@@ -850,6 +870,37 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
     } catch { /* ignore */ }
   }
 
+  async function handleAddLink() {
+    if (!newLinkUrl.trim()) return
+    try {
+      const link = await apiNs.cardLinks.add(card.id, { url: newLinkUrl.trim() })
+      setLinks(ls => {
+        const next = [link, ...ls]
+        setLinkCount(card.id, next.length)
+        return next
+      })
+      setNewLinkUrl('')
+      setAddingLink(false)
+      toast.success('Link added')
+    } catch {
+      toast.error('Failed to add link')
+    }
+  }
+
+  async function handleRemoveLink(linkId: number) {
+    try {
+      await apiNs.cardLinks.remove(card.id, linkId)
+      setLinks(ls => {
+        const next = ls.filter(l => l.id !== linkId)
+        setLinkCount(card.id, next.length)
+        return next
+      })
+      toast.success('Link removed')
+    } catch {
+      toast.error('Failed to remove link')
+    }
+  }
+
   // ── Tab label helpers ─────────────────────────────────────────────────────────
 
   const testBadgeColor = testSummary.failed > 0
@@ -881,7 +932,16 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
 
         {/* Tab bar */}
         <div className="flex border-b border-slate-100 px-4">
-          {(['description', 'comments', 'activity', 'tests', 'dependencies'] as const).map(tab => (
+          {(
+            [
+              'description',
+              'comments',
+              'activity',
+              'tests',
+              'dependencies',
+              ...(integrationsVisible ? ['integrations' as const] : []),
+            ] as const
+          ).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -906,6 +966,16 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                   {deps && (deps.blocks.length + deps.blocked_by.length) > 0 && (
                     <span className="text-white text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] h-4 flex items-center justify-center bg-amber-500">
                       {deps.blocks.length + deps.blocked_by.length}
+                    </span>
+                  )}
+                </>
+              ) : null}
+              {tab === 'integrations' ? (
+                <>
+                  PRs/MRs
+                  {links.length > 0 && (
+                    <span className="text-white text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] h-4 flex items-center justify-center bg-violet-500">
+                      {links.length}
                     </span>
                   )}
                 </>
@@ -1247,6 +1317,93 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                       </div>
                     )}
                   </>
+                )}
+              </div>
+            )}
+
+            {/* ── Integrations tab ── */}
+            {activeTab === 'integrations' && integrationsVisible && (
+              <div className="space-y-5">
+
+                {/* GitHub PRs section */}
+                <FeatureGate flag="github_integration">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+                      Linked Pull Requests (GitHub)
+                    </p>
+                    {links.filter(l => l.provider === 'github').length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No GitHub PRs linked.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {links.filter(l => l.provider === 'github').map(link => (
+                          <li key={link.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+                            <span className={`text-[10px] font-bold uppercase rounded px-1.5 py-0.5 ${link.state === 'merged' ? 'bg-violet-100 text-violet-700' : link.state === 'closed' ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-700'}`}>
+                              {link.state}
+                            </span>
+                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline flex-1 truncate">
+                              {link.title || link.url}
+                            </a>
+                            <button onClick={() => handleRemoveLink(link.id)} className="text-slate-300 hover:text-red-500 transition-colors text-lg leading-none flex-shrink-0" title="Remove">×</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </FeatureGate>
+
+                {/* GitLab MRs section */}
+                <FeatureGate flag="gitlab_integration">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+                      Linked Merge Requests (GitLab)
+                    </p>
+                    {links.filter(l => l.provider === 'gitlab').length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No GitLab MRs linked.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {links.filter(l => l.provider === 'gitlab').map(link => (
+                          <li key={link.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+                            <span className={`text-[10px] font-bold uppercase rounded px-1.5 py-0.5 ${link.state === 'merged' ? 'bg-violet-100 text-violet-700' : link.state === 'closed' ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-700'}`}>
+                              {link.state}
+                            </span>
+                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline flex-1 truncate">
+                              {link.title || link.url}
+                            </a>
+                            <button onClick={() => handleRemoveLink(link.id)} className="text-slate-300 hover:text-red-500 transition-colors text-lg leading-none flex-shrink-0" title="Remove">×</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </FeatureGate>
+
+                {/* Add link form */}
+                {!addingLink ? (
+                  <button
+                    onClick={() => setAddingLink(true)}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors"
+                  >
+                    + Link a PR / MR / Commit
+                  </button>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
+                    <input
+                      autoFocus
+                      value={newLinkUrl}
+                      onChange={e => setNewLinkUrl(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleAddLink(); if (e.key === 'Escape') setAddingLink(false) }}
+                      placeholder="Paste a GitHub PR / GitLab MR / commit URL…"
+                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={handleAddLink} className="text-xs bg-indigo-600 text-white rounded-lg px-3 py-1.5 hover:bg-indigo-700 transition-colors">
+                        Add
+                      </button>
+                      <button onClick={() => { setAddingLink(false); setNewLinkUrl('') }} className="text-xs text-slate-500 px-2">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

@@ -44,6 +44,12 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 | `AI_MODEL` | provider default | Override the default model |
 | `AI_API_KEY` | _(none)_ | Provider API key (not required for Ollama) |
 | `AI_BASE_URL` | provider default | For `azure`: full deployment endpoint URL incl. `?api-version=…`; for others: base URL override |
+| `FEATURE_GITHUB_INTEGRATION` | `false` | Enterprise gate — `true` enables GitHub link routes and UI surfaces |
+| `FEATURE_GITLAB_INTEGRATION` | `false` | Enterprise gate — `true` enables GitLab MR link routes and UI surfaces |
+| `GITHUB_WEBHOOK_SECRET` | _(none)_ | HMAC-SHA256 secret; must match the secret configured in the GitHub webhook |
+| `GITHUB_TOKEN` | _(none)_ | Optional GitHub PAT; used to fetch PR/commit metadata from private repos |
+| `GITLAB_WEBHOOK_SECRET` | _(none)_ | Must match the secret token configured in the GitLab webhook settings |
+| `GITLAB_TOKEN` | _(none)_ | Optional GitLab PAT for private repo metadata lookups |
 
 ## Authentication & RBAC
 

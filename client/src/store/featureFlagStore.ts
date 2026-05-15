@@ -7,6 +7,8 @@ export type FeatureFlag =
   | 'auth_password'
   | 'auth_google'
   | 'auth_github'
+  | 'github_integration'
+  | 'gitlab_integration'
 
 interface Features {
   ai: boolean
@@ -15,6 +17,8 @@ interface Features {
   auth_password: boolean
   auth_google: boolean
   auth_github: boolean
+  github_integration: boolean
+  gitlab_integration: boolean
 }
 
 interface FeatureFlagState {
@@ -33,6 +37,8 @@ export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
     auth_password: true,
     auth_google: false,
     auth_github: false,
+    github_integration: false,
+    gitlab_integration: false,
   },
   loading: true,
   setFlags: (features) => set({ features, loading: false }),

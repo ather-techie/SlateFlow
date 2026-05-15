@@ -315,3 +315,24 @@ CREATE INDEX IF NOT EXISTS idx_calendar_entries_project ON calendar_entries(proj
 CREATE INDEX IF NOT EXISTS idx_calendar_entries_user    ON calendar_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_calendar_entries_dates   ON calendar_entries(start_date, end_date);
 CREATE INDEX IF NOT EXISTS idx_calendar_entries_kind    ON calendar_entries(kind);
+
+-- ── GitHub / GitLab card links ────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS card_links (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  card_id     INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  provider    TEXT    NOT NULL CHECK (provider IN ('github', 'gitlab')),
+  type        TEXT    NOT NULL CHECK (type IN ('pr', 'mr', 'commit')),
+  repo_url    TEXT    NOT NULL,
+  number      INTEGER,
+  sha         TEXT,
+  title       TEXT    NOT NULL DEFAULT '',
+  url         TEXT    NOT NULL,
+  state       TEXT    NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'closed', 'merged')),
+  merged_at   TEXT,
+  created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_card_links_card     ON card_links(card_id);
+CREATE INDEX IF NOT EXISTS idx_card_links_provider ON card_links(provider, repo_url, number);

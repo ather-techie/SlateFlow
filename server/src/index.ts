@@ -28,6 +28,8 @@ import adminSettings from './routes/adminSettings.js'
 import aiRoutes from './routes/ai.js'
 import retrospectives from './routes/retrospectives.js'
 import calendar from './routes/calendar.js'
+import webhooks from './routes/webhooks.js'
+import cardLinks from './routes/cardLinks.js'
 import { requireAuth } from './middleware/requireAuth.js'
 import { testCaseOpenApi } from './lib/openapi.js'
 
@@ -44,6 +46,7 @@ app.get('/api/health', (c) => c.json({ data: { status: 'ok', service: 'slateflow
 // Public routes — registered BEFORE the requireAuth middleware
 app.route('/api', authRoutes)
 app.route('/api', configRoute)
+app.route('/api', webhooks)
 
 // All subsequent /api/* routes require authentication
 app.use('/api/*', requireAuth)
@@ -72,6 +75,7 @@ app.route('/api', adminSettings)
 app.route('/api', aiRoutes)
 app.route('/api', retrospectives)
 app.route('/api', calendar)
+app.route('/api', cardLinks)
 
 app.get('/api/openapi.json', (c) => c.json(testCaseOpenApi))
 
