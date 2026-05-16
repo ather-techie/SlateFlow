@@ -1,3 +1,5 @@
+![Logo](screenshots/banner.png)
+
 # SlateFlow
 
 SlateFlow is a self-hosted, single-container project management platform for agile teams. It pairs a drag-and-drop Kanban board with the full Hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown, a per-sprint Retrospective Board, a calendar that blends sprints/epics/features with team holidays, events, and vacations, a Gantt-style roadmap, velocity / cycle-time / capacity reports, test case management, real-time collaboration over Server-Sent Events, multi-user RBAC at global / project / epic level, and AI card summarisation across Claude, Gemini, OpenAI, Azure OpenAI, and Ollama. SQLite + Hono + React in a single Docker image — no external services required.
@@ -42,16 +44,21 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 - **Lane presets** — pick a workflow template (e.g. Scrum, Kanban) when creating a project, or define custom lanes
 - **Sprint management** — create, activate, and complete sprints; burndown charts per sprint
 - **Backlog** — full CRUD on unassigned cards (create, click-to-edit via modal, delete); cards grouped by swim lane; move to any sprint in one click
+- **Story tasks** — sub-items on any story card; to-do / in-progress / done toggle with an inline progress bar in the card modal
 - **Drag-and-drop** — powered by `@dnd-kit` with pointer sensor support
 - **Activity log** — automatic `create`, `update`, and `move` events per card
 - **Test management** — attach test cases to cards; group into test suites; record pass/fail/blocked runs; track status with a per-card summary bar
-- **Labels & comments** — tag cards and leave threaded comments; `@mention` notifications
-- **Multi-user with RBAC** — JWT auth (httpOnly cookie); roles at global, project, and epic level
+- **Labels & comments** — project-scoped colored labels; threaded comments with `@mention` support
+- **Notifications** — in-app bell with unread count badge; real-time SSE delivery; triggered by `@mention` in comments and story assignment
+- **Multi-user with RBAC** — JWT auth (httpOnly cookie); three role layers: global (`super_admin` / `global_reader`), project (`project_admin` / `contributor` / `reader`), and epic (`epic_admin` / `contributor` / `reader`); project admins have a dedicated `/projects/:id/admin` panel (Members, Settings, Lanes) without needing super_admin
 - **Flexible login methods** — email/password, Google OAuth, and GitHub OAuth, each independently toggleable via feature flags (`FEATURE_AUTH_PASSWORD`, `FEATURE_AUTH_GOOGLE`, `FEATURE_AUTH_GITHUB`); identities stored in a `user_identities` table that's ready for SSO
 - **Real-time updates** — Server-Sent Events stream board mutations and notifications to every connected client
-- **AI features** — card summarisation powered by a provider-agnostic interface; supports Anthropic Claude, Google Gemini, OpenAI, Azure OpenAI, and Ollama; gated by `FEATURE_AI=true`
+- **AI features** — gated by `FEATURE_AI=true`; provider-agnostic across Anthropic Claude, Google Gemini, OpenAI, Azure OpenAI, and Ollama:
+  - *Card summarisation* — generates a 2–3 sentence summary from a story's title and description
+  - *Natural-language work-item creation* — type a sentence to create an epic, feature, story, task, project, sprint, or calendar event; AI returns an editable preview before confirming; available on the Board, Epics, Sprints, Calendar, and Dashboard pages
 - **Retrospective Board** — per-sprint reflection with three fixed columns (Went well / To improve / Action items) and live drag-and-drop reorder; gated by `FEATURE_RETROSPECTIVE=true`
 - **Calendar** — month view of sprints, epics, and features alongside super-admin-managed global holidays, project events, and per-user vacations; gated by `FEATURE_CALENDAR=true`
+- **GitHub & GitLab integration** — attach PR, MR, or commit links to any story card; gated by `FEATURE_GITHUB_INTEGRATION` / `FEATURE_GITLAB_INTEGRATION`; webhook receivers (`POST /webhooks/github`, `POST /webhooks/gitlab`) automatically move linked cards to the done lane when a PR/MR is merged; optional PAT for fetching titles on private repos
 - **Self-host** — single Docker container, SQLite database on a named volume; no external services required
 
 ### Planning & Visibility
