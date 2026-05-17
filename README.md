@@ -30,7 +30,7 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 
 | | |
 |---|---|
-| ![Users](screenshots/aminPanel-users.png) | ![Holidays](screenshots/adminPanel-Holidays.png) |
+| ![Users](screenshots/adminPanel-users.png) | ![Holidays](screenshots/adminPanel-holidays.png) |
 | ![Feature flags](screenshots/adminPanel-featureflag.png) | |
 
 </details>
