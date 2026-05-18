@@ -26,7 +26,9 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - Per-sprint Retrospective Board (feature-flagged)
 - Calendar surface with events, vacations, and holidays (feature-flagged)
 - @mention notifications + real-time board updates via SSE
+- Email notifications for mentions, assignments, and due date reminders (SMTP-based, per-user opt-out)
 - AI natural-language work item creation (parse across board, backlog, sprints, calendar)
+- Due dates on cards and tasks with background reminders
 
 ---
 
@@ -75,7 +77,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [ ] Per-user notification preferences (granular opt-in/out per event type)
 - [ ] Slack integration — sprint summaries and card move notifications
 - [ ] Discord integration
-- [ ] Email notifications for mentions, assignments, and due dates
+- [x] Email notifications for mentions, assignments, and due dates
 
 ### Calendar & Scheduling
 - [ ] iCal / Google Calendar export for sprint dates
@@ -148,4 +150,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue or pull request
 
 ---
 
-*Last updated: May 2026*
+*Last updated: May 18, 2026*

@@ -45,11 +45,12 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 - **Sprint management** — create, activate, and complete sprints; burndown charts per sprint
 - **Backlog** — full CRUD on unassigned cards (create, click-to-edit via modal, delete); cards grouped by swim lane; move to any sprint in one click
 - **Story tasks** — sub-items on any story card; to-do / in-progress / done toggle with an inline progress bar in the card modal
+- **Due dates** — set due dates on cards and tasks; hourly background reminders for upcoming or overdue items; email notifications for assigned users
 - **Drag-and-drop** — powered by `@dnd-kit` with pointer sensor support
 - **Activity log** — automatic `create`, `update`, and `move` events per card
 - **Test management** — attach test cases to cards; group into test suites; record pass/fail/blocked runs; track status with a per-card summary bar
 - **Labels & comments** — project-scoped colored labels; threaded comments with `@mention` support
-- **Notifications** — in-app bell with unread count badge; real-time SSE delivery; triggered by `@mention` in comments and story assignment
+- **Notifications** — in-app bell with unread count badge; real-time SSE delivery via Server-Sent Events; email notifications for mentions, assignments, and due date reminders (SMTP-based, per-user opt-out preference); triggered by `@mention` in comments, story assignment, and due dates
 - **Multi-user with RBAC** — JWT auth (httpOnly cookie); three role layers: global (`super_admin` / `global_reader`), project (`project_admin` / `contributor` / `reader`), and epic (`epic_admin` / `contributor` / `reader`); project admins have a dedicated `/projects/:id/admin` panel (Members, Settings, Lanes) without needing super_admin
 - **Flexible login methods** — email/password, Google OAuth, and GitHub OAuth, each independently toggleable via feature flags (`FEATURE_AUTH_PASSWORD`, `FEATURE_AUTH_GOOGLE`, `FEATURE_AUTH_GITHUB`); identities stored in a `user_identities` table that's ready for SSO
 - **Real-time updates** — Server-Sent Events stream board mutations and notifications to every connected client

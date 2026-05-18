@@ -62,12 +62,17 @@ auth.get('/auth/me', requireAuth, async (c) => {
     'SELECT project_id, role FROM project_access WHERE user_id = ?',
     user.id,
   )
+  const userRow = await db.get<{ email_notifications: number }>(
+    'SELECT email_notifications FROM users WHERE id = ?',
+    user.id,
+  )
 
   return ok(c, {
     id: user.id,
     email: user.email,
     display_name: user.display_name,
     role: user.role,
+    email_notifications: userRow?.email_notifications === 1,
     project_access: projectAccess,
   })
 })
@@ -79,10 +84,11 @@ auth.patch('/auth/me', requireAuth, async (c) => {
     display_name: z.string().min(1).optional(),
     current_password: z.string().optional(),
     new_password: z.string().min(8).optional(),
+    email_notifications: z.boolean().optional(),
   }).safeParse(body)
   if (!parsed.success) return err(c, 'invalid request body')
 
-  const { display_name, current_password, new_password } = parsed.data
+  const { display_name, current_password, new_password, email_notifications } = parsed.data
 
   if (new_password) {
     if (!current_password) return err(c, 'current_password is required to set a new password')
@@ -95,6 +101,7 @@ auth.patch('/auth/me', requireAuth, async (c) => {
 
   if (display_name) { updates.push('display_name = ?'); params.push(display_name) }
   if (new_password)  { updates.push('password_hash = ?'); params.push(hashPassword(new_password)) }
+  if (email_notifications !== undefined) { updates.push('email_notifications = ?'); params.push(email_notifications ? 1 : 0) }
 
   if (updates.length === 0) return err(c, 'nothing to update')
 
@@ -102,8 +109,8 @@ auth.patch('/auth/me', requireAuth, async (c) => {
   params.push(user.id)
   await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, ...params)
 
-  const updated = await db.get('SELECT id, email, display_name, role FROM users WHERE id = ?', user.id)
-  return ok(c, updated)
+  const updated = await db.get<{ email_notifications: number }>('SELECT id, email, display_name, role, email_notifications FROM users WHERE id = ?', user.id)
+  return ok(c, { ...updated, email_notifications: updated?.email_notifications === 1 })
 })
 
 // ── OAuth (Google + GitHub) ───────────────────────────────────────────────────

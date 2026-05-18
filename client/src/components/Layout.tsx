@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { api } from '../api'
 import { useAuthStore } from '../store/authStore'
 import { useFeatureFlagStore } from '../store/featureFlagStore'
+import { ProfileSettingsModal } from './ProfileSettingsModal'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -190,9 +191,10 @@ function NavItem({ to, icon, label, expanded, disabled, badge, onClick }: NavIte
 interface UserMenuProps {
   expanded: boolean
   onLogout: () => void
+  onOpenSettings: () => void
 }
 
-function UserMenu({ expanded, onLogout }: UserMenuProps) {
+function UserMenu({ expanded, onLogout, onOpenSettings }: UserMenuProps) {
   const { user, isSuperAdmin } = useAuthStore()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -234,6 +236,12 @@ function UserMenu({ expanded, onLogout }: UserMenuProps) {
               {user.role === 'super_admin' ? 'Super Admin' : 'Member'}
             </span>
           </div>
+          <button
+            onClick={() => { setOpen(false); onOpenSettings() }}
+            className="w-full text-left px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+          >
+            Settings
+          </button>
           {isSuperAdmin() && (
             <button
               onClick={() => { setOpen(false); navigate('/admin') }}
@@ -266,6 +274,7 @@ export default function Layout() {
   const [expanded, setExpanded] = useState(false)
   const [hasFailedTests, setHasFailedTests] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
     if (!projectId) { setHasFailedTests(false); return }
@@ -416,7 +425,7 @@ export default function Layout() {
               toast.success('All notifications marked as read')
             }}
           />
-          <UserMenu expanded={expanded} onLogout={handleLogout} />
+          <UserMenu expanded={expanded} onLogout={handleLogout} onOpenSettings={() => setSettingsOpen(true)} />
         </div>
       </aside>
 
@@ -424,6 +433,14 @@ export default function Layout() {
       <main className="flex-1 min-w-0 overflow-hidden flex flex-col">
         <Outlet />
       </main>
+
+      <ProfileSettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSettingsChanged={() => {
+          api.auth.me().catch(() => {})
+        }}
+      />
     </div>
   )
 }

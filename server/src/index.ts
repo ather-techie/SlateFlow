@@ -32,9 +32,12 @@ import webhooks from './routes/webhooks.js'
 import cardLinks from './routes/cardLinks.js'
 import { requireAuth } from './middleware/requireAuth.js'
 import { testCaseOpenApi } from './lib/openapi.js'
+import { startDueDateJob } from './lib/dueDateJob.js'
 
 // Ensure the DB is initialised (runs schema + seed on first boot)
 import './db/index.js'
+
+startDueDateJob()
 
 const app = new Hono()
 

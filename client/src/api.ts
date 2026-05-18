@@ -191,6 +191,8 @@ export const api = {
     me: () => request<AuthUser & { project_access: ProjectAccessEntry[] }>('/auth/me'),
     updateMe: (data: { display_name?: string; current_password?: string; new_password?: string }) =>
       request<AuthUser>('/auth/me', { method: 'PATCH', ...json(data) }),
+    updateProfile: (data: { email_notifications?: boolean }) =>
+      request<AuthUser>('/auth/me', { method: 'PATCH', ...json(data) }),
   },
 
   // ── Users (super_admin only) ──────────────────────────────────────────────────

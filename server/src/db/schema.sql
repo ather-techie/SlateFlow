@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS cards (
   assignee     TEXT,
   assignee_id  INTEGER REFERENCES users(id),
   position     INTEGER NOT NULL DEFAULT 0,
+  due_date     TEXT,
+  due_reminder_sent_at TEXT,
   created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
@@ -175,6 +177,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   assignee    TEXT,
   assignee_id INTEGER REFERENCES users(id),
   position    INTEGER NOT NULL DEFAULT 0,
+  due_date    TEXT,
+  due_reminder_sent_at TEXT,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
@@ -182,15 +186,16 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- ── Authentication ────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS users (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  email         TEXT    NOT NULL UNIQUE COLLATE NOCASE,
-  display_name  TEXT    NOT NULL,
-  password_hash TEXT    NOT NULL,
-  role          TEXT    NOT NULL DEFAULT 'global_reader' CHECK(role IN ('super_admin', 'global_reader')),
-  is_active     INTEGER NOT NULL DEFAULT 1,
-  deleted_at    TEXT,
-  created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
-  updated_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  email                 TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+  display_name          TEXT    NOT NULL,
+  password_hash         TEXT    NOT NULL,
+  role                  TEXT    NOT NULL DEFAULT 'global_reader' CHECK(role IN ('super_admin', 'global_reader')),
+  is_active             INTEGER NOT NULL DEFAULT 1,
+  email_notifications   INTEGER NOT NULL DEFAULT 1,
+  deleted_at            TEXT,
+  created_at            TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at            TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Multi-provider identities per user (password / google / github / future SSO).

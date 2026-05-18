@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
+import { isEnabled } from '../lib/featureFlags.js'
+import { sendEmail, mentionEmailHtml } from '../lib/email.js'
 
 const comments = new Hono()
 
@@ -57,12 +59,14 @@ comments.post('/cards/:id/comments', async (c) => {
 
   if (mentions.length > 0) {
     const placeholders = mentions.map(() => '?').join(', ')
-    const mentionedUsers = await db.all<{ id: number; display_name: string }>(
-      `SELECT id, display_name FROM users
+    const mentionedUsers = await db.all<{ id: number; display_name: string; email: string; email_notifications: number }>(
+      `SELECT id, display_name, email, email_notifications FROM users
        WHERE LOWER(REPLACE(REPLACE(display_name, ' ', ''), '.', '')) IN (${placeholders})
          AND deleted_at IS NULL AND id != ?`,
       ...mentions, user.id,
     )
+
+    const emailEnabled = await isEnabled('email_notifications')
 
     for (const mentioned of mentionedUsers) {
       await db.run(
@@ -70,6 +74,19 @@ comments.post('/cards/:id/comments', async (c) => {
         mentioned.id, lastID, `${author} mentioned you in a comment on "${card.title}"`,
       )
       emitBoardEvent({ type: 'notification', userId: mentioned.id, data: { type: 'mention', card_id: cardId, comment_id: lastID } })
+
+      if (emailEnabled && mentioned.email_notifications) {
+        sendEmail({
+          to: mentioned.email,
+          subject: `${author} mentioned you on "${card.title}"`,
+          html: mentionEmailHtml({
+            mentionedBy: author,
+            cardTitle: card.title,
+            cardId,
+            commentId: lastID as number,
+          }),
+        }).catch(console.error)
+      }
     }
   }
 

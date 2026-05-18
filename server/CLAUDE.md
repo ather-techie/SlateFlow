@@ -44,17 +44,17 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 
 | File | Exposed paths |
 |---|---|
-| `routes/auth.ts` | `POST /auth/login` (gated by `auth_password`), `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/me`, `GET /auth/google/start` + `/callback` (gated by `auth_google`), `GET /auth/github/start` + `/callback` (gated by `auth_github`). OAuth flow: server-side authorization-code, CSRF-protected via short-lived `sf_oauth_state` cookie, identity stored in `user_identities` |
+| `routes/auth.ts` | `POST /auth/login` (gated by `auth_password`), `POST /auth/logout`, `GET /auth/me`, `PATCH /auth/me` (supports `email_notifications` boolean preference), `GET /auth/google/start` + `/callback` (gated by `auth_google`), `GET /auth/github/start` + `/callback` (gated by `auth_github`). OAuth flow: server-side authorization-code, CSRF-protected via short-lived `sf_oauth_state` cookie, identity stored in `user_identities` |
 | `routes/config.ts` | `GET /config` (public) |
 | `routes/projects.ts` | CRUD on `/projects` and `/projects/:id`; `PATCH /projects/:id` enforces `canWrite` (contributor or above); auto-creates Default Epic/Feature/Sprint; DELETE→409 for Default Project |
 | `routes/lanes.ts` | CRUD on `/projects/:id/lanes` and `/lanes/:id`; bulk `POST /projects/:id/lanes/reorder` |
 | `routes/presets.ts` | `GET /lane-presets` |
-| `routes/cards.ts` | `/lanes/:id/cards`, `/columns/:id/cards`, `/cards/:id`, `/cards/:id/move`, `/cards/:id/tasks`, `/cards/:id/tasks/reorder`, `/projects/:id/tasks`, `/projects/:id/stories/search?q=` |
+| `routes/cards.ts` | `/lanes/:id/cards`, `/columns/:id/cards`, `/cards/:id`, `/cards/:id/move`, `/cards/:id/tasks`, `/cards/:id/tasks/reorder`, `/projects/:id/tasks`, `/projects/:id/stories/search?q=`; PATCH supports `due_date` field; assignment changes emit `notification` + email if enabled |
 | `routes/sprints.ts` | CRUD + `/sprints/:id/complete`, `/sprints/:id/cards`, `/projects/:id/backlog`; DELETE→409 for Default Sprint |
 | `routes/epics.ts` | CRUD; list returns `feature_count` + `story_count` + `is_default` |
 | `routes/features.ts` | CRUD; list supports `?epic_id=`; auto-assigns Default Epic if `epic_id` omitted; `GET /features/:id/stories` |
 | `routes/columns.ts` | Legacy CRUD (retained for backward compatibility) |
-| `routes/comments.ts` | CRUD on card comments; emits `notification` for `@mention` |
+| `routes/comments.ts` | CRUD on card comments; emits `notification` for `@mention` + sends email if `email_notifications` flag enabled and user has opted in |
 | `routes/labels.ts` | Project labels + attach/detach on stories |
 | `routes/activity.ts` | `GET /cards/:id/activity`, `GET /projects/:id/activity` |
 | `routes/dashboard.ts` | `GET /dashboard/stats`, `/dashboard/projects`, `/dashboard/activity` |
@@ -93,7 +93,7 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 | Table | PK | Notable cols / FKs |
 |---|---|---|
 | `projects` | id | `is_default` (0/1), `color` |
-| `users` | id | `email` UNIQUE, `role` (super_admin/global_reader), `password_hash`, `is_active`, `deleted_at` (soft) |
+| `users` | id | `email` UNIQUE, `role` (super_admin/global_reader), `password_hash`, `is_active`, `deleted_at` (soft), `email_notifications` (opt-out, DEFAULT 1) |
 | `user_identities` | id | `user_id` FK → users, `provider` (password/google/github), `provider_user_id`; UNIQUE (`provider`, `provider_user_id`) AND (`user_id`, `provider`) — one user may link multiple providers |
 | `project_access` | id | (`user_id`, `project_id`) UNIQUE, `role` (project_admin/contributor/reader) |
 | `epic_access` | id | (`user_id`, `epic_id`) UNIQUE, `role` (epic_admin/contributor/reader) |
@@ -102,8 +102,8 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 | `sprints` | id | `project_id` FK, `is_default`, status (planned/active/completed), goal, start/end |
 | `swim_lanes` | id | `project_id` FK, `position`, `is_done_col` (0/1), `color` |
 | `columns` | id | Legacy; retained |
-| `cards` (Stories) | id | FKs: `swim_lane_id` (primary), `column_id` (legacy), `sprint_id`, `feature_id`; `priority`, `story_points`, `assignee` |
-| `tasks` | id | `story_id` FK → cards, status (to-do/in-progress/done), CASCADE |
+| `cards` (Stories) | id | FKs: `swim_lane_id` (primary), `column_id` (legacy), `sprint_id`, `feature_id`; `priority`, `story_points`, `assignee`, `due_date`, `due_reminder_sent_at` |
+| `tasks` | id | `story_id` FK → cards, status (to-do/in-progress/done), `due_date`, `due_reminder_sent_at`, CASCADE |
 | `card_labels` | (card_id, label_id) | join |
 | `labels` | id | `project_id` FK, color |
 | `comments` | id | `card_id` + `author_id` FKs |
@@ -181,3 +181,19 @@ Every streaming provider parses SSE via [lib/sseLines.ts](src/lib/sseLines.ts). 
 - **Default-X protection:** any DELETE on a `is_default = 1` row returns `409` with a clear message. Mirror existing handlers in `projects.ts`, `epics.ts`, `features.ts`, `sprints.ts`.
 - **Activity log:** every card mutation appends to `activity_log` with a JSON `meta` describing the change. Don't skip this — it powers the Activity tab and cycle-time reports.
 - **Mention parsing:** comment creation runs `body.match(/@([\w.-]+)/g)` and resolves matches against `users.display_name` (lowercased, space-stripped) and `users.email` prefix; matches get a `notifications` row + SSE event.
+
+## Email Notifications
+
+Email notifications are gated by the `email_notifications` feature flag (three-layer resolution: env var → DB override → default false). When enabled, SMTP transport must be configured via `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` env vars.
+
+Three notification types trigger emails:
+
+1. **@mentions in comments** — when a comment body contains `@user`, a `mention` notification row is created + SSE emitted; if `email_notifications` flag is enabled and the mentioned user has `email_notifications = 1`, an email is sent via [lib/email.ts](src/lib/email.ts) with `mentionEmailHtml()` template.
+
+2. **Card/task assignments** — when the `assignee` field changes on a PATCH to `/cards/:id` or `/tasks/:id`, an `assignment` notification row is created + SSE emitted; if email enabled and assignee has opted in, email is sent with `assignmentEmailHtml()` template.
+
+3. **Due date reminders** — a background job in [lib/dueDateJob.ts](src/lib/dueDateJob.ts) runs hourly, querying cards/tasks with `due_date <= now + 25h` and `(due_reminder_sent_at IS NULL OR < now - 20h)`, sending email via `dueDateEmailHtml()` template, then updating `due_reminder_sent_at` to prevent spam (max once per 20-hour window).
+
+**Per-user opt-out:** every user has `email_notifications` (DEFAULT 1). They can toggle this via `PATCH /auth/me` with `{ email_notifications: boolean }`. When off, all three notification types still create in-app notifications, but emails are suppressed.
+
+**Email sending:** [lib/email.ts](src/lib/email.ts) exports `sendEmail()` and `isEmailConfigured()`. Sends are non-blocking — errors log but never crash a request. SMTP credentials are validated at startup and every 60 minutes by [lib/dueDateJob.ts](src/lib/dueDateJob.ts) (the job itself checks `isEnabled('email_notifications')` on each tick).

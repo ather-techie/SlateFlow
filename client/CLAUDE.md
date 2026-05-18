@@ -67,6 +67,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 - `CardModal` — full story editor; **6 tabs**: Description (with inline Tasks checklist), Comments, Activity, Tests, Dependencies (blocks / blocked-by), Integrations (linked GitHub PRs and GitLab MRs, gated by flags). Right sidebar holds Sprint, Feature, Assignee, Priority, Story Points selectors
 - `ProtectedRoute` — auth gate; redirects to `/login` when no session
 - `FeatureGate` — `<FeatureGate flag="ai">{children}</FeatureGate>`; renders only when the flag resolves true
+- `ProfileSettingsModal` — user email notification preference toggle; accessible via user avatar dropdown Settings button; reads `email_notifications` from `GET /auth/me`, toggled via `PATCH /auth/me`; wrapped in `<FeatureGate flag="email_notifications">` at mount site in `Layout`
 - `NLItemInput` — universal natural-language work item creation (gated by `FEATURE_AI`). Props: `allowedTypes` (array of types the parser can return), `context` (projectId/epicId/laneId), `lanes` (for story lane picker), `cards` (for task parent picker), `onCreated` (refresh callback). State machine: idle → input → loading → preview → confirming. Editable fields appear based on inferred type (priority/assignee for epics/features/stories, dates for sprints/calendar, parent selectors as needed). Wrapped in `<FeatureGate flag="ai">` at every mount site: BoardPage, EpicsPage, SprintsPage, CalendarPage, DashboardPage
 - `ProjectAccessModal` — per-user table of all projects with role dropdowns; saves inline on change
 - `CreateUserModal` (inline in AdminPage) — chains `POST /users` then `POST /projects/:id/access` per assigned project
@@ -76,11 +77,11 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 
 | File | Holds |
 |---|---|
-| `authStore.ts` | `user`, `loading`; helpers `isSuperAdmin()`, `canReadProject(id)`, `canWriteProject(id)`, `canManageProject(id)` |
+| `authStore.ts` | `user` (includes `email_notifications?: boolean`), `loading`; helpers `isSuperAdmin()`, `canReadProject(id)`, `canWriteProject(id)`, `canManageProject(id)` |
 | `projectStore.ts` | `projects`, `currentProject`; `setCurrentProject`, `fetchProjects()` |
 | `boardStore.ts` | `lanes`, `cards`, `testCaseSummary`, `taskSummary`, `linkCount`; mutations: `moveCard`, `addCard`, `updateCard`, `deleteCard`, summary setters, `setLinkCount` |
 | `retroStore.ts` | `retroId`, `items`; mutations: `setRetro`, `addItem`, `updateItem`, `removeItem`, `setItems`, `clear` (mutations only apply when the incoming item belongs to the active retro) |
-| `featureFlagStore.ts` | `features` (`ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
+| `featureFlagStore.ts` | `features` (`ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
 
 ## API clients
 
@@ -102,6 +103,16 @@ Two files exist; the codebase is mid-migration:
 - `api.cardLinks.remove(cardId, linkId)` — deletes a link
 
 Vite proxies `/api` → `localhost:3000` in dev (see `vite.config.ts`). Both clients send credentials so the `sf_token` cookie is included.
+
+## Email Notifications
+
+The email notifications feature is gated by the `email_notifications` feature flag and surfaces a preference toggle in the user profile modal (accessible via the user avatar dropdown). The toggle:
+- Reads the current user's `email_notifications` preference from `GET /auth/me` (fetched on `Layout` mount)
+- Calls `PATCH /auth/me` with `{ email_notifications: boolean }` on toggle
+- Is hidden when the `email_notifications` flag is disabled (via `<FeatureGate>`)
+- Sends in-app toasts on success/error (uses existing `react-hot-toast` surface)
+
+Users control whether they receive emails for mentions, assignments, and due-date reminders. In-app notifications always appear regardless of the email preference.
 
 ## Hooks ([src/hooks/](src/hooks/))
 

@@ -5,6 +5,7 @@ export interface AuthUser {
   email: string
   display_name: string
   role: 'super_admin' | 'global_reader'
+  email_notifications?: boolean
   project_access: { project_id: number; role: 'project_admin' | 'contributor' | 'reader' }[]
 }
 

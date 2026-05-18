@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
+import { isEnabled } from '../lib/featureFlags.js'
+import { sendEmail, assignmentEmailHtml } from '../lib/email.js'
 
 const cards = new Hono()
 
@@ -35,6 +37,7 @@ const UpdateSchema = z.object({
   assignee:     z.string().max(200).nullable().optional(),
   sprint_id:    z.number().int().positive().nullable().optional(),
   feature_id:   z.number().int().positive().nullable().optional(),
+  due_date:     z.string().nullable().optional(),
 })
 
 const TaskCreateSchema = z.object({
@@ -49,6 +52,7 @@ const TaskUpdateSchema = z.object({
   description: z.string().max(5000).optional(),
   status:      z.enum(['to-do', 'in-progress', 'done']).optional(),
   assignee:    z.string().max(200).nullable().optional(),
+  due_date:    z.string().nullable().optional(),
 })
 
 const TaskReorderSchema = z.object({
@@ -102,6 +106,7 @@ cards.post('/lanes/:id/cards', async (c) => {
 
   const maxPosRow = await db.get<{ m: number }>('SELECT COALESCE(MAX(position), -1) as m FROM cards WHERE swim_lane_id = ?', laneId)
 
+  const user = c.get('user')
   const result = await db.transaction(async () => {
     const { lastID } = await db.run(
       `INSERT INTO cards
@@ -121,6 +126,37 @@ cards.post('/lanes/:id/cards', async (c) => {
       "INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'create', ?)",
       lastID, JSON.stringify({ swim_lane_id: laneId }),
     )
+
+    // Send assignment notification if set on creation
+    if (assignee) {
+      const assigneeUser = await db.get<{ id: number; email: string; email_notifications: number }>(
+        `SELECT id, email, email_notifications FROM users
+         WHERE display_name = ? AND deleted_at IS NULL`,
+        assignee,
+      )
+
+      if (assigneeUser && assigneeUser.id !== user.id) {
+        await db.run(
+          "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'assignment', 'card', ?, ?)",
+          assigneeUser.id, lastID, `${user.display_name} assigned you to "${title}"`,
+        )
+        emitBoardEvent({ type: 'notification', userId: assigneeUser.id, data: { type: 'assignment', card_id: lastID } })
+
+        const emailEnabled = await isEnabled('email_notifications')
+        if (emailEnabled && assigneeUser.email_notifications) {
+          sendEmail({
+            to: assigneeUser.email,
+            subject: `You've been assigned to "${title}"`,
+            html: assignmentEmailHtml({
+              assignedBy: user.display_name,
+              cardTitle: title,
+              cardId: lastID as number,
+              type: 'card',
+            }),
+          }).catch(console.error)
+        }
+      }
+    }
 
     return await db.get('SELECT * FROM cards WHERE id = ?', lastID)
   })()
@@ -218,7 +254,7 @@ cards.patch('/cards/:id', async (c) => {
   const sets: string[] = ["updated_at = datetime('now')"]
   const vals: unknown[] = []
 
-  const allowed = ['title', 'description', 'priority', 'story_points', 'assignee', 'sprint_id', 'feature_id'] as const
+  const allowed = ['title', 'description', 'priority', 'story_points', 'assignee', 'sprint_id', 'feature_id', 'due_date'] as const
   for (const key of allowed) {
     if (key in fields) {
       sets.push(`${key} = ?`)
@@ -241,6 +277,38 @@ cards.patch('/cards/:id', async (c) => {
       }
     }
   })()
+
+  // Handle assignment change notification/email
+  const user = c.get('user')
+  if ('assignee' in fields && fields.assignee && fields.assignee !== existing.assignee) {
+    const assigneeUser = await db.get<{ id: number; email: string; email_notifications: number }>(
+      `SELECT id, email, email_notifications FROM users
+       WHERE display_name = ? AND deleted_at IS NULL`,
+      fields.assignee,
+    )
+
+    if (assigneeUser && assigneeUser.id !== user.id) {
+      await db.run(
+        "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'assignment', 'card', ?, ?)",
+        assigneeUser.id, id, `${user.display_name} assigned you to "${existing.title}"`,
+      )
+      emitBoardEvent({ type: 'notification', userId: assigneeUser.id, data: { type: 'assignment', card_id: id } })
+
+      const emailEnabled = await isEnabled('email_notifications')
+      if (emailEnabled && assigneeUser.email_notifications) {
+        sendEmail({
+          to: assigneeUser.email,
+          subject: `You've been assigned to "${existing.title}"`,
+          html: assignmentEmailHtml({
+            assignedBy: user.display_name,
+            cardTitle: existing.title as string,
+            cardId: id,
+            type: 'card',
+          }),
+        }).catch(console.error)
+      }
+    }
+  }
 
   const updated = await db.get<{ swim_lane_id?: number }>('SELECT * FROM cards WHERE id = ?', id)
   if (updated) {
@@ -383,7 +451,7 @@ cards.patch('/tasks/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid id', 400)
 
-  const existing = await db.get('SELECT id FROM tasks WHERE id = ?', id)
+  const existing = await db.get<Record<string, unknown>>('SELECT * FROM tasks WHERE id = ?', id)
   if (!existing) return err(c, 'task not found', 404)
 
   let body: unknown
@@ -396,7 +464,7 @@ cards.patch('/tasks/:id', async (c) => {
   const sets: string[] = ["updated_at = datetime('now')"]
   const vals: unknown[] = []
 
-  const allowed = ['title', 'description', 'status', 'assignee'] as const
+  const allowed = ['title', 'description', 'status', 'assignee', 'due_date'] as const
   for (const key of allowed) {
     if (key in fields) {
       sets.push(`${key} = ?`)
@@ -408,6 +476,38 @@ cards.patch('/tasks/:id', async (c) => {
 
   vals.push(id)
   await db.run(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+
+  // Handle assignment change notification/email for tasks
+  const user = c.get('user')
+  if ('assignee' in fields && fields.assignee && fields.assignee !== existing.assignee) {
+    const assigneeUser = await db.get<{ id: number; email: string; email_notifications: number }>(
+      `SELECT id, email, email_notifications FROM users
+       WHERE display_name = ? AND deleted_at IS NULL`,
+      fields.assignee,
+    )
+
+    if (assigneeUser && assigneeUser.id !== user.id) {
+      await db.run(
+        "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'assignment', 'task', ?, ?)",
+        assigneeUser.id, id, `${user.display_name} assigned you to "${existing.title}"`,
+      )
+      emitBoardEvent({ type: 'notification', userId: assigneeUser.id, data: { type: 'assignment', card_id: id } })
+
+      const emailEnabled = await isEnabled('email_notifications')
+      if (emailEnabled && assigneeUser.email_notifications) {
+        sendEmail({
+          to: assigneeUser.email,
+          subject: `You've been assigned to task "${existing.title}"`,
+          html: assignmentEmailHtml({
+            assignedBy: user.display_name,
+            cardTitle: existing.title as string,
+            cardId: id,
+            type: 'task',
+          }),
+        }).catch(console.error)
+      }
+    }
+  }
 
   return ok(c, await db.get('SELECT * FROM tasks WHERE id = ?', id))
 })
