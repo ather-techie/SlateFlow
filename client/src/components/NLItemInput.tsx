@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { NLAllowedType, ParsedIntent } from '../api/index'
 import * as api from '../api'
 import toast from 'react-hot-toast'
@@ -236,6 +237,13 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
   const nonDoneLanes = lanes.filter(l => !l.is_done_col)
   const defaultLane = nonDoneLanes[0] || lanes[0]
 
+  const closeModal = () => {
+    if (state === 'confirming') return
+    setState('idle')
+    setInput('')
+    setParsed(null)
+  }
+
   if (state === 'idle') {
     return (
       <button
@@ -254,74 +262,104 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
   }
 
   if (state === 'input' || state === 'loading') {
-    return (
-      <div className="inline-flex gap-2 items-end">
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="e.g., High-priority epic: Platform refactoring, for Alice..."
-          className="px-3 py-2 rounded-md border border-slate-300 bg-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          rows={3}
-          style={{ minWidth: '300px' }}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && e.ctrlKey) {
-              handleParse()
-            } else if (e.key === 'Escape') {
-              setState('idle')
-              setInput('')
-            }
-          }}
-          disabled={state === 'loading'}
-        />
-        <button
-          onClick={handleParse}
-          disabled={state === 'loading' || !input.trim()}
-          className="px-3 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:bg-slate-300 transition"
-        >
-          {state === 'loading' ? 'Parsing...' : 'Parse'}
-        </button>
-        <button
-          onClick={() => {
-            setState('idle')
-            setInput('')
-          }}
-          className="px-3 py-2 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
-        >
-          Cancel
-        </button>
-      </div>
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+        onMouseDown={e => { if (e.target === e.currentTarget) closeModal() }}
+      >
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800">Create with AI</h2>
+            <button
+              onClick={closeModal}
+              className="text-slate-400 hover:text-slate-600 transition"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Describe what you want to create
+          </label>
+          <textarea
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            placeholder="e.g., High-priority epic: Platform refactoring, assign to Alice..."
+            className="w-full px-3 py-2 rounded-md border border-slate-300 bg-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
+            rows={5}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                handleParse()
+              } else if (e.key === 'Escape') {
+                closeModal()
+              }
+            }}
+            disabled={state === 'loading'}
+            autoFocus
+          />
+
+          <div className="flex gap-2">
+            <button
+              onClick={handleParse}
+              disabled={state === 'loading' || !input.trim()}
+              className="flex-1 px-3 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition"
+            >
+              {state === 'loading' ? 'Parsing...' : 'Parse'}
+            </button>
+            <button
+              onClick={closeModal}
+              disabled={state === 'loading'}
+              className="flex-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:text-slate-400 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
     )
   }
 
   if ((state === 'preview' || state === 'confirming') && parsed) {
     if (parsed.type === 'unknown') {
-      return (
-        <div className="max-w-md">
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
-            <p className="font-semibold text-amber-900 mb-2">Could not parse intent</p>
-            <p className="text-sm text-amber-800 mb-4">{(parsed as any).reason}</p>
+      return createPortal(
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+          onMouseDown={e => { if (e.target === e.currentTarget) closeModal() }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800">Could not parse intent</h2>
+              <button
+                onClick={closeModal}
+                className="text-slate-400 hover:text-slate-600 transition"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">{(parsed as any).reason}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   setParsed(null)
                   setState('input')
                 }}
-                className="px-3 py-1 rounded text-sm bg-amber-600 text-white hover:bg-amber-700 transition"
+                className="flex-1 px-3 py-2 rounded-md text-sm bg-amber-600 text-white hover:bg-amber-700 transition"
               >
                 Try rephrasing
               </button>
               <button
-                onClick={() => {
-                  setState('idle')
-                  setInput('')
-                }}
-                className="px-3 py-1 rounded text-sm border border-amber-300 text-amber-900 hover:bg-amber-100 transition"
+                onClick={closeModal}
+                className="flex-1 px-3 py-2 rounded-md text-sm border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition"
               >
                 Cancel
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )
     }
 
@@ -331,15 +369,32 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
     const isTask = parsed.type === 'task'
     const isConfirming = state === 'confirming'
 
-    return (
-      <div className="max-w-md border border-slate-200 rounded-lg shadow-sm bg-white p-4">
-        <div className="flex items-center justify-between mb-3">
-          <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${typeBadgeColor[parsed.type]}`}>
-            {typeName}
-          </span>
-          {isConfirming && <div className="animate-spin h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full" />}
+    return createPortal(
+      <div
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4"
+        onMouseDown={e => { if (e.target === e.currentTarget) closeModal() }}
+      >
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${typeBadgeColor[parsed.type]}`}>
+              {typeName}
+            </span>
+            <h2 className="text-lg font-semibold text-slate-800">Create {typeName}</h2>
+          </div>
+          <button
+            onClick={closeModal}
+            disabled={isConfirming}
+            className="text-slate-400 hover:text-slate-600 disabled:text-slate-300 transition"
+            title="Close"
+          >
+            ✕
+          </button>
         </div>
 
+        <label className="block text-sm font-medium text-slate-700 mb-1">
+          {parsed.type === 'project' ? 'Project name' : 'Title'}
+        </label>
         <input
           type="text"
           value={payload.title || payload.name || ''}
@@ -352,18 +407,22 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
         />
 
         {parsed.type !== 'sprint' && parsed.type !== 'calendar' && (
-          <textarea
-            value={payload.description || ''}
-            onChange={e => setParsed({ ...parsed, payload: { ...payload, description: e.target.value } })}
-            className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm resize-none rows-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            disabled={isConfirming}
-            placeholder="Description"
-            rows={2}
-          />
+          <>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <textarea
+              value={payload.description || ''}
+              onChange={e => setParsed({ ...parsed, payload: { ...payload, description: e.target.value } })}
+              className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              disabled={isConfirming}
+              placeholder="Add details about this item..."
+              rows={3}
+            />
+          </>
         )}
 
         {(parsed.type === 'sprint' || parsed.type === 'calendar') && (
           <>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Start date</label>
             <input
               type="date"
               value={payload.start_date || ''}
@@ -371,6 +430,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
               className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               disabled={isConfirming}
             />
+            <label className="block text-sm font-medium text-slate-700 mb-1">End date</label>
             <input
               type="date"
               value={payload.end_date || ''}
@@ -382,18 +442,22 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
         )}
 
         {parsed.type === 'sprint' && (
-          <textarea
-            value={payload.goal || ''}
-            onChange={e => setParsed({ ...parsed, payload: { ...payload, goal: e.target.value } })}
-            className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm resize-none rows-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            disabled={isConfirming}
-            placeholder="Sprint goal"
-            rows={2}
-          />
+          <>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sprint goal</label>
+            <textarea
+              value={payload.goal || ''}
+              onChange={e => setParsed({ ...parsed, payload: { ...payload, goal: e.target.value } })}
+              className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              disabled={isConfirming}
+              placeholder="What are we trying to accomplish?"
+              rows={3}
+            />
+          </>
         )}
 
         {(parsed.type === 'epic' || parsed.type === 'feature' || parsed.type === 'story') && (
           <>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Priority</label>
             <select
               value={payload.priority || 'medium'}
               onChange={e => setParsed({ ...parsed, payload: { ...payload, priority: e.target.value } })}
@@ -406,36 +470,39 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
               <option value="critical">Critical</option>
             </select>
 
+            <label className="block text-sm font-medium text-slate-700 mb-1">Assignee (optional)</label>
             <input
               type="text"
               value={payload.assignee || ''}
               onChange={e => setParsed({ ...parsed, payload: { ...payload, assignee: e.target.value || null } })}
               className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               disabled={isConfirming}
-              placeholder="Assignee (optional)"
+              placeholder="Enter assignee name..."
             />
           </>
         )}
 
         {parsed.type === 'story' && (
           <>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Story points (optional)</label>
             <input
               type="number"
               value={payload.estimate || ''}
               onChange={e => setParsed({ ...parsed, payload: { ...payload, estimate: e.target.value ? parseInt(e.target.value) : null } })}
               className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               disabled={isConfirming}
-              placeholder="Story points (optional)"
+              placeholder="0"
               min="0"
             />
 
+            <label className="block text-sm font-medium text-slate-700 mb-1">Lane (required)</label>
             <select
               value={selectedLaneId || ''}
               onChange={e => setSelectedLaneId(e.target.value ? parseInt(e.target.value) : null)}
               className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               disabled={isConfirming}
             >
-              <option value="">Select lane (required)</option>
+              <option value="">Select lane...</option>
               {nonDoneLanes.map(l => (
                 <option key={l.id} value={l.id}>
                   {l.title || l.name || `Lane ${l.id}`}
@@ -447,15 +514,17 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
 
         {parsed.type === 'task' && (
           <>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Assignee (optional)</label>
             <input
               type="text"
               value={payload.assignee || ''}
               onChange={e => setParsed({ ...parsed, payload: { ...payload, assignee: e.target.value || null } })}
               className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               disabled={isConfirming}
-              placeholder="Assignee (optional)"
+              placeholder="Enter assignee name..."
             />
 
+            <label className="block text-sm font-medium text-slate-700 mb-1">Parent story (required)</label>
             {cards.length > 0 ? (
               <select
                 value={selectedCardId || ''}
@@ -463,7 +532,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
                 className="w-full px-2 py-1 mb-3 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 disabled={isConfirming}
               >
-                <option value="">Select parent story (required)</option>
+                <option value="">Select a story...</option>
                 {cards.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.title}
@@ -478,7 +547,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
           </>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-6">
           <button
             onClick={handleConfirm}
             disabled={
@@ -489,7 +558,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
             }
             className="flex-1 px-3 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition"
           >
-            {isConfirming ? 'Confirming...' : 'Confirm'}
+            {isConfirming ? 'Creating...' : 'Create'}
           </button>
           <button
             onClick={() => {
@@ -499,10 +568,12 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
             disabled={isConfirming}
             className="flex-1 px-3 py-2 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:text-slate-400 transition"
           >
-            Cancel
+            Back
           </button>
         </div>
-      </div>
+        </div>
+      </div>,
+      document.body
     )
   }
 

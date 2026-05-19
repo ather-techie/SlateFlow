@@ -188,7 +188,7 @@ for (const sql of [
   'ALTER TABLE tasks ADD COLUMN due_reminder_sent_at TEXT',
   'ALTER TABLE users ADD COLUMN email_notifications INTEGER NOT NULL DEFAULT 1',
 ]) {
-  try { db.exec(sql) } catch { /* column already exists */ }
+  try { await db.exec(sql) } catch { /* column already exists */ }
 }
 
 // Seed only when the database is empty (excluding the Default Project)
