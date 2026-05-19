@@ -29,6 +29,7 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 | `DATABASE_PATH` | `server/slateflow.db` | SQLite file path; Docker sets to `/data/slateflow.db` |
 | `PORT` | `3000` | Server listen port |
 | `FEATURE_AI` | `false` | Enterprise gate — `true` enables all AI endpoints and UI surfaces |
+| `FEATURE_AUTO_TEST_CASE_GENERATION_AI` | `false` | Enables test case generation from user stories (`POST /api/ai/cards/:id/generate-test-cases`) |
 | `FEATURE_RETROSPECTIVE` | `false` | Enables the per-sprint Retrospective Board (sidebar nav + `/api/sprints/:id/retrospective` and item endpoints) |
 | `FEATURE_CALENDAR` | `false` | Enables the Calendar surface (sidebar nav + `/api/projects/:id/calendar` plus event/vacation/holiday CRUD) |
 | `FEATURE_AUTH_PASSWORD` | `true` (seeded on first boot) | Email/password login (`POST /api/auth/login`). Set to `false` to require all users to authenticate via OAuth/SSO |
@@ -122,7 +123,7 @@ resolved flag               → server: requireFeature('ai') middleware
 
 `GET /api/config` (public) exposes the resolved flags so the client can gate UI without hard-coding. `PATCH /api/admin/feature-overrides/:flag` (super_admin) toggles the runtime override. The env var is the authoritative ceiling for self-hosted deployments.
 
-Seven flags are currently registered: `ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `email_notifications`. When adding a new flag, update **all four** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + `KNOWN_FLAGS`), [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) (two hard-coded lists), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
+Ten flags are currently registered: `ai`, `auto_test_case_generation_ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`. When adding a new flag, update **all four** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + `KNOWN_FLAGS`), [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) (two hard-coded lists), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
 
 ## AI Providers
 
