@@ -72,7 +72,16 @@ type TestCaseRow = {
 type CardRef = { id: number; swim_lane_id: number | null; column_id: number | null }
 
 function withParsedSteps(tc: TestCaseRow) {
-  return { ...tc, steps: tc.steps ? JSON.parse(tc.steps) : null }
+  let steps = null
+  if (tc.steps) {
+    try {
+      steps = JSON.parse(tc.steps)
+    } catch {
+      console.error(`Failed to parse steps for test case ${tc.id}: ${tc.steps}`)
+      steps = null
+    }
+  }
+  return { ...tc, steps }
 }
 
 async function resolveProjectId(card: CardRef): Promise<number | null> {
