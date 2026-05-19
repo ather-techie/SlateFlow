@@ -4,6 +4,7 @@ import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { requireFeature } from '../middleware/requireRole.js'
 import { getProvider } from '../lib/ai.js'
 import { db } from '../db/index.js'
+import { CARD_SUMMARIZE_SYSTEM, CARD_SUMMARIZE_USER_TEMPLATE, GENERATE_TEST_CASES_SYSTEM, GENERATE_TEST_CASES_USER_TEMPLATE, PARSE_ITEM_USER_TEMPLATE, interpolate } from '../lib/prompts.js'
 
 const ai = new Hono()
 
@@ -25,16 +26,15 @@ ai.post('/ai/cards/:id/summarize', async (c) => {
   )
   if (!card) return err(c, 'card not found', 404)
 
-  const prompt = [
-    `Summarize the following story card in 2–3 sentences. Be concise and focus on what needs to be done.`,
-    `Title: ${card.title}`,
-    card.description ? `Description: ${card.description}` : '',
-  ].filter(Boolean).join('\n')
+  const prompt = interpolate(CARD_SUMMARIZE_USER_TEMPLATE, {
+    title: card.title,
+    description: card.description,
+  })
 
   try {
     const provider = await getProvider()
     const summary = await provider.complete(prompt, {
-      systemPrompt: 'You are a helpful project management assistant. Keep summaries brief and actionable.',
+      systemPrompt: CARD_SUMMARIZE_SYSTEM,
       maxTokens: 256,
     })
     return ok(c, { summary })
@@ -81,7 +81,8 @@ ai.post('/ai/parse-item', async (c) => {
 
   try {
     const provider = await getProvider()
-    const response = await provider.complete(`Parse this work item: ${input}`, {
+    const userPrompt = interpolate(PARSE_ITEM_USER_TEMPLATE, { input })
+    const response = await provider.complete(userPrompt, {
       systemPrompt,
       maxTokens: 512,
     })
@@ -105,21 +106,15 @@ ai.post('/ai/cards/:id/generate-test-cases', requireFeature('auto_test_case_gene
   )
   if (!card) return err(c, 'card not found', 404)
 
-  const systemPrompt = `You are a QA engineer. Generate manual test cases for the given user story.
-Return ONLY a valid JSON array with this exact structure and NOTHING ELSE:
-[{"title":"string","preconditions":"string","steps":[{"step":"string","expected":"string"}],"expected_result":"string","priority":"critical"|"high"|"medium"|"low"}]
-Generate 3-5 test cases covering the happy path, edge cases, and negative scenarios. Do not include markdown, explanations, or any text before or after the JSON array.`
-
   try {
     const provider = await getProvider()
-    const prompt = [
-      `Generate test cases for this user story:`,
-      `Title: ${card.title}`,
-      card.description ? `Description: ${card.description}` : '',
-    ].filter(Boolean).join('\n')
+    const prompt = interpolate(GENERATE_TEST_CASES_USER_TEMPLATE, {
+      title: card.title,
+      description: card.description,
+    })
 
     const response = await provider.complete(prompt, {
-      systemPrompt,
+      systemPrompt: GENERATE_TEST_CASES_SYSTEM,
       maxTokens: 1024,
     })
 

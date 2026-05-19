@@ -33,8 +33,9 @@ COPY package.json ./
 COPY client/package.json ./client/package.json
 COPY server/ ./server/
 RUN npm run build -w server
-# tsc does not copy non-TS assets; bring schema.sql into dist so the runtime can find it
+# tsc does not copy non-TS assets; bring schema.sql and prompts into dist so the runtime can find them
 RUN cp server/src/db/schema.sql server/dist/db/schema.sql
+RUN cp -r server/src/prompts server/dist/prompts
 
 # ── Stage 5: production image ──────────────────────────────────────────────────
 FROM node:20-alpine
