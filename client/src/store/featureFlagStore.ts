@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 export type FeatureFlag =
   | 'ai'
+  | 'auto_test_case_generation_ai'
   | 'retrospective'
   | 'calendar'
   | 'auth_password'
@@ -13,6 +14,7 @@ export type FeatureFlag =
 
 interface Features {
   ai: boolean
+  auto_test_case_generation_ai: boolean
   retrospective: boolean
   calendar: boolean
   auth_password: boolean
@@ -34,6 +36,7 @@ interface FeatureFlagState {
 export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
   features: {
     ai: false,
+    auto_test_case_generation_ai: false,
     retrospective: false,
     calendar: false,
     auth_password: true,

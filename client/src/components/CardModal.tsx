@@ -584,6 +584,17 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   const [passAllConfirm, setPassAllConfirm]   = useState(false)
   const [testSuites, setTestSuites]           = useState<TestSuite[]>([])
 
+  // AI Test Case Generation
+  type GeneratedTestCase = {
+    title: string
+    preconditions?: string
+    steps: Array<{ step: string; expected: string }>
+    expected_result: string
+    priority: 'critical' | 'high' | 'medium' | 'low'
+  }
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiPreview, setAiPreview] = useState<Array<GeneratedTestCase & { selected: boolean }> | null>(null)
+
   // Dependencies
   const [deps, setDeps] = useState<DependencyList | null>(null)
   const [depSearch, setDepSearch] = useState('')
@@ -830,6 +841,43 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
     } catch {
       setTestCases(prev)
       syncSummary(prev)
+    }
+  }
+
+  async function handleGenerateTestCases() {
+    setAiGenerating(true)
+    try {
+      const res = await apiNs.ai.generateTestCases(card.id)
+      setAiPreview(res.data.testCases.map((tc: GeneratedTestCase) => ({ ...tc, selected: true })))
+    } catch {
+      // error already shown via axios interceptor
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
+  async function handleSaveSelected() {
+    if (!aiPreview) return
+    try {
+      const selected = aiPreview.filter(t => t.selected)
+      const newCases: TestCase[] = []
+      for (const tc of selected) {
+        const newCase = await api.createTestCase(card.id, {
+          title: tc.title,
+          preconditions: tc.preconditions,
+          steps: tc.steps,
+          expected_result: tc.expected_result,
+          priority: tc.priority,
+          test_type: 'manual',
+        })
+        newCases.push(newCase)
+      }
+      const updated = [...testCases, ...newCases]
+      setTestCases(updated)
+      syncSummary(updated)
+      setAiPreview(null)
+    } catch {
+      // error already shown
     }
   }
 
@@ -1144,6 +1192,24 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                       </button>
                     )
                   )}
+                  <FeatureGate flag="auto_test_case_generation_ai">
+                    <button
+                      onClick={handleGenerateTestCases}
+                      disabled={aiGenerating}
+                      className="text-xs flex items-center gap-1.5 bg-purple-600 text-white rounded-lg px-3 py-1.5 hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {aiGenerating ? (
+                        <>
+                          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" opacity="0.25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                          Generating…
+                        </>
+                      ) : (
+                        <>
+                          ✨ Generate with AI
+                        </>
+                      )}
+                    </button>
+                  </FeatureGate>
                   <button
                     onClick={() => setShowAddTestForm(p => !p)}
                     className="ml-auto text-xs bg-indigo-600 text-white rounded-lg px-3 py-1.5 hover:bg-indigo-700 transition-colors font-medium"
@@ -1166,6 +1232,51 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                     </button>
                   ))}
                 </div>
+
+                {/* AI Preview Panel */}
+                {aiPreview && (
+                  <div className="border border-purple-500/30 rounded-xl bg-purple-500/5 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-medium text-purple-400 flex items-center gap-1.5">
+                        ✨ AI-Generated Test Cases
+                      </span>
+                      <button onClick={() => setAiPreview(null)} className="text-slate-500 hover:text-slate-300 transition-colors">
+                        ×
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {aiPreview.map((tc, i) => (
+                        <label key={i} className="flex gap-3 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            checked={tc.selected}
+                            onChange={() => setAiPreview(prev => prev!.map((t, j) => j === i ? { ...t, selected: !t.selected } : t))}
+                            className="mt-0.5 accent-purple-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-slate-200">{tc.title}</div>
+                            {tc.steps && tc.steps.length > 0 && (
+                              <ol className="mt-1 space-y-0.5 text-xs text-slate-400 list-decimal list-inside">
+                                {tc.steps.map((s, si) => <li key={si}>{s.step}</li>)}
+                              </ol>
+                            )}
+                            <div className="mt-1 text-xs text-slate-500">Expected: {tc.expected_result}</div>
+                          </div>
+                          <span className={`text-xs px-1.5 py-0.5 rounded self-start flex-shrink-0 ${TPRI_CFG[tc.priority]?.cls}`}>
+                            {TPRI_CFG[tc.priority]?.label}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      onClick={handleSaveSelected}
+                      disabled={!aiPreview.some(t => t.selected)}
+                      className="mt-4 w-full py-1.5 text-sm font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Save Selected ({aiPreview.filter(t => t.selected).length})
+                    </button>
+                  </div>
+                )}
 
                 {/* Summary row */}
                 {testSummary.total > 0 && (

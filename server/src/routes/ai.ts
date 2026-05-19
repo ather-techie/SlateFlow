@@ -95,4 +95,42 @@ ai.post('/ai/parse-item', async (c) => {
   }
 })
 
+ai.post('/ai/cards/:id/generate-test-cases', requireFeature('auto_test_case_generation_ai'), async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return err(c, 'invalid card id', 400)
+
+  const card = await db.get<CardRow>(
+    'SELECT id, title, description FROM cards WHERE id = ?',
+    id
+  )
+  if (!card) return err(c, 'card not found', 404)
+
+  const systemPrompt = `You are a QA engineer. Generate manual test cases for the given user story.
+Return ONLY a valid JSON array (no markdown, no explanation) with this exact structure:
+[{ "title": string, "preconditions": string, "steps": [{ "step": string, "expected": string }], "expected_result": string, "priority": "critical"|"high"|"medium"|"low" }]
+Generate 3-5 test cases covering the happy path, edge cases, and negative scenarios.`
+
+  try {
+    const provider = await getProvider()
+    const prompt = [
+      `Generate test cases for this user story:`,
+      `Title: ${card.title}`,
+      card.description ? `Description: ${card.description}` : '',
+    ].filter(Boolean).join('\n')
+
+    const response = await provider.complete(prompt, {
+      systemPrompt,
+      maxTokens: 1024,
+    })
+
+    const match = response.match(/\[[\s\S]*\]/)
+    if (!match) return err(c, 'AI returned unparseable response', 500)
+    const testCases = JSON.parse(match[0])
+    return ok(c, { testCases })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'AI provider error'
+    return err(c, message, 500)
+  }
+})
+
 export default ai

@@ -66,6 +66,7 @@ export default function App() {
       .then(json => { if (json.data) setFlags(json.data.features) })
       .catch(() => setFlags({
         ai: false,
+        auto_test_case_generation_ai: false,
         retrospective: false,
         calendar: false,
         auth_password: true,
@@ -73,6 +74,7 @@ export default function App() {
         auth_github: false,
         github_integration: false,
         gitlab_integration: false,
+        email_notifications: false,
       }))
       .finally(() => setFlagsLoading(false))
   }, [setFlags, setFlagsLoading])

@@ -236,6 +236,8 @@ export const api = {
   ai: {
     parseItem: (data: { input: string; context?: { projectId?: number; epicId?: number; laneId?: number; allowedTypes?: NLAllowedType[] } }) =>
       unwrap<ParsedIntent>(http.post('/ai/parse-item', data)),
+    generateTestCases: (cardId: number) =>
+      http.post(`/ai/cards/${cardId}/generate-test-cases`).then(r => r.data),
   },
   cardLinks: {
     list: (cardId: number) => unwrap<CardLink[]>(http.get(`/cards/${cardId}/links`)),
