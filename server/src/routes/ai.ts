@@ -115,7 +115,7 @@ ai.post('/ai/cards/:id/generate-test-cases', requireFeature('auto_test_case_gene
 
     const response = await provider.complete(prompt, {
       systemPrompt: GENERATE_TEST_CASES_SYSTEM,
-      maxTokens: 1024,
+      maxTokens: 4096,
     })
 
     let testCases: unknown
