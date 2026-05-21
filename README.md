@@ -56,6 +56,8 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 - **Real-time updates** — Server-Sent Events stream board mutations and notifications to every connected client
 - **AI features** — gated by `FEATURE_AI=true`; provider-agnostic across Anthropic Claude, Google Gemini, OpenAI, Azure OpenAI, and Ollama:
   - *Card summarisation* — generates a 2–3 sentence summary from a story's title and description
+  - *Story generation from features* — generates 3–7 user story outlines from a feature's title and description (gated by `FEATURE_AUTO_STORY_GENERATION_AI`)
+  - *Test case generation* — generates 3–5 test cases from a story's title and description (gated by `FEATURE_AUTO_TEST_CASE_GENERATION_AI`)
   - *Natural-language work-item creation* — type a sentence to create an epic, feature, story, task, project, sprint, or calendar event; AI returns an editable preview before confirming; available on the Board, Epics, Sprints, Calendar, and Dashboard pages
 - **Retrospective Board** — per-sprint reflection with three fixed columns (Went well / To improve / Action items) and live drag-and-drop reorder; gated by `FEATURE_RETROSPECTIVE=true`
 - **Calendar** — month view of sprints, epics, and features alongside super-admin-managed global holidays, project events, and per-user vacations; gated by `FEATURE_CALENDAR=true`

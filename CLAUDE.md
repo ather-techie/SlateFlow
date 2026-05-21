@@ -138,7 +138,7 @@ All providers talk directly to their APIs over native `fetch` (no vendor SDKs). 
 | `azure` | `gpt-4o` | `api-key` header — set `AI_BASE_URL` to the full deployment endpoint incl. `?api-version=…` |
 | `ollama` | `llama3` | `Authorization: Bearer ollama`; default base `http://localhost:11434` |
 
-`lib/sseLines.ts` is the shared SSE line reader used by every streaming provider. Three AI endpoints are currently implemented:
+`lib/sseLines.ts` is the shared SSE line reader used by every streaming provider. Four AI endpoints are currently implemented:
 - `POST /api/ai/cards/:id/summarize` — generates a 2–3 sentence summary of a story card
 - `POST /api/ai/cards/:id/generate-test-cases` — generates 3–5 test cases from a story's title and description
 - `POST /api/ai/features/:id/generate-stories` — generates 3–7 user story outlines from a feature's title and description

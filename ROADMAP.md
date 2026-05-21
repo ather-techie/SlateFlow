@@ -19,6 +19,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - CSV export
 - Labels & threaded comments
 - AI card summarisation (Claude, Gemini, OpenAI, Azure OpenAI, Ollama)
+- AI story generation from features with preview + selective creation (feature-flagged)
 - Self-hosted via Docker + SQLite
 - Multi-user RBAC (super_admin / global_reader / project_admin / contributor / reader) + Project Admin Panel
 - Epic-level access control with contributor auto-grant for Default Epic
@@ -89,6 +90,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 > Target: v2.0
 
 - [x] **Natural language card creation** — create cards by typing plain English commands (parse across board, epics, sprints, calendar)
+- [x] **AI story generation from features** — generates 3–7 user story outlines from a feature's title and description with preview + selective creation (feature-flagged)
 - [ ] **AI sprint planning** — suggest backlog items to pull into the next sprint based on velocity history
 - [ ] **Auto-generate subtasks** from a card title or description
 - [ ] **Smart labels** — AI suggests tags based on card content
