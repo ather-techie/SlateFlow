@@ -182,3 +182,13 @@ In production the server compiles to `server/dist/` and serves `client/dist/` as
 ## Contributor License Agreement
 
 All PRs require a signed CLA before merge ([CLA.md](CLA.md), [docs/CLA_FAQ.md](docs/CLA_FAQ.md)). CLAassistant bot enforces this — look for the ✅ "CLA Signed" status check on every PR. Setup walkthrough: [docs/CLAassistant_Setup.md](docs/CLAassistant_Setup.md). Key points: non-assignment (contributor keeps copyright), one-time signing covers all past + future contributions, employer-IP clause, broad sublicensing/relicensing rights.
+
+## Feature Development Rules
+
+When implementing any new feature, update the following before marking the task complete:
+
+- `README.md` — add the feature to the Features section
+- `ROADMAP.md` — mark the item completed or update its status
+- `CLAUDE.md` — record any new patterns, env vars, flags, or conventions
+
+Do not consider any feature complete until all three files are updated.

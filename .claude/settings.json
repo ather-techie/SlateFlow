@@ -4,5 +4,17 @@
     ],
     "additionalDirectories": [
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/check-docs-updated.js"
+          }
+        ]
+      }
+    ]
   }
 }
