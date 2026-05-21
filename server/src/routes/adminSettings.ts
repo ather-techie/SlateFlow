@@ -17,7 +17,7 @@ adminSettings.get('/admin/feature-overrides', async (c) => {
   )
   const overrideMap = new Map(rows.map((r) => [r.flag, r.enabled]))
 
-  const flags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications']
+  const flags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications']
   const result = await Promise.all(flags.map(async (flag) => {
     const envKey = `FEATURE_${flag.toUpperCase()}`
     const envEnabled = process.env[envKey] === 'true'
@@ -44,7 +44,7 @@ const PatchBody = z.object({ enabled: z.boolean() })
 
 adminSettings.patch('/admin/feature-overrides/:flag', async (c) => {
   const flag = c.req.param('flag') as FeatureFlag
-  const knownFlags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications']
+  const knownFlags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications']
   if (!knownFlags.includes(flag)) return err(c, 'unknown feature flag', 404)
 
   const body = await c.req.json().catch(() => null)
@@ -60,7 +60,7 @@ adminSettings.patch('/admin/feature-overrides/:flag', async (c) => {
 
 adminSettings.delete('/admin/feature-overrides/:flag', async (c) => {
   const flag = c.req.param('flag') as FeatureFlag
-  const knownFlags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications']
+  const knownFlags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications']
   if (!knownFlags.includes(flag)) return err(c, 'unknown feature flag', 404)
 
   const { db } = await import('../db/index.js')

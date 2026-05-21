@@ -34,4 +34,7 @@ export const CARD_SUMMARIZE_USER_TEMPLATE = loadPrompt('card-summarize.user.md')
 export const GENERATE_TEST_CASES_SYSTEM = loadPrompt('generate-test-cases.system.md')
 export const GENERATE_TEST_CASES_USER_TEMPLATE = loadPrompt('generate-test-cases.user.md')
 
+export const GENERATE_STORIES_SYSTEM = loadPrompt('generate-stories.system.md')
+export const GENERATE_STORIES_USER_TEMPLATE = loadPrompt('generate-stories.user.md')
+
 export const PARSE_ITEM_USER_TEMPLATE = loadPrompt('parse-item.user.md')

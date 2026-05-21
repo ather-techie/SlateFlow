@@ -30,6 +30,7 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 | `PORT` | `3000` | Server listen port |
 | `FEATURE_AI` | `false` | Enterprise gate — `true` enables all AI endpoints and UI surfaces |
 | `FEATURE_AUTO_TEST_CASE_GENERATION_AI` | `false` | Enables test case generation from user stories (`POST /api/ai/cards/:id/generate-test-cases`) |
+| `FEATURE_AUTO_STORY_GENERATION_AI` | `false` | Enables story generation from feature title/description (`POST /api/ai/features/:id/generate-stories`) |
 | `FEATURE_RETROSPECTIVE` | `false` | Enables the per-sprint Retrospective Board (sidebar nav + `/api/sprints/:id/retrospective` and item endpoints) |
 | `FEATURE_CALENDAR` | `false` | Enables the Calendar surface (sidebar nav + `/api/projects/:id/calendar` plus event/vacation/holiday CRUD) |
 | `FEATURE_AUTH_PASSWORD` | `true` (seeded on first boot) | Email/password login (`POST /api/auth/login`). Set to `false` to require all users to authenticate via OAuth/SSO |
@@ -123,7 +124,7 @@ resolved flag               → server: requireFeature('ai') middleware
 
 `GET /api/config` (public) exposes the resolved flags so the client can gate UI without hard-coding. `PATCH /api/admin/feature-overrides/:flag` (super_admin) toggles the runtime override. The env var is the authoritative ceiling for self-hosted deployments.
 
-Ten flags are currently registered: `ai`, `auto_test_case_generation_ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`. When adding a new flag, update **all four** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + `KNOWN_FLAGS`), [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) (two hard-coded lists), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
+Eleven flags are currently registered: `ai`, `auto_test_case_generation_ai`, `auto_story_generation_ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`. When adding a new flag, update **all four** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + `KNOWN_FLAGS`), [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) (two hard-coded lists), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
 
 ## AI Providers
 
@@ -137,8 +138,10 @@ All providers talk directly to their APIs over native `fetch` (no vendor SDKs). 
 | `azure` | `gpt-4o` | `api-key` header — set `AI_BASE_URL` to the full deployment endpoint incl. `?api-version=…` |
 | `ollama` | `llama3` | `Authorization: Bearer ollama`; default base `http://localhost:11434` |
 
-`lib/sseLines.ts` is the shared SSE line reader used by every streaming provider. Two AI endpoints are currently implemented:
+`lib/sseLines.ts` is the shared SSE line reader used by every streaming provider. Three AI endpoints are currently implemented:
 - `POST /api/ai/cards/:id/summarize` — generates a 2–3 sentence summary of a story card
+- `POST /api/ai/cards/:id/generate-test-cases` — generates 3–5 test cases from a story's title and description
+- `POST /api/ai/features/:id/generate-stories` — generates 3–7 user story outlines from a feature's title and description
 - `POST /api/ai/parse-item` — parses natural-language work item requests and returns a discriminated union with type + payload (used for universal NL input across the board, epics, sprints, calendar, and project creation)
 
 ## Real-time (SSE)

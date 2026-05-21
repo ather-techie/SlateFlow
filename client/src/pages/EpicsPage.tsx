@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../api'
+import { api as apiNs } from '../api/index'
 import type { Card, Epic, Feature, Task } from '../types'
 import PriorityBadge from '../components/PriorityBadge'
 import CardModal from '../components/CardModal'
 import { FeatureGate } from '../components/FeatureGate'
 import { NLItemInput } from '../components/NLItemInput'
+import toast from 'react-hot-toast'
 
 const STATUS_COLORS: Record<string, string> = {
   new: 'bg-slate-700 text-slate-300',
@@ -304,6 +306,11 @@ function FeatureRow({
   const [lanes, setLanes] = useState<{ id: number; name: string }[]>([])
   const [editing, setEditing] = useState(false)
 
+  // AI Story Generation
+  type GeneratedStory = { title: string; description: string; priority: 'p0' | 'p1' | 'p2' | 'p3' }
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiPreview, setAiPreview] = useState<Array<GeneratedStory & { selected: boolean }> | null>(null)
+
   async function loadStories() {
     if (loadingStories) return
     setLoadingStories(true)
@@ -343,6 +350,40 @@ function FeatureRow({
     if (!confirm(`Delete feature "${feature.title}"? Stories will be unlinked.`)) return
     await api.features.delete(feature.id)
     onDeleted(feature.id)
+  }
+
+  async function handleGenerateStories() {
+    if (lanes.length === 0) await loadStories()
+    setAiGenerating(true)
+    try {
+      const res = await apiNs.ai.generateStories(feature.id)
+      setAiPreview(res.data.stories.map((s: any) => ({ ...s, selected: true })))
+    } catch {
+      // error already shown via axios interceptor
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
+  async function handleSaveSelectedStories() {
+    if (!aiPreview) return
+    const defaultLane = lanes[0]
+    if (!defaultLane) return
+    const selected = aiPreview.filter(s => s.selected)
+    const newCards: Card[] = []
+    for (const s of selected) {
+      const card = await api.cards.create(defaultLane.id, {
+        title: s.title,
+        description: s.description,
+        priority: s.priority,
+        feature_id: feature.id,
+      })
+      newCards.push(card)
+    }
+    setStories(prev => [...prev, ...newCards])
+    setAiPreview(null)
+    setOpen(true)
+    toast.success(`${newCards.length} stor${newCards.length === 1 ? 'y' : 'ies'} created`)
   }
 
   const total = feature.story_count ?? 0
@@ -390,6 +431,24 @@ function FeatureRow({
           >
             + Story
           </button>
+          <FeatureGate flag="auto_story_generation_ai">
+            <button
+              onClick={e => { e.stopPropagation(); handleGenerateStories() }}
+              disabled={aiGenerating}
+              className="text-xs flex items-center gap-1 bg-purple-700 text-white px-1.5 py-0.5 rounded hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Generate stories with AI"
+            >
+              {aiGenerating ? (
+                <>
+                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Generating…
+                </>
+              ) : <>✨ AI Stories</>}
+            </button>
+          </FeatureGate>
           {!editing && (
             <button
               onClick={e => { e.stopPropagation(); setEditing(true) }}
@@ -437,6 +496,38 @@ function FeatureRow({
             >
               + Add Story
             </button>
+          )}
+          {aiPreview && (
+            <div className="border border-purple-500/30 rounded-xl bg-purple-500/5 p-4 mx-3 my-2">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-purple-400">✨ AI-Generated Stories</span>
+                <button onClick={() => setAiPreview(null)} className="text-slate-500 hover:text-slate-300">×</button>
+              </div>
+              <div className="space-y-2">
+                {aiPreview.map((s, i) => (
+                  <label key={i} className="flex gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={s.selected}
+                      onChange={() => setAiPreview(prev => prev!.map((t, j) => j === i ? { ...t, selected: !t.selected } : t))}
+                      className="mt-0.5 flex-shrink-0 accent-purple-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-200 font-medium">{s.title}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{s.description}</p>
+                      <span className="text-[10px] font-semibold text-purple-400 uppercase mt-1 inline-block">{s.priority}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <button
+                onClick={handleSaveSelectedStories}
+                disabled={!aiPreview.some(s => s.selected)}
+                className="mt-4 w-full py-1.5 text-sm font-medium rounded-lg bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Save Selected ({aiPreview.filter(s => s.selected).length})
+              </button>
+            </div>
           )}
         </div>
       )}

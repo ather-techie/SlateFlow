@@ -5,6 +5,7 @@ import { github } from './oauth/github.js'
 export type FeatureFlag =
   | 'ai'
   | 'auto_test_case_generation_ai'
+  | 'auto_story_generation_ai'
   | 'retrospective'
   | 'calendar'
   | 'auth_password'
@@ -17,6 +18,7 @@ export type FeatureFlag =
 const KNOWN_FLAGS: FeatureFlag[] = [
   'ai',
   'auto_test_case_generation_ai',
+  'auto_story_generation_ai',
   'retrospective',
   'calendar',
   'auth_password',

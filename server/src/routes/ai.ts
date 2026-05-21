@@ -4,13 +4,19 @@ import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { requireFeature } from '../middleware/requireRole.js'
 import { getProvider } from '../lib/ai.js'
 import { db } from '../db/index.js'
-import { CARD_SUMMARIZE_SYSTEM, CARD_SUMMARIZE_USER_TEMPLATE, GENERATE_TEST_CASES_SYSTEM, GENERATE_TEST_CASES_USER_TEMPLATE, PARSE_ITEM_USER_TEMPLATE, interpolate } from '../lib/prompts.js'
+import { CARD_SUMMARIZE_SYSTEM, CARD_SUMMARIZE_USER_TEMPLATE, GENERATE_TEST_CASES_SYSTEM, GENERATE_TEST_CASES_USER_TEMPLATE, GENERATE_STORIES_SYSTEM, GENERATE_STORIES_USER_TEMPLATE, PARSE_ITEM_USER_TEMPLATE, interpolate } from '../lib/prompts.js'
 
 const ai = new Hono()
 
 ai.use('/ai/*', requireFeature('ai'))
 
 interface CardRow {
+  id: number
+  title: string
+  description: string
+}
+
+interface FeatureRow {
   id: number
   title: string
   description: string
@@ -141,6 +147,51 @@ ai.post('/ai/cards/:id/generate-test-cases', requireFeature('auto_test_case_gene
 
     if (!Array.isArray(testCases)) return err(c, 'AI response is not an array', 500)
     return ok(c, { testCases })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'AI provider error'
+    return err(c, message, 500)
+  }
+})
+
+ai.post('/ai/features/:id/generate-stories', requireFeature('auto_story_generation_ai'), async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return err(c, 'invalid feature id', 400)
+
+  const feature = await db.get<FeatureRow>(
+    'SELECT id, title, description FROM features WHERE id = ?',
+    id
+  )
+  if (!feature) return err(c, 'feature not found', 404)
+
+  try {
+    const provider = await getProvider()
+    const prompt = interpolate(GENERATE_STORIES_USER_TEMPLATE, {
+      title: feature.title,
+      description: feature.description,
+    })
+
+    const response = await provider.complete(prompt, {
+      systemPrompt: GENERATE_STORIES_SYSTEM,
+      maxTokens: 4096,
+    })
+
+    let stories: unknown
+    const trimmed = response.trim()
+
+    try {
+      stories = JSON.parse(trimmed)
+    } catch {
+      const match = trimmed.match(/\[[\s\S]*\]/)
+      if (!match) return err(c, 'AI returned unparseable response', 500)
+      try {
+        stories = JSON.parse(match[0])
+      } catch {
+        return err(c, 'AI returned unparseable response', 500)
+      }
+    }
+
+    if (!Array.isArray(stories)) return err(c, 'AI response is not an array', 500)
+    return ok(c, { stories })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'AI provider error'
     return err(c, message, 500)

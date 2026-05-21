@@ -67,6 +67,7 @@ export default function App() {
       .catch(() => setFlags({
         ai: false,
         auto_test_case_generation_ai: false,
+        auto_story_generation_ai: false,
         retrospective: false,
         calendar: false,
         auth_password: true,

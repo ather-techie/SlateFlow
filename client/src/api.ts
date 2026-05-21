@@ -169,7 +169,7 @@ export const api = {
       request<Task>(`/tasks/${taskId}`, { method: 'PATCH', ...json(data) }),
     deleteTask: (taskId: number) => request<{ id: number }>(`/tasks/${taskId}`, { method: 'DELETE' }),
     reorderTasks: (storyId: number, ids: number[]) => request<Task[]>(`/cards/${storyId}/tasks/reorder`, { method: 'POST', ...json({ ids }) }),
-    create: (laneId: number, data: { title: string; priority?: Card['priority']; assignee?: string | null; feature_id?: number | null }) =>
+    create: (laneId: number, data: { title: string; description?: string; priority?: Card['priority']; assignee?: string | null; feature_id?: number | null }) =>
       request<Card>(`/lanes/${laneId}/cards`, { method: 'POST', ...json(data) }),
     listProjectTasks: (projectId: number) => request<(Task & { story_title: string })[]>(`/projects/${projectId}/tasks`),
     searchStories: (projectId: number, q: string) =>
