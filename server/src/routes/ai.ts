@@ -157,11 +157,12 @@ ai.post('/ai/features/:id/generate-stories', requireFeature('auto_story_generati
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid feature id', 400)
 
-  const feature = await db.get<FeatureRow>(
-    'SELECT id, title, description FROM features WHERE id = ?',
+  const feature = await db.get<FeatureRow & { is_default: number }>(
+    'SELECT id, title, description, is_default FROM features WHERE id = ?',
     id
   )
   if (!feature) return err(c, 'feature not found', 404)
+  if (feature.is_default) return err(c, 'cannot generate stories for the default feature', 409)
 
   try {
     const provider = await getProvider()
