@@ -13,6 +13,36 @@ type Tab = 'users' | 'settings' | 'holidays'
 
 type ProjectAssignment = { project_id: number; role: 'project_admin' | 'contributor' | 'reader' }
 
+// ─── Tag Input Component ──────────────────────────────────────────────────────
+
+function TagInput({ value, onChange, placeholder }: {
+  value: string[]; onChange: (v: string[]) => void; placeholder?: string
+}) {
+  const [input, setInput] = useState('')
+  const add = () => {
+    const t = input.trim()
+    if (t && !value.includes(t)) onChange([...value, t])
+    setInput('')
+  }
+  return (
+    <div className="flex flex-wrap gap-1 p-2 bg-slate-800 border border-slate-700 rounded-lg min-h-[38px]">
+      {value.map(t => (
+        <span key={t} className="flex items-center gap-1 bg-indigo-900/50 text-indigo-300 text-xs px-2 py-0.5 rounded">
+          {t}
+          <button type="button" onClick={() => onChange(value.filter(x => x !== t))} className="text-indigo-400 hover:text-indigo-200 leading-none">×</button>
+        </span>
+      ))}
+      <input
+        value={input} onChange={e => setInput(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+        onBlur={add}
+        placeholder={placeholder ?? 'Type and press Enter'}
+        className="flex-1 min-w-[100px] bg-transparent text-xs text-slate-100 placeholder-slate-500 outline-none"
+      />
+    </div>
+  )
+}
+
 // ─── Create User Modal ────────────────────────────────────────────────────────
 
 function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreated: (u: User) => void }) {
@@ -24,6 +54,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [showPassword, setShowPassword] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
   const [assignments, setAssignments] = useState<ProjectAssignment[]>([])
+  const [skills, setSkills] = useState<string[]>([])
 
   useEffect(() => {
     api.getProjects().then(setProjects).catch(() => {})
@@ -48,7 +79,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
     setLoading(true)
     try {
       const resolvedRole = role === 'none' ? 'global_reader' : role
-      const user = await api.users.create({ email, display_name: displayName, password, role: resolvedRole } as Parameters<typeof api.users.create>[0])
+      const user = await api.users.create({ email, display_name: displayName, password, role: resolvedRole, skills } as Parameters<typeof api.users.create>[0])
       for (const a of assignments) {
         await api.projectAccess.grant(a.project_id, { user_id: user.id, role: a.role })
       }
@@ -116,6 +147,11 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
               <option value="global_reader">Global Reader</option>
               <option value="super_admin">Super Admin</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Skills (optional)</label>
+            <TagInput value={skills} onChange={setSkills} placeholder="e.g. React, Python — press Enter to add" />
           </div>
 
           {role === 'super_admin' ? (
@@ -199,6 +235,7 @@ function UsersTab() {
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [projectAccessTarget, setProjectAccessTarget] = useState<User | null>(null)
+  const [editSkillsUser, setEditSkillsUser] = useState<User | null>(null)
   const currentUser = useAuthStore(s => s.user)
 
   useEffect(() => {
@@ -292,6 +329,13 @@ function UsersTab() {
                   {user.id !== currentUser?.id && (
                     <>
                       <button
+                        onClick={() => setEditSkillsUser(user)}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded hover:bg-slate-700"
+                        title="Edit skills"
+                      >
+                        Edit Skills
+                      </button>
+                      <button
                         onClick={() => setProjectAccessTarget(user)}
                         className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded hover:bg-slate-700"
                         title="Manage project access"
@@ -332,6 +376,61 @@ function UsersTab() {
           onClose={() => setProjectAccessTarget(null)}
         />
       )}
+
+      {editSkillsUser && (
+        <EditSkillsModal
+          user={editSkillsUser}
+          onClose={() => setEditSkillsUser(null)}
+          onUpdated={updated => {
+            setUsers(prev => prev.map(u => u.id === updated.id ? updated : u))
+            setEditSkillsUser(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Edit Skills Modal ────────────────────────────────────────────────────────
+
+function EditSkillsModal({ user, onClose, onUpdated }: {
+  user: User
+  onClose: () => void
+  onUpdated: (u: User) => void
+}) {
+  const [skills, setSkills] = useState<string[]>(user.skills ?? [])
+  const [loading, setLoading] = useState(false)
+
+  async function handleSave() {
+    setLoading(true)
+    try {
+      const updated = await api.users.update(user.id, { skills })
+      onUpdated(updated)
+      toast.success('Skills updated')
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update skills')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold text-slate-100 mb-4">Edit Skills — {user.display_name}</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-2">Skills</label>
+            <TagInput value={skills} onChange={setSkills} placeholder="e.g. React, Python — press Enter to add" />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 text-sm text-slate-400 py-2 hover:text-slate-200">Cancel</button>
+            <button type="button" onClick={handleSave} disabled={loading} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium rounded-lg py-2">
+              {loading ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

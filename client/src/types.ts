@@ -104,6 +104,8 @@ export interface CapacityEntry {
   assignee: string
   story_count: number
   story_points: number
+  capacity: number | null
+  skills?: string[]
 }
 
 export interface Dependency {
@@ -142,6 +144,10 @@ export interface Sprint {
   end_date: string
   status: 'active' | 'completed' | 'planned'
   is_default?: number
+  velocity_completed_points?: number
+  velocity_total_points?: number
+  velocity_completed_stories?: number
+  velocity_total_stories?: number
 }
 
 export interface Comment {
@@ -293,6 +299,7 @@ export interface User {
   role: 'super_admin' | 'global_reader'
   is_active: number
   created_at: string
+  skills?: string[]
 }
 
 export interface ProjectAccessEntry {
@@ -304,6 +311,8 @@ export interface ProjectAccessEntry {
   created_at: string
   display_name?: string
   email?: string
+  skills?: string[]
+  capacity?: number | null
 }
 
 export interface Notification {

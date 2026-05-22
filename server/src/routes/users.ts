@@ -7,6 +7,10 @@ import { requireSuperAdmin } from '../middleware/requireRole.js'
 
 const users = new Hono()
 
+function parseSkills(s: string | null | undefined): string[] {
+  try { return JSON.parse(s ?? '[]') } catch { return [] }
+}
+
 users.get('/users/search', async (c) => {
   const q = c.req.query('q') ?? ''
   const rows = await db.all(
@@ -24,10 +28,10 @@ users.use('/users/:id', requireSuperAdmin)
 users.use('/users/:id/project-access', requireSuperAdmin)
 
 users.get('/users', async (c) => {
-  const rows = await db.all(
-    'SELECT id, email, display_name, role, is_active, created_at FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC',
+  const rows = await db.all<{ id: number; email: string; display_name: string; role: string; is_active: number; created_at: string; skills: string }>(
+    'SELECT id, email, display_name, role, is_active, created_at, skills FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC',
   )
-  return ok(c, rows)
+  return ok(c, rows.map(r => ({ ...r, skills: parseSkills(r.skills) })))
 })
 
 users.post('/users', async (c) => {
@@ -37,22 +41,24 @@ users.post('/users', async (c) => {
     display_name: z.string().min(1),
     password:     z.string().min(8),
     role:         z.enum(['super_admin', 'global_reader']).default('global_reader'),
+    skills:       z.array(z.string().min(1).max(100)).max(50).default([]),
   }).safeParse(body)
   if (!parsed.success) return err(c, 'invalid request body')
 
-  const { email, display_name, password, role } = parsed.data
+  const { email, display_name, password, role, skills } = parsed.data
 
   const exists = await db.get('SELECT id FROM users WHERE email = ? COLLATE NOCASE', email)
   if (exists) return err(c, 'email already in use', 409)
 
   const hash = hashPassword(password)
   const { lastID } = await db.run(
-    'INSERT INTO users (email, display_name, password_hash, role) VALUES (?, ?, ?, ?)',
-    email, display_name, hash, role,
+    'INSERT INTO users (email, display_name, password_hash, role, skills) VALUES (?, ?, ?, ?, ?)',
+    email, display_name, hash, role, JSON.stringify(skills),
   )
 
-  const user = await db.get('SELECT id, email, display_name, role, is_active, created_at FROM users WHERE id = ?', lastID)
-  return ok(c, user, 201)
+  const user = await db.get<{ id: number; email: string; display_name: string; role: string; is_active: number; created_at: string; skills: string }>(
+    'SELECT id, email, display_name, role, is_active, created_at, skills FROM users WHERE id = ?', lastID)
+  return ok(c, { ...user, skills: parseSkills(user?.skills) }, 201)
 })
 
 users.patch('/users/:id', async (c) => {
@@ -65,10 +71,11 @@ users.patch('/users/:id', async (c) => {
     role:         z.enum(['super_admin', 'global_reader']).optional(),
     is_active:    z.boolean().optional(),
     new_password: z.string().min(8).optional(),
+    skills:       z.array(z.string().min(1).max(100)).max(50).optional(),
   }).safeParse(body)
   if (!parsed.success) return err(c, 'invalid request body')
 
-  const { display_name, role, is_active, new_password } = parsed.data
+  const { display_name, role, is_active, new_password, skills } = parsed.data
 
   if (role === 'global_reader') {
     const row = await db.get<{ n: number }>(
@@ -85,6 +92,7 @@ users.patch('/users/:id', async (c) => {
   if (role !== undefined)         { updates.push('role = ?');         params.push(role) }
   if (is_active !== undefined)    { updates.push('is_active = ?');    params.push(is_active ? 1 : 0) }
   if (new_password !== undefined) { updates.push('password_hash = ?'); params.push(hashPassword(new_password)) }
+  if (skills !== undefined)       { updates.push('skills = ?');       params.push(JSON.stringify(skills)) }
 
   if (updates.length === 0) return err(c, 'nothing to update')
 
@@ -92,8 +100,9 @@ users.patch('/users/:id', async (c) => {
   params.push(id)
   await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ? AND deleted_at IS NULL`, ...params)
 
-  const user = await db.get('SELECT id, email, display_name, role, is_active, created_at FROM users WHERE id = ?', id)
-  return ok(c, user)
+  const user = await db.get<{ id: number; email: string; display_name: string; role: string; is_active: number; created_at: string; skills: string }>(
+    'SELECT id, email, display_name, role, is_active, created_at, skills FROM users WHERE id = ?', id)
+  return ok(c, { ...user, skills: parseSkills(user?.skills) })
 })
 
 users.get('/users/:id/project-access', async (c) => {

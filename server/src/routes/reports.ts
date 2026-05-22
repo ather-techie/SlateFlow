@@ -11,8 +11,14 @@ reports.get('/projects/:id/velocity', async (c) => {
   const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
-  const sprints = await db.all<{ id: number; name: string; status: string; start_date: string; end_date: string }>(
-    `SELECT id, name, status, start_date, end_date
+  const sprints = await db.all<{
+    id: number; name: string; status: string; start_date: string; end_date: string;
+    velocity_completed_points: number; velocity_total_points: number;
+    velocity_completed_stories: number; velocity_total_stories: number;
+  }>(
+    `SELECT id, name, status, start_date, end_date,
+            velocity_completed_points, velocity_total_points,
+            velocity_completed_stories, velocity_total_stories
      FROM sprints
      WHERE project_id = ? AND is_default = 0
      ORDER BY start_date, id`,
@@ -20,6 +26,21 @@ reports.get('/projects/:id/velocity', async (c) => {
   )
 
   const result = await Promise.all(sprints.map(async (sprint) => {
+    // For completed sprints, use snapshots; for active/planned, calculate live
+    if (sprint.status === 'completed') {
+      return {
+        sprint_id:          sprint.id,
+        sprint_name:        sprint.name,
+        status:             sprint.status,
+        start_date:         sprint.start_date,
+        end_date:           sprint.end_date,
+        total_points:       sprint.velocity_total_points,
+        completed_points:   sprint.velocity_completed_points,
+        total_stories:      sprint.velocity_total_stories,
+        completed_stories:  sprint.velocity_completed_stories,
+      }
+    }
+
     const [totalPts, completedPts, totalStories, completedStories] = await Promise.all([
       db.get<{ pts: number }>(`SELECT COALESCE(SUM(story_points), 0) as pts FROM cards WHERE sprint_id = ?`, sprint.id),
       db.get<{ pts: number }>(`SELECT COALESCE(SUM(c.story_points), 0) as pts
@@ -153,18 +174,30 @@ reports.get('/projects/:id/capacity', async (c) => {
   const sprint = await db.get('SELECT id FROM sprints WHERE id = ? AND project_id = ?', sprintId, projectId)
   if (!sprint) return err(c, 'sprint not found', 404)
 
-  const rows = await db.all<{ assignee: string; story_count: number; story_points: number }>(
-    `SELECT COALESCE(assignee, 'Unassigned') as assignee,
+  const rows = await db.all<{ assignee: string; story_count: number; story_points: number; capacity: number | null; skills: string }>(
+    `SELECT COALESCE(u.display_name, c.assignee, 'Unassigned') as assignee,
             COUNT(*) as story_count,
-            COALESCE(SUM(story_points), 0) as story_points
-     FROM cards
-     WHERE sprint_id = ?
-     GROUP BY assignee
+            COALESCE(SUM(c.story_points), 0) as story_points,
+            pa.capacity,
+            pa.skills
+     FROM cards c
+     LEFT JOIN users u ON u.id = c.assignee_id
+     LEFT JOIN project_access pa ON pa.user_id = c.assignee_id AND pa.project_id = ?
+     WHERE c.sprint_id = ?
+     GROUP BY COALESCE(u.display_name, c.assignee, 'Unassigned'), pa.capacity, pa.skills
      ORDER BY story_points DESC, story_count DESC`,
-    sprintId,
+    projectId, sprintId,
   )
 
-  return ok(c, rows)
+  // Parse skills JSON in response
+  const result = rows.map(row => ({
+    ...row,
+    skills: (() => {
+      try { return JSON.parse(row.skills ?? '[]') } catch { return [] }
+    })(),
+  }))
+
+  return ok(c, result)
 })
 
 function escapeCsvField(val: unknown): string {

@@ -199,9 +199,9 @@ export const api = {
   users: {
     list: () => request<User[]>('/users'),
     search: (q: string) => request<User[]>(`/users/search?q=${encodeURIComponent(q)}`),
-    create: (data: { email: string; display_name: string; password: string; role?: string }) =>
+    create: (data: { email: string; display_name: string; password: string; role?: string; skills?: string[] }) =>
       request<User>('/users', { method: 'POST', ...json(data) }),
-    update: (id: number, data: { display_name?: string; role?: string; is_active?: boolean; new_password?: string }) =>
+    update: (id: number, data: { display_name?: string; role?: string; is_active?: boolean; new_password?: string; skills?: string[] }) =>
       request<User>(`/users/${id}`, { method: 'PATCH', ...json(data) }),
     delete: (id: number) => request<{ id: number }>(`/users/${id}`, { method: 'DELETE' }),
     projectAccess: (userId: number) =>
@@ -213,9 +213,9 @@ export const api = {
   // ── Project Access ────────────────────────────────────────────────────────────
   projectAccess: {
     list: (projectId: number) => request<ProjectAccessEntry[]>(`/projects/${projectId}/access`),
-    grant: (projectId: number, data: { user_id: number; role: string }) =>
+    grant: (projectId: number, data: { user_id: number; role: string; skills?: string[]; capacity?: number | null }) =>
       request<ProjectAccessEntry>(`/projects/${projectId}/access`, { method: 'POST', ...json(data) }),
-    update: (projectId: number, userId: number, data: { role: string }) =>
+    update: (projectId: number, userId: number, data: { role?: string; skills?: string[]; capacity?: number | null }) =>
       request<ProjectAccessEntry>(`/projects/${projectId}/access/${userId}`, { method: 'PATCH', ...json(data) }),
     revoke: (projectId: number, userId: number) =>
       request<{ user_id: number; project_id: number }>(`/projects/${projectId}/access/${userId}`, { method: 'DELETE' }),

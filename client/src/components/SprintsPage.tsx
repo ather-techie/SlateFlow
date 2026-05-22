@@ -81,24 +81,44 @@ function CapacitySection({ projectId, sprintId }: CapacitySectionProps) {
     return <p className="text-xs text-slate-400">No stories assigned yet.</p>
   }
 
-  const maxPts = Math.max(...data.map(d => d.story_points), 1)
+  const maxValue = Math.max(...data.map(d => Math.max(d.story_points, d.capacity ?? 0)), 1)
 
   return (
     <div className="space-y-1.5">
-      {data.map(row => (
-        <div key={row.assignee} className="flex items-center gap-2">
-          <span className="text-xs text-slate-600 w-28 truncate flex-shrink-0">{row.assignee}</span>
-          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-indigo-400 rounded-full"
-              style={{ width: `${(row.story_points / maxPts) * 100}%` }}
-            />
+      {data.map(row => {
+        const committed = row.capacity
+        const actual = row.story_points
+        return (
+          <div key={row.assignee} className="flex items-center gap-3 mb-3">
+            <div className="flex-shrink-0 w-32">
+              <div className="text-xs font-medium text-slate-700 mb-0.5">{row.assignee}</div>
+              {row.skills && row.skills.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {row.skills.map(skill => (
+                    <span key={skill} className="inline-block text-xs bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="h-3 bg-slate-100 rounded-full overflow-hidden relative">
+                {committed != null && (
+                  <div className="absolute h-full bg-slate-300 rounded-full" style={{ width: `${(committed / maxValue) * 100}%` }} />
+                )}
+                <div
+                  className={`absolute h-full rounded-full ${actual > (committed ?? Infinity) ? 'bg-red-400' : 'bg-indigo-400'}`}
+                  style={{ width: `${(actual / maxValue) * 100}%` }}
+                />
+              </div>
+            </div>
+            <span className="text-xs text-slate-600 w-28 text-right flex-shrink-0">
+              {actual}pt{committed != null ? ` / ${committed}pt` : ''} · {row.story_count} {row.story_count === 1 ? 'story' : 'stories'}
+            </span>
           </div>
-          <span className="text-xs text-slate-500 w-16 text-right flex-shrink-0">
-            {row.story_points}pt · {row.story_count} {row.story_count === 1 ? 'story' : 'stories'}
-          </span>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -447,6 +467,12 @@ function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit
           </div>
         )}
 
+        {sprint.status === 'completed' && (
+          <span className="text-xs font-medium bg-purple-100 text-purple-700 rounded-full px-2 py-0.5 ml-2">
+            {sprint.velocity_completed_points ?? 0}pt completed
+          </span>
+        )}
+
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
           {sprint.status === 'planned' && (
             <button
@@ -554,6 +580,17 @@ function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit
             </h4>
             <CapacitySection projectId={projectId} sprintId={sprint.id} />
           </div>
+
+          {/* Velocity snapshot for completed sprints */}
+          {sprint.status === 'completed' && (sprint.velocity_total_points ?? 0) > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Velocity Snapshot</h4>
+              <div className="text-sm text-slate-700">
+                <div className="mb-1"><strong>{sprint.velocity_completed_points}</strong> / {sprint.velocity_total_points} story points completed</div>
+                <div><strong>{sprint.velocity_completed_stories}</strong> / {sprint.velocity_total_stories} stories completed</div>
+              </div>
+            </div>
+          )}
 
           {/* Cards list */}
           {loadingCards ? (

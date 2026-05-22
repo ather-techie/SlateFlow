@@ -103,9 +103,32 @@ sprints.post('/sprints/:id/complete', async (c) => {
   const sprint = await db.get('SELECT * FROM sprints WHERE id = ?', id)
   if (!sprint) return err(c, 'sprint not found', 404)
 
+  // Snapshot velocity before nulling sprint_id
+  const [totalPts, completedPts, totalStories, completedStories] = await Promise.all([
+    db.get<{ pts: number }>(`SELECT COALESCE(SUM(story_points), 0) AS pts FROM cards WHERE sprint_id = ?`, id),
+    db.get<{ pts: number }>(`SELECT COALESCE(SUM(c.story_points), 0) AS pts
+      FROM cards c JOIN swim_lanes sl ON sl.id = c.swim_lane_id
+      WHERE c.sprint_id = ? AND sl.is_done_col = 1`, id),
+    db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM cards WHERE sprint_id = ?`, id),
+    db.get<{ n: number }>(`SELECT COUNT(*) AS n FROM cards c
+      JOIN swim_lanes sl ON sl.id = c.swim_lane_id
+      WHERE c.sprint_id = ? AND sl.is_done_col = 1`, id),
+  ])
+
   await db.transaction(async () => {
+    await db.run(
+      `UPDATE sprints SET
+         velocity_completed_points  = ?,
+         velocity_total_points      = ?,
+         velocity_completed_stories = ?,
+         velocity_total_stories     = ?,
+         status = 'completed'
+       WHERE id = ?`,
+      completedPts?.pts ?? 0, totalPts?.pts ?? 0,
+      completedStories?.n ?? 0, totalStories?.n ?? 0,
+      id,
+    )
     await db.run("UPDATE cards SET sprint_id = NULL, updated_at = datetime('now') WHERE sprint_id = ?", id)
-    await db.run("UPDATE sprints SET status = 'completed' WHERE id = ?", id)
   })()
 
   return ok(c, await db.get('SELECT * FROM sprints WHERE id = ?', id))

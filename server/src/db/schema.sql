@@ -23,14 +23,18 @@ CREATE TABLE IF NOT EXISTS swim_lanes (
 );
 
 CREATE TABLE IF NOT EXISTS sprints (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  name       TEXT    NOT NULL,
-  goal       TEXT    NOT NULL DEFAULT '',
-  start_date TEXT    NOT NULL,
-  end_date   TEXT    NOT NULL,
-  status     TEXT    NOT NULL DEFAULT 'planned' CHECK (status IN ('active', 'completed', 'planned')),
-  is_default INTEGER NOT NULL DEFAULT 0
+  id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id                 INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name                       TEXT    NOT NULL,
+  goal                       TEXT    NOT NULL DEFAULT '',
+  start_date                 TEXT    NOT NULL,
+  end_date                   TEXT    NOT NULL,
+  status                     TEXT    NOT NULL DEFAULT 'planned' CHECK (status IN ('active', 'completed', 'planned')),
+  is_default                 INTEGER NOT NULL DEFAULT 0,
+  velocity_completed_points  INTEGER NOT NULL DEFAULT 0,
+  velocity_total_points      INTEGER NOT NULL DEFAULT 0,
+  velocity_completed_stories INTEGER NOT NULL DEFAULT 0,
+  velocity_total_stories     INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS columns (
@@ -193,6 +197,7 @@ CREATE TABLE IF NOT EXISTS users (
   role                  TEXT    NOT NULL DEFAULT 'global_reader' CHECK(role IN ('super_admin', 'global_reader')),
   is_active             INTEGER NOT NULL DEFAULT 1,
   email_notifications   INTEGER NOT NULL DEFAULT 1,
+  skills                TEXT    NOT NULL DEFAULT '[]',
   deleted_at            TEXT,
   created_at            TEXT    NOT NULL DEFAULT (datetime('now')),
   updated_at            TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -231,6 +236,8 @@ CREATE TABLE IF NOT EXISTS project_access (
   project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   role       TEXT    NOT NULL DEFAULT 'reader' CHECK(role IN ('project_admin','contributor','reader')),
   granted_by INTEGER REFERENCES users(id),
+  skills     TEXT    NOT NULL DEFAULT '[]',
+  capacity   INTEGER,
   created_at TEXT    NOT NULL DEFAULT (datetime('now')),
   UNIQUE(user_id, project_id)
 );

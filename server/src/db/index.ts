@@ -187,6 +187,13 @@ for (const sql of [
   'ALTER TABLE tasks ADD COLUMN due_date TEXT',
   'ALTER TABLE tasks ADD COLUMN due_reminder_sent_at TEXT',
   'ALTER TABLE users ADD COLUMN email_notifications INTEGER NOT NULL DEFAULT 1',
+  'ALTER TABLE users ADD COLUMN skills TEXT NOT NULL DEFAULT \'[]\'',
+  'ALTER TABLE project_access ADD COLUMN skills TEXT NOT NULL DEFAULT \'[]\'',
+  'ALTER TABLE project_access ADD COLUMN capacity INTEGER',
+  'ALTER TABLE sprints ADD COLUMN velocity_completed_points INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE sprints ADD COLUMN velocity_total_points INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE sprints ADD COLUMN velocity_completed_stories INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE sprints ADD COLUMN velocity_total_stories INTEGER NOT NULL DEFAULT 0',
 ]) {
   try { await db.exec(sql) } catch { /* column already exists */ }
 }

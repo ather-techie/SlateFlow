@@ -67,11 +67,13 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 ### Planning & Visibility
 - **Roadmap / timeline view** — Gantt-style view across Epics and Features with date ranges
 - **Story dependencies** — "blocks / blocked by" relationships between stories
-- **Capacity planning** — assignee workload view per sprint (story points per person)
+- **User skills** — app-level and project-level skill tags on team members for resource planning
+- **Capacity planning** — assignee workload view per sprint with committed capacity (story points per person) vs. actual; visual indicators for over-allocation
 
 ### Reporting
-- **Velocity chart** — story points completed per sprint, trend over time
+- **Velocity chart** — story points completed per sprint, trend over time, with average velocity calculation; velocity snapshots for completed sprints
 - **Cycle time / lead time** — how long cards spend in each lane
+- **Capacity report** — per-assignee workload with team skills and committed capacity
 - **CSV export** — backlog, sprint report, or full project snapshot as CSV
 
 ## Quick Start

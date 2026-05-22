@@ -93,13 +93,13 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 | Table | PK | Notable cols / FKs |
 |---|---|---|
 | `projects` | id | `is_default` (0/1), `color` |
-| `users` | id | `email` UNIQUE, `role` (super_admin/global_reader), `password_hash`, `is_active`, `deleted_at` (soft), `email_notifications` (opt-out, DEFAULT 1) |
+| `users` | id | `email` UNIQUE, `role` (super_admin/global_reader), `password_hash`, `is_active`, `deleted_at` (soft), `email_notifications` (opt-out, DEFAULT 1), `skills` (JSON array, DEFAULT '[]') |
 | `user_identities` | id | `user_id` FK → users, `provider` (password/google/github), `provider_user_id`; UNIQUE (`provider`, `provider_user_id`) AND (`user_id`, `provider`) — one user may link multiple providers |
-| `project_access` | id | (`user_id`, `project_id`) UNIQUE, `role` (project_admin/contributor/reader) |
+| `project_access` | id | (`user_id`, `project_id`) UNIQUE, `role` (project_admin/contributor/reader), `skills` (JSON array, DEFAULT '[]'), `capacity` (nullable INTEGER, story points per sprint) |
 | `epic_access` | id | (`user_id`, `epic_id`) UNIQUE, `role` (epic_admin/contributor/reader) |
 | `epics` | id | `project_id` FK, `is_default`, `position`, `start_date`, `end_date`, `priority`, `status`, `assignee` |
 | `features` | id | `project_id` + `epic_id` FK, `is_default`, `position`, dates, priority, status |
-| `sprints` | id | `project_id` FK, `is_default`, status (planned/active/completed), goal, start/end |
+| `sprints` | id | `project_id` FK, `is_default`, status (planned/active/completed), goal, start/end, `velocity_completed_points` (snapshot INT, DEFAULT 0), `velocity_total_points`, `velocity_completed_stories`, `velocity_total_stories` |
 | `swim_lanes` | id | `project_id` FK, `position`, `is_done_col` (0/1), `color` |
 | `columns` | id | Legacy; retained |
 | `cards` (Stories) | id | FKs: `swim_lane_id` (primary), `column_id` (legacy), `sprint_id`, `feature_id`; `priority`, `story_points`, `assignee`, `due_date`, `due_reminder_sent_at` |

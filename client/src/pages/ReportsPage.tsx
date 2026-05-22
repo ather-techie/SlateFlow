@@ -43,18 +43,33 @@ function VelocityChart({ data }: { data: VelocityEntry[] }) {
     status: d.status,
   }))
 
+  const completedVelocities = data.filter(v => v.status === 'completed').map(v => v.completed_points)
+  const avgVelocity = completedVelocities.length > 0
+    ? Math.round(completedVelocities.reduce((s, v) => s + v, 0) / completedVelocities.length)
+    : null
+
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="Total Points" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="Completed" fill="#6366f1" radius={[4, 4, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
+    <div>
+      {avgVelocity !== null && (
+        <div className="mb-4">
+          <span className="text-sm text-slate-600">Average velocity (completed sprints): </span>
+          <span className="inline-block text-sm font-semibold text-indigo-700 bg-indigo-50 rounded-full px-3 py-0.5 ml-1">
+            {avgVelocity} pts / sprint
+          </span>
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Bar dataKey="Total Points" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Completed" fill="#6366f1" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   )
 }
 

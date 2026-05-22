@@ -4,7 +4,7 @@ Top-level guidance for Claude Code working in this repo. **Scoped detail lives i
 
 ## What SlateFlow is
 
-A self-hosted, single-container project management platform. Drag-and-drop Kanban + Hierarchy (Project → Sprint → Epic → Feature → Story → Task) + sprint planning + roadmap + reporting + test management + multi-user RBAC + AI summarisation + per-sprint Retrospective Board + Calendar (sprints/epics/features alongside holidays, events, and vacations). SQLite + Hono + React monorepo via npm workspaces (`client/`, `server/`).
+A self-hosted, single-container project management platform. Drag-and-drop Kanban + Hierarchy (Project → Sprint → Epic → Feature → Story → Task) + sprint planning + roadmap + reporting (velocity, cycle time, capacity with committed limits) + test management + multi-user RBAC with user skills and capacity planning + AI summarisation + per-sprint Retrospective Board + Calendar (sprints/epics/features alongside holidays, events, and vacations). SQLite + Hono + React monorepo via npm workspaces (`client/`, `server/`).
 
 ## Commands
 

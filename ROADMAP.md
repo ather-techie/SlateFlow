@@ -7,15 +7,16 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 ## ✅ Current State (v0.x)
 
 - Kanban board with drag-and-drop (swim lanes, cards)
-- Sprint management with burndown charts
+- Sprint management with burndown charts & velocity snapshots
 - Backlog with full CRUD
 - Lane presets (Scrum, Kanban, custom)
 - Dashboard with project stats and activity feed
 - Activity log (create, update, move events)
 - Roadmap / Gantt-style timeline view
 - Story dependencies (blocks / blocked by)
-- Capacity planning (story points per assignee)
-- Velocity chart & cycle time reporting
+- Capacity planning (story points per assignee) with committed capacity vs. actual display
+- User skills (app-level and project-level)
+- Velocity chart & cycle time reporting with average velocity
 - CSV export
 - Labels & threaded comments
 - AI card summarisation (Claude, Gemini, OpenAI, Azure OpenAI, Ollama)

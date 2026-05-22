@@ -6,11 +6,45 @@ import { useAuthStore } from '../store/authStore'
 
 type Tab = 'members' | 'settings' | 'lanes'
 
+// ─── Tag Input Component ──────────────────────────────────────────────────────
+
+function TagInput({ value, onChange, placeholder }: {
+  value: string[]; onChange: (v: string[]) => void; placeholder?: string
+}) {
+  const [input, setInput] = useState('')
+  const add = () => {
+    const t = input.trim()
+    if (t && !value.includes(t)) onChange([...value, t])
+    setInput('')
+  }
+  return (
+    <div className="flex flex-wrap gap-1 p-2 bg-slate-800 border border-slate-700 rounded-lg min-h-[38px]">
+      {value.map(t => (
+        <span key={t} className="flex items-center gap-1 bg-indigo-900/50 text-indigo-300 text-xs px-2 py-0.5 rounded">
+          {t}
+          <button type="button" onClick={() => onChange(value.filter(x => x !== t))} className="text-indigo-400 hover:text-indigo-200 leading-none">×</button>
+        </span>
+      ))}
+      <input
+        value={input} onChange={e => setInput(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+        onBlur={add}
+        placeholder={placeholder ?? 'Type and press Enter'}
+        className="flex-1 min-w-[100px] bg-transparent text-xs text-slate-100 placeholder-slate-500 outline-none"
+      />
+    </div>
+  )
+}
+
+// ─── Local Types ──────────────────────────────────────────────────────────────
+
 interface ProjectAccessEntry {
   user_id: number
-  display_name: string
-  email: string
+  display_name?: string
+  email?: string
   role: 'project_admin' | 'contributor' | 'reader'
+  skills?: string[]
+  capacity?: number | null
 }
 
 interface Lane {
@@ -35,6 +69,7 @@ function MembersTab({ projectId, isSuperAdmin }: { projectId: number; isSuperAdm
   const [members, setMembers] = useState<ProjectAccessEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [editingMember, setEditingMember] = useState<ProjectAccessEntry | null>(null)
   const { user } = useAuthStore()
 
   useEffect(() => {
@@ -45,7 +80,7 @@ function MembersTab({ projectId, isSuperAdmin }: { projectId: number; isSuperAdm
     setLoading(true)
     try {
       const data = await api.projectAccess.list(projectId)
-      setMembers(data)
+      setMembers(data as ProjectAccessEntry[])
     } catch (err) {
       toast.error('Failed to load members')
     } finally {
@@ -111,6 +146,8 @@ function MembersTab({ projectId, isSuperAdmin }: { projectId: number; isSuperAdm
               <tr>
                 <th className="px-4 py-3 text-left text-slate-300 font-medium">Name / Email</th>
                 <th className="px-4 py-3 text-left text-slate-300 font-medium">Role</th>
+                <th className="px-4 py-3 text-left text-slate-300 font-medium">Skills</th>
+                <th className="px-4 py-3 text-left text-slate-300 font-medium">Capacity</th>
                 <th className="px-4 py-3 text-right text-slate-300 font-medium">Action</th>
               </tr>
             </thead>
@@ -145,7 +182,34 @@ function MembersTab({ projectId, isSuperAdmin }: { projectId: number; isSuperAdm
                       </select>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3">
+                    {member.skills && member.skills.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {member.skills.map(s => (
+                          <span key={s} className="text-xs bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {member.capacity ? (
+                      <span className="text-slate-300">{member.capacity} pts</span>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right space-x-2">
+                    <button
+                      onClick={() => setEditingMember(member)}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded hover:bg-slate-700"
+                      title="Edit member"
+                    >
+                      Edit
+                    </button>
                     {user?.id === member.user_id ? (
                       <span className="text-slate-500 text-sm font-medium cursor-not-allowed" title="You cannot remove yourself">Remove</span>
                     ) : member.role === 'project_admin' && !isSuperAdmin ? (
@@ -178,6 +242,18 @@ function MembersTab({ projectId, isSuperAdmin }: { projectId: number; isSuperAdm
           }}
         />
       )}
+
+      {editingMember && (
+        <EditMemberModal
+          member={editingMember}
+          projectId={projectId}
+          onClose={() => setEditingMember(null)}
+          onUpdated={() => {
+            setEditingMember(null)
+            loadMembers()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -195,6 +271,8 @@ function AddMemberModal({ projectId, isSuperAdmin, members, onClose, onAdded }: 
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [selectedUser, setSelectedUser] = useState<{ id: number; display_name: string; email: string } | null>(null)
   const [selectedRole, setSelectedRole] = useState<'reader' | 'contributor' | 'project_admin'>('contributor')
+  const [skills, setSkills] = useState<string[]>([])
+  const [capacity, setCapacity] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSearch = async (q: string) => {
@@ -223,7 +301,12 @@ function AddMemberModal({ projectId, isSuperAdmin, members, onClose, onAdded }: 
     }
     setLoading(true)
     try {
-      await api.projectAccess.grant(projectId, { user_id: selectedUser.id, role: selectedRole })
+      await api.projectAccess.grant(projectId, {
+        user_id: selectedUser.id,
+        role: selectedRole,
+        skills,
+        capacity: capacity ? parseInt(capacity) : null
+      })
       toast.success('Member added')
       onAdded()
     } catch (err: any) {
@@ -236,8 +319,6 @@ function AddMemberModal({ projectId, isSuperAdmin, members, onClose, onAdded }: 
       setLoading(false)
     }
   }
-
-  const selectedUserDisplay = searchResults.find(u => u.id === selectedUserId)
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -299,6 +380,20 @@ function AddMemberModal({ projectId, isSuperAdmin, members, onClose, onAdded }: 
             )}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Project Skills (optional)</label>
+            <TagInput value={skills} onChange={setSkills} placeholder="e.g. Frontend, API — press Enter to add" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Capacity (story points/sprint)</label>
+            <input
+              type="number" min={0} max={9999} placeholder="Leave blank if unknown"
+              value={capacity} onChange={e => setCapacity(e.target.value)}
+              className="w-full bg-slate-800 text-slate-100 border border-slate-700 rounded px-3 py-2 focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
           <div className="flex gap-2 justify-end pt-4">
             <button
               onClick={onClose}
@@ -312,6 +407,75 @@ function AddMemberModal({ projectId, isSuperAdmin, members, onClose, onAdded }: 
               className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white font-medium rounded transition-colors"
             >
               {loading ? 'Adding…' : 'Add'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Edit Member Modal ────────────────────────────────────────────────────────
+
+function EditMemberModal({ member, projectId, onClose, onUpdated }: {
+  member: ProjectAccessEntry
+  projectId: number
+  onClose: () => void
+  onUpdated: () => void
+}) {
+  const [skills, setSkills] = useState<string[]>(member.skills ?? [])
+  const [capacity, setCapacity] = useState(member.capacity?.toString() ?? '')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSave() {
+    setLoading(true)
+    try {
+      await api.projectAccess.update(projectId, member.user_id, {
+        skills,
+        capacity: capacity ? parseInt(capacity) : null
+      })
+      toast.success('Member updated')
+      onUpdated()
+    } catch (err: any) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update member')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-slate-900 rounded-lg p-6 max-w-md w-full border border-slate-700" onClick={e => e.stopPropagation()}>
+        <h4 className="text-lg font-semibold text-slate-100 mb-4">Edit Member — {member.display_name}</h4>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Project Skills (optional)</label>
+            <TagInput value={skills} onChange={setSkills} placeholder="e.g. Frontend, API — press Enter to add" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Capacity (story points/sprint)</label>
+            <input
+              type="number" min={0} max={9999} placeholder="Leave blank if unknown"
+              value={capacity} onChange={e => setCapacity(e.target.value)}
+              className="w-full bg-slate-800 text-slate-100 border border-slate-700 rounded px-3 py-2 focus:border-indigo-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex gap-2 justify-end pt-4">
+            <button
+              onClick={onClose}
+              className="px-3 py-2 text-slate-300 hover:text-slate-100 font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={loading}
+              className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-700 text-white font-medium rounded transition-colors"
+            >
+              {loading ? 'Saving…' : 'Save'}
             </button>
           </div>
         </div>
@@ -458,8 +622,9 @@ function LanesTab({ projectId }: { projectId: number }) {
 
   const handleToggleDone = async (lane: Lane) => {
     try {
-      await api.updateLane(lane.id, { is_done_col: lane.is_done_col === 1 ? 0 : 1 })
-      setLanes(lanes.map(l => l.id === lane.id ? { ...l, is_done_col: lane.is_done_col === 1 ? 0 : 1 } : l))
+      const newValue = lane.is_done_col === 1 ? 0 : 1
+      await api.updateLane(lane.id, { is_done_col: newValue as any })
+      setLanes(lanes.map(l => l.id === lane.id ? { ...l, is_done_col: newValue } : l))
       toast.success(`Lane ${lane.is_done_col === 1 ? 'unmarked' : 'marked'} as done column`)
     } catch (err) {
       toast.error('Failed to update lane')
