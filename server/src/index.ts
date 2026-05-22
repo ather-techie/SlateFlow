@@ -31,8 +31,10 @@ import calendar from './routes/calendar.js'
 import webhooks from './routes/webhooks.js'
 import cardLinks from './routes/cardLinks.js'
 import { requireAuth } from './middleware/requireAuth.js'
-import { testCaseOpenApi } from './lib/openapi.js'
+import { openApiSpec } from './lib/openapi/index.js'
 import { startDueDateJob } from './lib/dueDateJob.js'
+import { swaggerUI } from '@hono/swagger-ui'
+import { db } from './db/index.js'
 
 // Ensure the DB is initialised (runs schema + seed on first boot)
 import './db/index.js'
@@ -44,12 +46,32 @@ const app = new Hono()
 app.use('*', logger())
 app.use('/api/*', cors({ origin: 'http://localhost:5173', credentials: true }))
 
-app.get('/api/health', (c) => c.json({ data: { status: 'ok', service: 'slateflow' }, error: null }))
+// Health check at root (no /api prefix) with DB connectivity check
+app.get('/health', async (c) => {
+  let dbStatus = 'ok'
+  try {
+    await db.get('SELECT 1')
+  } catch {
+    dbStatus = 'error'
+  }
+  const httpStatus = dbStatus === 'ok' ? 200 : 503
+  return c.json(
+    { data: { status: dbStatus === 'ok' ? 'ok' : 'degraded', service: 'slateflow', db: dbStatus }, error: null },
+    httpStatus
+  )
+})
+
+// Backward compat: redirect /api/health to /health
+app.get('/api/health', (c) => c.redirect('/health', 301))
 
 // Public routes — registered BEFORE the requireAuth middleware
 app.route('/api', authRoutes)
 app.route('/api', configRoute)
 app.route('/api', webhooks)
+
+// Public OpenAPI spec and Swagger UI
+app.get('/api/openapi.json', (c) => c.json(openApiSpec))
+app.get('/api/docs', swaggerUI({ url: '/api/openapi.json' }))
 
 // All subsequent /api/* routes require authentication
 app.use('/api/*', requireAuth)
@@ -79,8 +101,6 @@ app.route('/api', aiRoutes)
 app.route('/api', retrospectives)
 app.route('/api', calendar)
 app.route('/api', cardLinks)
-
-app.get('/api/openapi.json', (c) => c.json(testCaseOpenApi))
 
 // In production, serve the built React client and handle SPA routing
 if (process.env.NODE_ENV === 'production' && !process.versions.bun) {

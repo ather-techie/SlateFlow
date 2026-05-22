@@ -182,7 +182,14 @@ DELETE on any default item returns `409`. Backfill on startup fills any missing 
 
 - [client/CLAUDE.md](client/CLAUDE.md) — pages, components, stores, DnD, FeatureGate, fetch↔axios state
 - [server/CLAUDE.md](server/CLAUDE.md) — Hono routes, response envelope, RBAC helpers, schema cheat sheet, AI providers
-- [docs/api.md](docs/api.md) — full REST API with curl examples; `GET /api/openapi.json` exposes the test-case OpenAPI subset
+- [docs/api.md](docs/api.md) — full REST API with curl examples
+
+## OpenAPI Documentation
+
+- **Live Swagger UI:** `GET /api/docs` serves a browsable Swagger UI (public endpoint)
+- **OpenAPI spec JSON:** `GET /api/openapi.json` returns the full OpenAPI 3.0.3 spec (public endpoint)
+- **Spec location:** `server/src/lib/openapi/` — root `index.ts` assembles the spec; `shared.ts` defines reusable schemas; `domains/*.ts` organize paths by endpoint group
+- **Pattern:** Domain files export plain TypeScript objects (`testcasesPaths`, etc.) that are merged into the root spec. No code generation or route-level decorators — the spec is maintained as typed data alongside the route definitions
 
 ## Docker / Self-hosting
 

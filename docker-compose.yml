@@ -13,6 +13,12 @@ services:
       SECRET: ${SECRET:-}
       NODE_ENV: production
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
 
 volumes:
   slateflow-data:

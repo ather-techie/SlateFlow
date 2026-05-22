@@ -59,8 +59,8 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [ ] Personal API tokens — programmatic access for scripts and integrations
 - [ ] Two-factor authentication (TOTP)
 - [ ] WIP limits per swim lane (Kanban throughput enforcement)
-- [ ] OpenAPI / Swagger documentation for the REST API
-- [ ] Health check endpoint (`/health`) for container orchestration
+- [x] OpenAPI / Swagger documentation for the REST API
+- [x] Health check endpoint (`/health`) for container orchestration
 - [ ] Backup and restore CLI for SQLite database
 
 ---
@@ -154,4 +154,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue or pull request
 
 ---
 
-*Last updated: May 22, 2026*
+*Last updated: May 22, 2026* — OpenAPI & health check endpoints added

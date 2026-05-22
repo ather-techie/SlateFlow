@@ -79,7 +79,9 @@ SlateFlow is a self-hosted, single-container project management platform for agi
 
 ## Quick Start
 
-**Prerequisites:** Node.js 20+
+**Prerequisites:** Node.js 20+ 
+
+Node : https://nodejs.org/en/download/archive/v20.20.1
 
 ```bash
 git clone https://github.com/your-org/slateflow.git
@@ -92,6 +94,8 @@ npm run dev
 |-----|------|
 | http://localhost:5173 | Kanban board (React + Vite HMR) |
 | http://localhost:3000 | REST API (Hono) |
+| http://localhost:3000/api/docs | OpenAPI / Swagger documentation |
+| http://localhost:3000/health | Health check endpoint |
 
 The SQLite database (`server/slateflow.db`) is created and seeded with a demo project on first boot.
 
