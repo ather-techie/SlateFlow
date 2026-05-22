@@ -36,6 +36,8 @@ const EntryCreateSchema = z.object({
   start_date:  z.string().regex(dateRx, 'start_date must be YYYY-MM-DD'),
   end_date:    z.string().regex(dateRx, 'end_date must be YYYY-MM-DD'),
   color:       HexColor.nullable().optional(),
+  country:     z.string().max(100).nullable().optional(),
+  state_province: z.string().max(200).nullable().optional(),
 })
 
 const VacationCreateSchema = z.object({
@@ -53,6 +55,8 @@ const EntryUpdateSchema = z.object({
   start_date:  z.string().regex(dateRx).optional(),
   end_date:    z.string().regex(dateRx).optional(),
   color:       HexColor.nullable().optional(),
+  country:     z.string().max(100).nullable().optional(),
+  state_province: z.string().max(200).nullable().optional(),
 })
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -67,6 +71,8 @@ type EntryRow = {
   start_date: string
   end_date: string
   color: string | null
+  country: string | null
+  state_province: string | null
   created_by: number | null
   created_at: string
   updated_at: string
@@ -200,6 +206,28 @@ calendar.get('/projects/:id/calendar', async (c) => {
 
 // ── Holidays (super_admin) ───────────────────────────────────────────────────
 
+calendar.get('/admin/holidays', async (c) => {
+  const country        = c.req.query('country')        ?? null
+  const state_province = c.req.query('state_province') ?? null
+  const clauses = ["kind = 'holiday'"]
+  const params: unknown[] = []
+
+  if (country) {
+    clauses.push('country = ?')
+    params.push(country)
+  }
+  if (state_province) {
+    clauses.push('state_province = ?')
+    params.push(state_province)
+  }
+
+  const rows = await db.all<EntryRow>(
+    `SELECT * FROM calendar_entries WHERE ${clauses.join(' AND ')} ORDER BY start_date`,
+    ...params,
+  )
+  return ok(c, rows)
+})
+
 calendar.post('/admin/holidays', async (c) => {
   const user = c.get('user')
   let body: unknown
@@ -211,11 +239,11 @@ calendar.post('/admin/holidays', async (c) => {
     return err(c, 'end_date must be on or after start_date', 422)
   }
 
-  const { title, description, start_date, end_date, color } = parsed.data
+  const { title, description, start_date, end_date, color, country, state_province } = parsed.data
   const { lastID } = await db.run(
-    `INSERT INTO calendar_entries (kind, title, description, start_date, end_date, color, created_by)
-     VALUES ('holiday', ?, ?, ?, ?, ?, ?)`,
-    title, description ?? null, start_date, end_date, color ?? null, user.id,
+    `INSERT INTO calendar_entries (kind, title, description, start_date, end_date, color, country, state_province, created_by)
+     VALUES ('holiday', ?, ?, ?, ?, ?, ?, ?, ?)`,
+    title, description ?? null, start_date, end_date, color ?? null, country ?? null, state_province ?? null, user.id,
   )
 
   const entry = await db.get<EntryRow>('SELECT * FROM calendar_entries WHERE id = ?', lastID)
@@ -248,7 +276,7 @@ calendar.patch('/admin/holidays/:id', async (c) => {
 
   const sets: string[] = ["updated_at = datetime('now')"]
   const vals: unknown[] = []
-  for (const k of ['title', 'description', 'start_date', 'end_date', 'color'] as const) {
+  for (const k of ['title', 'description', 'start_date', 'end_date', 'color', 'country', 'state_province'] as const) {
     if (k in parsed.data) {
       sets.push(`${k} = ?`)
       vals.push(parsed.data[k] ?? null)

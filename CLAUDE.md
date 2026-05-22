@@ -109,6 +109,19 @@ Project-level access checks: `lib/projectAccess.ts` exposes `canRead` / `canWrit
 
 First boot seeds `admin@flow.local` / `Admin1234!` (`super_admin`). Change immediately via `PATCH /api/auth/me`.
 
+### User Profiles
+
+Extended user profile fields support team context, resource planning, and scheduling. All 12 fields are optional, nullable TEXT or INTEGER, and live on the `users` table:
+
+**Location & Context:**
+- `country`, `state`, `city` — work location
+- `home_country`, `home_state`, `home_city` — home location
+- `timezone` — e.g. `America/Los_Angeles`
+- `job_title`, `department`, `phone`, `gender` — work and personal info
+- `reporting_manager_id` (FK → `users.id`) — org structure link
+
+The profile is user-editable via `PATCH /auth/me` (self-service in ProfileSettingsModal) and admin-editable via `PATCH /users/:id` or `POST /users` (user creation/admin panel). `GET /auth/me` and `GET /users` resolve the manager's display name via LEFT JOIN when `reporting_manager_id` is set. The pattern extends easily to future profile fields (aliases, certifications, skills refinements, etc.) — keep them nullable and add to both client and server schemas symmetrically.
+
 ## Feature Flags
 
 Three-layer gate:
@@ -195,3 +208,11 @@ When implementing any new feature, update the following before marking the task 
 - `CLAUDE.md` — record any new patterns, env vars, flags, or conventions
 
 Do not consider any feature complete until all three files are updated.
+
+## Calendar Holidays — Country / State Tagging
+
+Holidays in the `calendar_entries` table now support optional `country` and `state_province` fields (both nullable TEXT). Super-admins manage holidays via `/admin/holidays` (list with optional `?country=&state_province=` filters) and `/admin/holidays/:id` (create/update/delete). A holiday with `country = NULL` and `state_province = NULL` is treated as global and always visible.
+
+On the calendar view (`GET /projects/:id/calendar`), holidays include country and state_province in the response. The client-side `CalendarPage` filters holidays based on a dropdown: users select a country (or "All countries") and see only matching holidays plus all global holidays (null country).
+
+In the admin panel `HolidaysTab`, super-admins see country and state_province columns, and can filter the list by country and state_province using dedicated dropdown/input controls.

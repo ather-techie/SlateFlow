@@ -26,7 +26,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - Epic-level access control with contributor auto-grant for Default Epic
 - GitHub & GitLab integration (PR / commit links, webhook events — feature-flagged)
 - Per-sprint Retrospective Board (feature-flagged)
-- Calendar surface with events, vacations, and holidays (feature-flagged)
+- Calendar surface with events, vacations, and holidays (feature-flagged) — holidays support country/state tagging and filtering
 - @mention notifications + real-time board updates via SSE
 - Email notifications for mentions, assignments, and due date reminders (SMTP-based, per-user opt-out)
 - AI natural-language work item creation (parse across board, backlog, sprints, calendar)
@@ -42,15 +42,16 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [x] OAuth support (GitHub, Google) — feature-flagged per provider; ready for SSO via the `user_identities` table
 - [x] Role-based permissions per project (project_admin / contributor / reader) — Project Admin Panel at `/projects/:id/admin`
 - [ ] Team / organization support for shared instances
-- [ ] User profile and avatar management
+- [x] User profile management (location, work info, reporting manager) — avatar management pending
 
 ### Core UX Improvements
 - [ ] Card priority levels (High / Medium / Low) with color indicators
-- [ ] Due dates with overdue highlighting
+- [x] Due dates with overdue highlighting
 - [ ] Subtasks / inline checklists on cards
 - [ ] Card templates for recurring task types (bug, feature, chore)
 - [x] @mentions in comments with in-app notifications
 - [ ] Dark mode
+- [x] User profile management (location, work info, reporting manager)
 
 ### Technical
 - [x] Real-time board sync via SSE (card create/update/move/delete events)
@@ -153,4 +154,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue or pull request
 
 ---
 
-*Last updated: May 18, 2026*
+*Last updated: May 22, 2026*

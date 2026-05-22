@@ -70,7 +70,7 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 | `routes/adminSettings.ts` | Super Admin: `GET/PATCH/DELETE /admin/feature-overrides[/:flag]` |
 | `routes/ai.ts` | `POST /ai/cards/:id/summarize` (card summary) + `POST /ai/parse-item` (natural-language work item parse, returns discriminated union with type + payload for epics, features, stories, tasks, projects, sprints, calendar events, or unknown) (both gated by `FEATURE_AI`) |
 | `routes/retrospectives.ts` | `GET /sprints/:id/retrospective` (auto-creates), `POST/PATCH/DELETE` on `/retrospectives/:id/items` and `/retrospective-items/:id`, `POST /retrospectives/:id/reorder` (gated by `FEATURE_RETROSPECTIVE`) |
-| `routes/calendar.ts` | `GET /projects/:id/calendar?from=&to=` (sprints/epics/features/holidays/events/vacations); event CRUD on `/projects/:id/calendar/events` + `/calendar/events/:id`; vacation CRUD on `/vacations[/:id]`; super-admin holiday CRUD on `/admin/holidays[/:id]` (all gated by `FEATURE_CALENDAR`) |
+| `routes/calendar.ts` | `GET /projects/:id/calendar?from=&to=` (sprints/epics/features/holidays/events/vacations); event CRUD on `/projects/:id/calendar/events` + `/calendar/events/:id`; vacation CRUD on `/vacations[/:id]`; super-admin holiday CRUD on `/admin/holidays[/:id]` with filtering via `GET /admin/holidays?country=&state_province=` (all gated by `FEATURE_CALENDAR`) |
 | `routes/cardLinks.ts` | `GET /cards/:id/links`, `POST /cards/:id/links`, `DELETE /cards/:id/links/:linkId` (authenticated; gated by `github_integration`/`gitlab_integration` per provider) |
 | `routes/webhooks.ts` | `POST /webhooks/github` (public; HMAC-SHA256 signature verification), `POST /webhooks/gitlab` (public; token header verification) — consume merged PR/MR events and auto-move linked cards to done lane |
 | `lib/openapi.ts` | `GET /api/openapi.json` (test-case OpenAPI subset) |
@@ -118,7 +118,7 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 | `lane_presets` | id | `lanes` JSON |
 | `retrospectives` | id | `sprint_id` UNIQUE FK → sprints (one retro per sprint, cascade) |
 | `retrospective_items` | id | `retrospective_id` FK + `category` (went_well/to_improve/action) + `body` + `position` + `author_id` |
-| `calendar_entries` | id | `kind` (holiday/event/vacation), nullable `project_id` (events only) and `user_id` (vacations only), `start_date`, `end_date`, `color`, `created_by` |
+| `calendar_entries` | id | `kind` (holiday/event/vacation), nullable `project_id` (events only) and `user_id` (vacations only), `start_date`, `end_date`, `color`, `country` (nullable, for holidays), `state_province` (nullable, for holidays), `created_by` |
 
 Indexes: `notifications(user_id, is_read, created_at DESC)`, `epic_access(user_id, epic_id)`, `project_access(user_id, project_id)`, `story_dependencies(blocker_id, blocked_id)`.
 

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { api } from '../../api/index'
 import { api as legacyApi } from '../../api'
 import { useAuthStore } from '../../store/authStore'
+import { COUNTRIES } from '../../constants/countries'
 import type { CalendarEntryKind } from '../../types'
 
 export type EntryFormKind = CalendarEntryKind
@@ -17,6 +18,8 @@ export interface EntryEditing {
   color: string | null
   user_id?: number | null
   project_id?: number | null
+  country?: string | null
+  state_province?: string | null
 }
 
 interface Props {
@@ -62,6 +65,8 @@ export default function EntryFormModal({ projectId, initialDate, initialKind, ed
   const [startDate, setStartDate] = useState(editing?.start_date ?? initialDate ?? todayISO())
   const [endDate, setEndDate] = useState(editing?.end_date ?? initialDate ?? todayISO())
   const [color, setColor] = useState(editing?.color ?? '')
+  const [country, setCountry] = useState(editing?.country ?? '')
+  const [stateProvince, setStateProvince] = useState(editing?.state_province ?? '')
   const [userId, setUserId] = useState<number | null>(
     editing?.user_id ?? (kind === 'vacation' ? currentUser?.id ?? null : null),
   )
@@ -87,16 +92,36 @@ export default function EntryFormModal({ projectId, initialDate, initialKind, ed
     setSubmitting(true)
     try {
       if (editing) {
-        const patch = {
-          title: title.trim() || editing.title,
-          description: description.trim() || null,
-          start_date: startDate,
-          end_date: endDate,
-          color: color.trim() || null,
+        if (editing.kind === 'event') {
+          const patch = {
+            title: title.trim() || editing.title,
+            description: description.trim() || null,
+            start_date: startDate,
+            end_date: endDate,
+            color: color.trim() || null,
+          }
+          await api.calendar.events.update(editing.id, patch)
+        } else if (editing.kind === 'vacation') {
+          const patch = {
+            title: title.trim() || editing.title,
+            description: description.trim() || null,
+            start_date: startDate,
+            end_date: endDate,
+            color: color.trim() || null,
+          }
+          await api.calendar.vacations.update(editing.id, patch)
+        } else {
+          const patch = {
+            title: title.trim() || editing.title,
+            description: description.trim() || null,
+            start_date: startDate,
+            end_date: endDate,
+            color: color.trim() || null,
+            country: country || null,
+            state_province: stateProvince.trim() || null,
+          }
+          await api.calendar.holidays.update(editing.id, patch)
         }
-        if (editing.kind === 'event') await api.calendar.events.update(editing.id, patch)
-        else if (editing.kind === 'vacation') await api.calendar.vacations.update(editing.id, patch)
-        else await api.calendar.holidays.update(editing.id, patch)
         toast.success('Updated')
       } else if (kind === 'event') {
         await api.calendar.events.create(projectId, {
@@ -124,6 +149,8 @@ export default function EntryFormModal({ projectId, initialDate, initialKind, ed
           start_date: startDate,
           end_date: endDate,
           color: color.trim() || null,
+          country: country || null,
+          state_province: stateProvince.trim() || null,
         })
         toast.success('Holiday added')
       }
@@ -248,6 +275,40 @@ export default function EntryFormModal({ projectId, initialDate, initialKind, ed
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
+
+          {(kind === 'holiday' || editing?.kind === 'holiday') && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">
+                  Country (optional)
+                </label>
+                <select
+                  value={country}
+                  onChange={e => setCountry(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">— Global (no country) —</option>
+                  {COUNTRIES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {country && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">
+                    State / Province (optional)
+                  </label>
+                  <input
+                    value={stateProvince}
+                    onChange={e => setStateProvince(e.target.value)}
+                    placeholder="e.g. California"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              )}
+            </>
+          )}
 
           <div className="flex gap-3 pt-1">
             <button

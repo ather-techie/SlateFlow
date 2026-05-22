@@ -289,6 +289,20 @@ export interface AuthUser {
   email: string
   display_name: string
   role: 'super_admin' | 'global_reader'
+  email_notifications?: boolean
+  country?: string | null
+  state?: string | null
+  city?: string | null
+  home_country?: string | null
+  home_state?: string | null
+  home_city?: string | null
+  timezone?: string | null
+  job_title?: string | null
+  department?: string | null
+  phone?: string | null
+  gender?: string | null
+  reporting_manager_id?: number | null
+  reporting_manager?: { id: number; display_name: string } | null
   project_access: ProjectAccessEntry[]
 }
 
@@ -300,6 +314,19 @@ export interface User {
   is_active: number
   created_at: string
   skills?: string[]
+  country?: string | null
+  state?: string | null
+  city?: string | null
+  home_country?: string | null
+  home_state?: string | null
+  home_city?: string | null
+  timezone?: string | null
+  job_title?: string | null
+  department?: string | null
+  phone?: string | null
+  gender?: string | null
+  reporting_manager_id?: number | null
+  reporting_manager?: { id: number; display_name: string } | null
 }
 
 export interface ProjectAccessEntry {
@@ -386,6 +413,8 @@ export interface CalendarHoliday {
   start_date: string
   end_date: string
   color: string | null
+  country: string | null
+  state_province: string | null
   created_by: number | null
   created_at: string
 }

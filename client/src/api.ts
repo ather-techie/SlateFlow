@@ -189,7 +189,23 @@ export const api = {
       request<AuthUser>('/auth/login', { method: 'POST', ...json(data) }),
     logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
     me: () => request<AuthUser & { project_access: ProjectAccessEntry[] }>('/auth/me'),
-    updateMe: (data: { display_name?: string; current_password?: string; new_password?: string }) =>
+    updateMe: (data: {
+      display_name?: string
+      current_password?: string
+      new_password?: string
+      country?: string | null
+      state?: string | null
+      city?: string | null
+      home_country?: string | null
+      home_state?: string | null
+      home_city?: string | null
+      timezone?: string | null
+      job_title?: string | null
+      department?: string | null
+      phone?: string | null
+      gender?: string | null
+      reporting_manager_id?: number | null
+    }) =>
       request<AuthUser>('/auth/me', { method: 'PATCH', ...json(data) }),
     updateProfile: (data: { email_notifications?: boolean }) =>
       request<AuthUser>('/auth/me', { method: 'PATCH', ...json(data) }),
@@ -199,9 +215,45 @@ export const api = {
   users: {
     list: () => request<User[]>('/users'),
     search: (q: string) => request<User[]>(`/users/search?q=${encodeURIComponent(q)}`),
-    create: (data: { email: string; display_name: string; password: string; role?: string; skills?: string[] }) =>
+    create: (data: {
+      email: string
+      display_name: string
+      password: string
+      role?: string
+      skills?: string[]
+      country?: string | null
+      state?: string | null
+      city?: string | null
+      home_country?: string | null
+      home_state?: string | null
+      home_city?: string | null
+      timezone?: string | null
+      job_title?: string | null
+      department?: string | null
+      phone?: string | null
+      gender?: string | null
+      reporting_manager_id?: number | null
+    }) =>
       request<User>('/users', { method: 'POST', ...json(data) }),
-    update: (id: number, data: { display_name?: string; role?: string; is_active?: boolean; new_password?: string; skills?: string[] }) =>
+    update: (id: number, data: {
+      display_name?: string
+      role?: string
+      is_active?: boolean
+      new_password?: string
+      skills?: string[]
+      country?: string | null
+      state?: string | null
+      city?: string | null
+      home_country?: string | null
+      home_state?: string | null
+      home_city?: string | null
+      timezone?: string | null
+      job_title?: string | null
+      department?: string | null
+      phone?: string | null
+      gender?: string | null
+      reporting_manager_id?: number | null
+    }) =>
       request<User>(`/users/${id}`, { method: 'PATCH', ...json(data) }),
     delete: (id: number) => request<{ id: number }>(`/users/${id}`, { method: 'DELETE' }),
     projectAccess: (userId: number) =>

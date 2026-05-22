@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/index'
 import { useAuthStore } from '../store/authStore'
+import { COUNTRIES } from '../constants/countries'
 import type { CalendarEvent, CalendarHoliday, CalendarRange, CalendarVacation, Project, Sprint } from '../types'
 import Header from '../components/Header'
 import MonthGrid from '../components/Calendar/MonthGrid'
@@ -30,6 +31,7 @@ export default function CalendarPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const pid = Number(projectId)
   const navigate = useNavigate()
+  const user = useAuthStore(s => s.user)
   const canWrite = useAuthStore(s => s.canWriteProject(pid))
 
   const today = new Date()
@@ -40,6 +42,7 @@ export default function CalendarPage() {
   const [data, setData] = useState<CalendarRange | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [filterCountry, setFilterCountry] = useState(user?.country ?? '')
 
   const [modalState, setModalState] = useState<
     | { mode: 'closed' }
@@ -154,6 +157,14 @@ export default function CalendarPage() {
         <span className="font-semibold text-slate-800 text-sm">Calendar</span>
         <span className="text-slate-300 select-none">·</span>
         <span className="text-sm text-slate-700">{headerLabel}</span>
+        <select
+          value={filterCountry}
+          onChange={e => setFilterCountry(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white text-slate-800 text-sm px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">All countries</option>
+          {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={gotoPrev}
@@ -200,7 +211,10 @@ export default function CalendarPage() {
           <MonthGrid
             year={year}
             monthIndex={monthIndex}
-            data={data}
+            data={data ? {
+              ...data,
+              holidays: data.holidays.filter(h => !filterCountry || h.country === filterCountry || h.country === null),
+            } : data}
             onAddDay={canWrite ? (d) => setModalState({ mode: 'create', date: d }) : undefined}
             onSprintClick={() => navigate(`/projects/${pid}/sprints`)}
             onEpicClick={() => navigate(`/projects/${pid}/epics`)}

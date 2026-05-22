@@ -194,6 +194,20 @@ for (const sql of [
   'ALTER TABLE sprints ADD COLUMN velocity_total_points INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE sprints ADD COLUMN velocity_completed_stories INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE sprints ADD COLUMN velocity_total_stories INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN country TEXT',
+  'ALTER TABLE users ADD COLUMN state TEXT',
+  'ALTER TABLE users ADD COLUMN city TEXT',
+  'ALTER TABLE users ADD COLUMN home_country TEXT',
+  'ALTER TABLE users ADD COLUMN home_state TEXT',
+  'ALTER TABLE users ADD COLUMN home_city TEXT',
+  'ALTER TABLE users ADD COLUMN timezone TEXT',
+  'ALTER TABLE users ADD COLUMN job_title TEXT',
+  'ALTER TABLE users ADD COLUMN department TEXT',
+  'ALTER TABLE users ADD COLUMN phone TEXT',
+  'ALTER TABLE users ADD COLUMN gender TEXT',
+  'ALTER TABLE users ADD COLUMN reporting_manager_id INTEGER REFERENCES users(id)',
+  'ALTER TABLE calendar_entries ADD COLUMN country TEXT',
+  'ALTER TABLE calendar_entries ADD COLUMN state_province TEXT',
 ]) {
   try { await db.exec(sql) } catch { /* column already exists */ }
 }

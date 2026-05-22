@@ -226,9 +226,11 @@ export const api = {
       delete: (id: number) => unwrap<{ id: number }>(http.delete(`/vacations/${id}`)),
     },
     holidays: {
-      create: (data: { title: string; description?: string | null; start_date: string; end_date: string; color?: string | null }) =>
+      list: (params?: { country?: string; state_province?: string }) =>
+        unwrap<CalendarHoliday[]>(http.get('/admin/holidays', { params })),
+      create: (data: { title: string; description?: string | null; start_date: string; end_date: string; color?: string | null; country?: string | null; state_province?: string | null }) =>
         unwrap<CalendarHoliday>(http.post('/admin/holidays', data)),
-      update: (id: number, data: Partial<{ title: string; description: string | null; start_date: string; end_date: string; color: string | null }>) =>
+      update: (id: number, data: Partial<{ title: string; description: string | null; start_date: string; end_date: string; color: string | null; country: string | null; state_province: string | null }>) =>
         unwrap<CalendarHoliday>(http.patch(`/admin/holidays/${id}`, data)),
       delete: (id: number) => unwrap<{ id: number }>(http.delete(`/admin/holidays/${id}`)),
     },

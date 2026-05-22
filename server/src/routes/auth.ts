@@ -62,10 +62,35 @@ auth.get('/auth/me', requireAuth, async (c) => {
     'SELECT project_id, role FROM project_access WHERE user_id = ?',
     user.id,
   )
-  const userRow = await db.get<{ email_notifications: number }>(
-    'SELECT email_notifications FROM users WHERE id = ?',
+  const userRow = await db.get<{
+    email_notifications: number
+    country: string | null
+    state: string | null
+    city: string | null
+    home_country: string | null
+    home_state: string | null
+    home_city: string | null
+    timezone: string | null
+    job_title: string | null
+    department: string | null
+    phone: string | null
+    gender: string | null
+    reporting_manager_id: number | null
+  }>(
+    `SELECT email_notifications, country, state, city, home_country, home_state, home_city,
+            timezone, job_title, department, phone, gender, reporting_manager_id
+     FROM users WHERE id = ?`,
     user.id,
   )
+
+  let reporting_manager = null
+  if (userRow?.reporting_manager_id) {
+    const manager = await db.get<{ id: number; display_name: string }>(
+      'SELECT id, display_name FROM users WHERE id = ? AND deleted_at IS NULL',
+      userRow.reporting_manager_id,
+    )
+    reporting_manager = manager || null
+  }
 
   return ok(c, {
     id: user.id,
@@ -73,6 +98,19 @@ auth.get('/auth/me', requireAuth, async (c) => {
     display_name: user.display_name,
     role: user.role,
     email_notifications: userRow?.email_notifications === 1,
+    country: userRow?.country ?? null,
+    state: userRow?.state ?? null,
+    city: userRow?.city ?? null,
+    home_country: userRow?.home_country ?? null,
+    home_state: userRow?.home_state ?? null,
+    home_city: userRow?.home_city ?? null,
+    timezone: userRow?.timezone ?? null,
+    job_title: userRow?.job_title ?? null,
+    department: userRow?.department ?? null,
+    phone: userRow?.phone ?? null,
+    gender: userRow?.gender ?? null,
+    reporting_manager_id: userRow?.reporting_manager_id ?? null,
+    reporting_manager,
     project_access: projectAccess,
   })
 })
@@ -85,10 +123,22 @@ auth.patch('/auth/me', requireAuth, async (c) => {
     current_password: z.string().optional(),
     new_password: z.string().min(8).optional(),
     email_notifications: z.boolean().optional(),
+    country: z.string().max(100).optional().nullable(),
+    state: z.string().max(100).optional().nullable(),
+    city: z.string().max(100).optional().nullable(),
+    home_country: z.string().max(100).optional().nullable(),
+    home_state: z.string().max(100).optional().nullable(),
+    home_city: z.string().max(100).optional().nullable(),
+    timezone: z.string().max(100).optional().nullable(),
+    job_title: z.string().max(200).optional().nullable(),
+    department: z.string().max(200).optional().nullable(),
+    phone: z.string().max(50).optional().nullable(),
+    gender: z.string().max(100).optional().nullable(),
+    reporting_manager_id: z.number().int().positive().optional().nullable(),
   }).safeParse(body)
   if (!parsed.success) return err(c, 'invalid request body')
 
-  const { display_name, current_password, new_password, email_notifications } = parsed.data
+  const { display_name, current_password, new_password, email_notifications, country, state, city, home_country, home_state, home_city, timezone, job_title, department, phone, gender, reporting_manager_id } = parsed.data
 
   if (new_password) {
     if (!current_password) return err(c, 'current_password is required to set a new password')
@@ -97,11 +147,23 @@ auth.patch('/auth/me', requireAuth, async (c) => {
   }
 
   const updates: string[] = []
-  const params: (string | number)[] = []
+  const params: (string | number | boolean | null)[] = []
 
   if (display_name) { updates.push('display_name = ?'); params.push(display_name) }
   if (new_password)  { updates.push('password_hash = ?'); params.push(hashPassword(new_password)) }
   if (email_notifications !== undefined) { updates.push('email_notifications = ?'); params.push(email_notifications ? 1 : 0) }
+  if (country !== undefined) { updates.push('country = ?'); params.push(country) }
+  if (state !== undefined) { updates.push('state = ?'); params.push(state) }
+  if (city !== undefined) { updates.push('city = ?'); params.push(city) }
+  if (home_country !== undefined) { updates.push('home_country = ?'); params.push(home_country) }
+  if (home_state !== undefined) { updates.push('home_state = ?'); params.push(home_state) }
+  if (home_city !== undefined) { updates.push('home_city = ?'); params.push(home_city) }
+  if (timezone !== undefined) { updates.push('timezone = ?'); params.push(timezone) }
+  if (job_title !== undefined) { updates.push('job_title = ?'); params.push(job_title) }
+  if (department !== undefined) { updates.push('department = ?'); params.push(department) }
+  if (phone !== undefined) { updates.push('phone = ?'); params.push(phone) }
+  if (gender !== undefined) { updates.push('gender = ?'); params.push(gender) }
+  if (reporting_manager_id !== undefined) { updates.push('reporting_manager_id = ?'); params.push(reporting_manager_id) }
 
   if (updates.length === 0) return err(c, 'nothing to update')
 
@@ -109,8 +171,45 @@ auth.patch('/auth/me', requireAuth, async (c) => {
   params.push(user.id)
   await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, ...params)
 
-  const updated = await db.get<{ email_notifications: number }>('SELECT id, email, display_name, role, email_notifications FROM users WHERE id = ?', user.id)
-  return ok(c, { ...updated, email_notifications: updated?.email_notifications === 1 })
+  const updated = await db.get<{
+    id: number
+    email: string
+    display_name: string
+    role: string
+    email_notifications: number
+    country: string | null
+    state: string | null
+    city: string | null
+    home_country: string | null
+    home_state: string | null
+    home_city: string | null
+    timezone: string | null
+    job_title: string | null
+    department: string | null
+    phone: string | null
+    gender: string | null
+    reporting_manager_id: number | null
+  }>(
+    `SELECT id, email, display_name, role, email_notifications, country, state, city,
+            home_country, home_state, home_city, timezone, job_title, department, phone, gender, reporting_manager_id
+     FROM users WHERE id = ?`,
+    user.id,
+  )
+
+  let reporting_manager = null
+  if (updated?.reporting_manager_id) {
+    const manager = await db.get<{ id: number; display_name: string }>(
+      'SELECT id, display_name FROM users WHERE id = ? AND deleted_at IS NULL',
+      updated.reporting_manager_id,
+    )
+    reporting_manager = manager || null
+  }
+
+  return ok(c, {
+    ...updated,
+    email_notifications: updated?.email_notifications === 1,
+    reporting_manager,
+  })
 })
 
 // ── OAuth (Google + GitHub) ───────────────────────────────────────────────────
