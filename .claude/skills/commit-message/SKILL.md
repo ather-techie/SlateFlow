@@ -47,7 +47,6 @@ Write a message that:
 - Summarises the *what* and *why* in the first line (≤ 72 chars)
 - Adds a short body paragraph only when the change is large or non-obvious (skip it for small/obvious changes)
 - Does NOT start with a bullet list, emoji, or meta-commentary
-- Ends with: `Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>`
 
 Show the draft to the user as a code block.
 
