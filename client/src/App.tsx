@@ -76,6 +76,7 @@ export default function App() {
         github_integration: false,
         gitlab_integration: false,
         email_notifications: false,
+        card_attachments: false,
       }))
       .finally(() => setFlagsLoading(false))
   }, [setFlags, setFlagsLoading])

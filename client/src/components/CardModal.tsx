@@ -18,7 +18,7 @@ interface Props {
   onDelete: (id: number) => void
 }
 
-type Tab = 'description' | 'comments' | 'activity' | 'tests' | 'dependencies' | 'integrations'
+type Tab = 'description' | 'comments' | 'activity' | 'tests' | 'dependencies' | 'integrations' | 'attachments'
 
 const PRIORITIES: Card['priority'][] = ['p0', 'p1', 'p2', 'p3']
 const PRIORITY_LABELS: Record<string, string> = {
@@ -612,6 +612,10 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   const gitlabOn = isEnabled('gitlab_integration')
   const integrationsVisible = githubOn || gitlabOn
 
+  // Attachments
+  const [attachments, setAttachments] = useState<any[]>([])
+  const [uploadingFile, setUploadingFile] = useState(false)
+
   const titleRef    = useRef<HTMLInputElement>(null)
   const labelPickerRef = useRef<HTMLDivElement>(null)
 
@@ -639,7 +643,10 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
         setLinkCount(card.id, ls.length)
       }).catch(() => {})
     }
-  }, [card.id, projectId, githubOn, gitlabOn, setLinkCount])
+    if (isEnabled('card_attachments')) {
+      apiNs.attachments.list(card.id).then(setAttachments).catch(() => {})
+    }
+  }, [card.id, projectId, githubOn, gitlabOn, setLinkCount, isEnabled])
 
   function syncSummary(cases: TestCase[], overrideSummary?: TestCaseSummary) {
     const s = overrideSummary ?? computeSummary(cases)
@@ -949,6 +956,38 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
     }
   }
 
+  async function handleUploadAttachment(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.currentTarget.files
+    if (!files) return
+    setUploadingFile(true)
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name} exceeds 10 MB limit`)
+          continue
+        }
+        const attachment = await apiNs.attachments.upload(card.id, file)
+        setAttachments(as => [attachment, ...as])
+      }
+      toast.success('Files uploaded')
+    } catch {
+      toast.error('Failed to upload file')
+    } finally {
+      setUploadingFile(false)
+      e.currentTarget.value = ''
+    }
+  }
+
+  async function handleRemoveAttachment(attachmentId: number) {
+    try {
+      await apiNs.attachments.remove(attachmentId)
+      setAttachments(as => as.filter(a => a.id !== attachmentId))
+      toast.success('Attachment removed')
+    } catch {
+      toast.error('Failed to remove attachment')
+    }
+  }
+
   // ── Tab label helpers ─────────────────────────────────────────────────────────
 
   const testBadgeColor = testSummary.failed > 0
@@ -988,6 +1027,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
               'tests',
               'dependencies',
               ...(integrationsVisible ? ['integrations' as const] : []),
+              ...(useFeatureFlagStore().isEnabled('card_attachments') ? ['attachments' as const] : []),
             ] as const
           ).map(tab => (
             <button
@@ -1024,6 +1064,16 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                   {links.length > 0 && (
                     <span className="text-white text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] h-4 flex items-center justify-center bg-violet-500">
                       {links.length}
+                    </span>
+                  )}
+                </>
+              ) : null}
+              {tab === 'attachments' ? (
+                <>
+                  Attachments
+                  {attachments.length > 0 && (
+                    <span className="text-white text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] h-4 flex items-center justify-center bg-teal-500">
+                      {attachments.length}
                     </span>
                   )}
                 </>
@@ -1516,6 +1566,68 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── Attachments tab ── */}
+            {activeTab === 'attachments' && (
+              <div className="space-y-4">
+                {/* Attachments list */}
+                {attachments.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic">No attachments yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {attachments.map(a => {
+                      const isImage = a.mime_type.startsWith('image/')
+                      return (
+                        <div key={a.id} className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50 group hover:bg-slate-100 transition-colors">
+                          {isImage ? (
+                            <img src={a.url} alt={a.original_name} className="w-10 h-10 rounded object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-slate-300 flex items-center justify-center flex-shrink-0 text-xs font-bold text-slate-600">
+                              {a.original_name.split('.').pop()?.toUpperCase().slice(0, 3) || 'FILE'}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <a href={a.url} download={a.original_name} className="text-sm font-medium text-indigo-600 hover:underline truncate block">
+                              {a.original_name}
+                            </a>
+                            <div className="text-xs text-slate-500 mt-0.5 flex gap-2">
+                              <span>{(a.size / 1024).toFixed(0)} KB</span>
+                              {a.uploader_name && <span>by {a.uploader_name}</span>}
+                              <span>{fmtRelative(a.created_at)}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveAttachment(a.id)}
+                            className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-colors flex-shrink-0 text-lg leading-none"
+                            title="Delete attachment"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Upload area */}
+                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors cursor-pointer bg-white">
+                  <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="text-sm font-medium text-slate-600">
+                    {uploadingFile ? 'Uploading…' : 'Click or drag to upload files'}
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    disabled={uploadingFile}
+                    onChange={handleUploadAttachment}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-xs text-slate-400">Max 10 MB per file. Images, PDFs, and common formats supported.</p>
               </div>
             )}
 

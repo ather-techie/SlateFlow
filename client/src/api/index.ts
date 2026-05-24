@@ -248,4 +248,15 @@ export const api = {
     add: (cardId: number, data: { url: string }) => unwrap<CardLink>(http.post(`/cards/${cardId}/links`, data)),
     remove: (cardId: number, linkId: number) => unwrap<{ id: number }>(http.delete(`/cards/${cardId}/links/${linkId}`)),
   },
+  attachments: {
+    list: (cardId: number) => unwrap<any[]>(http.get(`/cards/${cardId}/attachments`)),
+    upload: (cardId: number, file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return unwrap<any>(http.post(`/cards/${cardId}/attachments`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }))
+    },
+    remove: (attachmentId: number) => unwrap<{ deleted: boolean }>(http.delete(`/attachments/${attachmentId}`)),
+  },
 }

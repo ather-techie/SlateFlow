@@ -123,7 +123,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [ ] Responsive mobile layout improvements
 
 ### Collaboration & Power-user
-- [ ] Card attachments (file uploads, images, screenshots)
+- [x] Card attachments (file uploads, images, screenshots)
 - [ ] Bulk operations — bulk move, assign, label, or delete cards
 - [ ] Dependency graph visualization — interactive view of blocks/blocked-by links
 - [ ] Board view customization — card density, visible fields, group-by options

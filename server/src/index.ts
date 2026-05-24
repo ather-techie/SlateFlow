@@ -30,6 +30,7 @@ import retrospectives from './routes/retrospectives.js'
 import calendar from './routes/calendar.js'
 import webhooks from './routes/webhooks.js'
 import cardLinks from './routes/cardLinks.js'
+import attachmentsRoutes from './routes/attachments.js'
 import { requireAuth } from './middleware/requireAuth.js'
 import { openApiSpec } from './lib/openapi/index.js'
 import { startDueDateJob } from './lib/dueDateJob.js'
@@ -101,6 +102,13 @@ app.route('/api', aiRoutes)
 app.route('/api', retrospectives)
 app.route('/api', calendar)
 app.route('/api', cardLinks)
+app.route('/api', attachmentsRoutes)
+
+// Static file serving for uploads (dev + production)
+if (!process.versions.bun) {
+  const { serveStatic } = await import('@hono/node-server/serve-static')
+  app.use('/uploads/*', serveStatic({ root: '.' }))
+}
 
 // In production, serve the built React client and handle SPA routing
 if (process.env.NODE_ENV === 'production' && !process.versions.bun) {

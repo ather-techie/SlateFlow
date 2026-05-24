@@ -59,6 +59,8 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 | `SMTP_USER` | _(none)_ | SMTP authentication username |
 | `SMTP_PASS` | _(none)_ | SMTP authentication password |
 | `SMTP_FROM` | `SlateFlow <noreply@example.com>` | From address for outbound notification emails |
+| `FEATURE_CARD_ATTACHMENTS` | `false` | Enables file uploads and attachments on story cards (`POST/GET/DELETE /api/cards/:id/attachments`, `/api/attachments/:id`) |
+| `UPLOADS_DIR` | `./uploads` | Directory for storing uploaded files; relative to server CWD (repo root in dev, `/data/uploads` in Docker) |
 
 ## Authentication & RBAC
 
@@ -215,6 +217,17 @@ When implementing any new feature, update the following before marking the task 
 - `CLAUDE.md` — record any new patterns, env vars, flags, or conventions
 
 Do not consider any feature complete until all three files are updated.
+
+## Card Attachments — File Upload & Storage
+
+Card attachments let users upload files (images, PDFs, etc.) to story cards. Files are stored on disk at `UPLOADS_DIR` (default `./uploads`, `/data/uploads` in Docker) with UUID-prefixed filenames for obscurity. The feature is gated by `FEATURE_CARD_ATTACHMENTS` and requires write permission on the card's project to upload; uploader, project admin, or super_admin can delete.
+
+**Security note:** `/uploads/*` is a public, unauthenticated static route (matched to all clients via the dev proxy and served unconditionally in production). File paths are unguessable due to UUID prefixing, but this is security-by-obscurity, not auth-gated access control. This trade-off is acceptable for self-hosted deployments. If stricter access control is needed, replace static serving with an authenticated `/api/attachments/:id/download` route that streams the file with proper RBAC checks.
+
+**Routes:**
+- `GET /api/cards/:id/attachments` — list attachments (requires read access)
+- `POST /api/cards/:id/attachments` — upload file (requires write access, multipart/form-data)
+- `DELETE /api/attachments/:id` — delete attachment (requires uploader, project_admin, or super_admin)
 
 ## Calendar Holidays — Country / State Tagging
 

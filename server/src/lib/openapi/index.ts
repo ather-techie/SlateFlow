@@ -3,6 +3,7 @@
 
 import { sharedSchemas, sharedResponses } from './shared.js'
 import { testcasesPaths, testcasesSchemas } from './domains/testcases.js'
+import { attachmentsPaths, attachmentsSchemas } from './domains/attachments.js'
 
 // Placeholder imports for remaining domains (to be filled in)
 // import { authPaths } from './domains/auth.js'
@@ -51,10 +52,12 @@ export const openApiSpec = {
     { name: 'Calendar', description: 'Calendar events, vacations, and holidays (requires FEATURE_CALENDAR)' },
     { name: 'Card Links', description: 'GitHub/GitLab PR/MR links (requires FEATURE_GITHUB_INTEGRATION or FEATURE_GITLAB_INTEGRATION)' },
     { name: 'Webhooks', description: 'GitHub and GitLab webhook receivers' },
+    { name: 'Attachments', description: 'File uploads and attachments on cards (requires FEATURE_CARD_ATTACHMENTS)' },
   ],
   security: [{ cookieAuth: [] }],
   paths: {
     ...testcasesPaths,
+    ...attachmentsPaths,
     // Remaining domain paths will be merged here
   },
   components: {
@@ -72,6 +75,7 @@ export const openApiSpec = {
     schemas: {
       ...sharedSchemas,
       ...testcasesSchemas,
+      ...attachmentsSchemas,
     },
   },
 } as const

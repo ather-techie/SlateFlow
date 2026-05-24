@@ -362,3 +362,18 @@ CREATE TABLE IF NOT EXISTS card_links (
 
 CREATE INDEX IF NOT EXISTS idx_card_links_card     ON card_links(card_id);
 CREATE INDEX IF NOT EXISTS idx_card_links_provider ON card_links(provider, repo_url, number);
+
+-- ── Card attachments ──────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS card_attachments (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  card_id       INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  filename      TEXT    NOT NULL,
+  original_name TEXT    NOT NULL,
+  mime_type     TEXT    NOT NULL,
+  size          INTEGER NOT NULL,
+  uploaded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_card_attachments_card ON card_attachments(card_id);
