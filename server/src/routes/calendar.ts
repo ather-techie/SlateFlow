@@ -120,23 +120,25 @@ calendar.get('/projects/:id/calendar', async (c) => {
 
   const { from, to } = parsed.data
 
-  // Sprints in range
+  // Sprints in range (exclude default)
   const sprints = await db.all(
     `SELECT id, name, start_date, end_date, status
        FROM sprints
       WHERE project_id = ?
+        AND is_default = 0
         AND start_date <= ? AND end_date >= ?
       ORDER BY start_date`,
     projectId, to, from,
   )
 
-  // Epics in range — filter by epic_access for non-admins
+  // Epics in range — filter by epic_access for non-admins (exclude default)
   let epics
   if (user.role === 'super_admin') {
     epics = await db.all(
       `SELECT id, title, start_date, end_date, status, priority
          FROM epics
         WHERE project_id = ?
+          AND is_default = 0
           AND start_date IS NOT NULL AND end_date IS NOT NULL
           AND start_date <= ? AND end_date >= ?
         ORDER BY start_date`,
@@ -147,21 +149,23 @@ calendar.get('/projects/:id/calendar', async (c) => {
       `SELECT id, title, start_date, end_date, status, priority
          FROM epics e
         WHERE e.project_id = ?
+          AND e.is_default = 0
           AND e.start_date IS NOT NULL AND e.end_date IS NOT NULL
           AND e.start_date <= ? AND e.end_date >= ?
-          AND (e.is_default = 1 OR EXISTS (
+          AND EXISTS (
             SELECT 1 FROM epic_access ea WHERE ea.epic_id = e.id AND ea.user_id = ?
-          ))
+          )
         ORDER BY e.start_date`,
       projectId, to, from, user.id,
     )
   }
 
-  // Features in range
+  // Features in range (exclude default)
   const features = await db.all(
     `SELECT id, title, start_date, end_date, status, priority, epic_id
        FROM features
       WHERE project_id = ?
+        AND is_default = 0
         AND start_date IS NOT NULL AND end_date IS NOT NULL
         AND start_date <= ? AND end_date >= ?
       ORDER BY start_date`,

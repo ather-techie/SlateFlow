@@ -236,3 +236,13 @@ Holidays in the `calendar_entries` table now support optional `country` and `sta
 On the calendar view (`GET /projects/:id/calendar`), holidays include country and state_province in the response. The client-side `CalendarPage` filters holidays based on a dropdown: users select a country (or "All countries") and see only matching holidays plus all global holidays (null country).
 
 In the admin panel `HolidaysTab`, super-admins see country and state_province columns, and can filter the list by country and state_province using dedicated dropdown/input controls.
+
+## Default Items Visibility
+
+Default items (Default Project, Default Sprint, Default Epic, Default Feature) are system-level containers used as fallbacks for work items and are not intended for user-facing views. They are hidden from:
+
+- **Calendar** (`GET /projects/:id/calendar`) — sprints, epics, and features with `is_default = 1` are filtered out
+- **Roadmap** (`GET /projects/:id/roadmap`) — epics and features with `is_default = 1` are filtered out; sub-queries also exclude default features from counts
+- **Sprints List** (`GET /projects/:id/sprints`) — sprints with `is_default = 1` are filtered out (used by Retrospective page, Board backlog, and other views)
+
+When querying these endpoints, always add `AND is_default = 0` to filter directives. The default project itself is never listed in any view (only selected internally as a fallback when creating work items).

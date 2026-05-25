@@ -24,7 +24,7 @@ sprints.get('/projects/:id/sprints', async (c) => {
   const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
-  const rows = await db.all('SELECT * FROM sprints WHERE project_id = ? ORDER BY start_date DESC', projectId)
+  const rows = await db.all('SELECT * FROM sprints WHERE project_id = ? AND is_default = 0 ORDER BY start_date DESC', projectId)
   return ok(c, rows)
 })
 
