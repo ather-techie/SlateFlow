@@ -12,7 +12,7 @@ const cardLinks = new Hono()
 /** Derive provider, type, repo_url, number|sha from a raw URL string. */
 function parseUrl(rawUrl: string): {
   provider: 'github' | 'gitlab'
-  type: 'pr' | 'mr' | 'commit'
+  type: 'pr' | 'mr' | 'commit' | 'issue'
   repo_url: string
   number: number | null
   sha: string | null
@@ -39,6 +39,15 @@ function parseUrl(rawUrl: string): {
           repo_url: `https://github.com/${parts[0]}/${parts[1]}`,
           number: null,
           sha: parts[3],
+        }
+      }
+      if (parts[2] === 'issues' && parts[3]) {
+        return {
+          provider: 'github',
+          type: 'issue',
+          repo_url: `https://github.com/${parts[0]}/${parts[1]}`,
+          number: parseInt(parts[3], 10),
+          sha: null,
         }
       }
     }
@@ -84,7 +93,9 @@ async function fetchGitHubTitle(parsed: ReturnType<typeof parseUrl>): Promise<st
     const apiUrl =
       parsed.type === 'pr'
         ? `https://api.github.com/repos/${repoPath}/pulls/${parsed.number}`
-        : `https://api.github.com/repos/${repoPath}/commits/${parsed.sha}`
+        : parsed.type === 'issue'
+          ? `https://api.github.com/repos/${repoPath}/issues/${parsed.number}`
+          : `https://api.github.com/repos/${repoPath}/commits/${parsed.sha}`
     const res = await fetch(apiUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -122,6 +133,40 @@ async function fetchGitLabTitle(parsed: ReturnType<typeof parseUrl>): Promise<st
     return json.title ?? json.message?.split('\n')[0] ?? ''
   } catch {
     return ''
+  }
+}
+
+/** Close linked GitHub issues when a card moves to done. Called non-blocking from cards.ts. */
+export async function closeGitHubIssues(cardId: number): Promise<void> {
+  const token = process.env.GITHUB_TOKEN
+  if (!token) return
+  if (!(await isEnabled('github_integration'))) return
+
+  const issues = await db.all<{ number: number; repo_url: string; id: number }>(
+    `SELECT id, number, repo_url FROM card_links
+     WHERE card_id = ? AND provider = 'github' AND type = 'issue' AND state = 'open'`,
+    cardId,
+  )
+  for (const issue of issues) {
+    const repoPath = issue.repo_url.replace('https://github.com/', '')
+    try {
+      const res = await fetch(`https://api.github.com/repos/${repoPath}/issues/${issue.number}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'slateflow',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ state: 'closed' }),
+      })
+      if (res.ok) {
+        await db.run(
+          `UPDATE card_links SET state = 'closed' WHERE id = ?`,
+          issue.id,
+        )
+      }
+    } catch { /* non-fatal — log silently */ }
   }
 }
 
@@ -181,7 +226,7 @@ cardLinks.post('/cards/:id/links', async (c) => {
   if (!urlParsed)
     return err(
       c,
-      'URL is not a recognized GitHub or GitLab PR/MR/commit link',
+      'URL is not a recognized GitHub PR/issue/commit or GitLab MR/commit link',
       422,
     )
 

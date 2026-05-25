@@ -348,7 +348,7 @@ CREATE TABLE IF NOT EXISTS card_links (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   card_id     INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
   provider    TEXT    NOT NULL CHECK (provider IN ('github', 'gitlab')),
-  type        TEXT    NOT NULL CHECK (type IN ('pr', 'mr', 'commit')),
+  type        TEXT    NOT NULL CHECK (type IN ('pr', 'mr', 'commit', 'issue')),
   repo_url    TEXT    NOT NULL,
   number      INTEGER,
   sha         TEXT,

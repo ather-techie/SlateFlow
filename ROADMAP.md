@@ -69,9 +69,8 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 > Target: v1.5
 
 ### Version Control
-- [x] GitHub integration — link pull requests and commits to cards (feature-flagged)
+- [x] GitHub integration — link pull requests, issues, and commits to cards (feature-flagged); auto-close issues when cards move to done; auto-move cards when PR/MR is merged (feature-flagged)
 - [x] GitLab integration — mirror GitHub feature set (feature-flagged)
-- [ ] Auto-move cards when PR is merged (e.g. move to Done)
 
 ### Notifications & Webhooks
 - [ ] Webhook support — push card events to external services

@@ -62,7 +62,7 @@ SlateFlow is a self-hosted, single-container project management platform for agi
   - *Natural-language work-item creation* — type a sentence to create an epic, feature, story, task, project, sprint, or calendar event; AI returns an editable preview before confirming; available on the Board, Epics, Sprints, Calendar, and Dashboard pages
 - **Retrospective Board** — per-sprint reflection with three fixed columns (Went well / To improve / Action items) and live drag-and-drop reorder; gated by `FEATURE_RETROSPECTIVE=true`
 - **Calendar** — month view of sprints, epics, and features alongside super-admin-managed global holidays, project events, and per-user vacations; holidays support optional country and state/province tagging; calendar view lets users filter by country; gated by `FEATURE_CALENDAR=true`
-- **GitHub & GitLab integration** — attach PR, MR, or commit links to any story card; gated by `FEATURE_GITHUB_INTEGRATION` / `FEATURE_GITLAB_INTEGRATION`; webhook receivers (`POST /webhooks/github`, `POST /webhooks/gitlab`) automatically move linked cards to the done lane when a PR/MR is merged; optional PAT for fetching titles on private repos
+- **GitHub & GitLab integration** — attach PR, MR, issue, or commit links to any story card; gated by `FEATURE_GITHUB_INTEGRATION` / `FEATURE_GITLAB_INTEGRATION`; webhook receivers (`POST /webhooks/github`, `POST /webhooks/gitlab`) automatically move linked cards to the done lane when a PR/MR is merged or close linked GitHub issues when the card moves to done; optional PAT for fetching titles on private repos
 - **Self-host** — single Docker container, SQLite database on a named volume; no external services required
 
 ### Planning & Visibility

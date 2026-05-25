@@ -114,7 +114,7 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 | `story_dependencies` | id | (`blocker_id`, `blocked_id`) UNIQUE; both FKs to cards |
 | `notifications` | id | `user_id` FK, `type`, `entity_type`, `entity_id`, `is_read`, `message` |
 | `feature_overrides` | flag | `enabled` (0/1), `updated_by`, `updated_at` |
-| `card_links` | id | `card_id` FK → cards (CASCADE), `provider` (github/gitlab), `type` (pr/mr/commit), `repo_url`, `number` (nullable), `sha` (nullable), `state` (open/closed/merged), `merged_at`, `created_by` FK → users |
+| `card_links` | id | `card_id` FK → cards (CASCADE), `provider` (github/gitlab), `type` (pr/mr/commit/issue), `repo_url`, `number` (nullable), `sha` (nullable), `state` (open/closed/merged), `merged_at`, `created_by` FK → users; moving a card to a done lane auto-closes linked GitHub issues via GitHub API if `GITHUB_TOKEN` is set |
 | `lane_presets` | id | `lanes` JSON |
 | `retrospectives` | id | `sprint_id` UNIQUE FK → sprints (one retro per sprint, cascade) |
 | `retrospective_items` | id | `retrospective_id` FK + `category` (went_well/to_improve/action) + `body` + `position` + `author_id` |

@@ -115,7 +115,7 @@ webhooks.post('/webhooks/github', async (c) => {
 
   const event = c.req.header('x-github-event')
 
-  // Only handle pull_request events where action = 'closed' and merged = true
+  // Handle pull_request events where action = 'closed' and merged = true
   if (event === 'pull_request') {
     const pr = payload as {
       action?: string
@@ -138,6 +138,24 @@ webhooks.post('/webhooks/github', async (c) => {
       const prNumber = pr.pull_request.number
       const mergedAt = pr.pull_request.merged_at ?? new Date().toISOString()
       await processLinksMerged('github', repoUrl, prNumber, mergedAt)
+    }
+  }
+
+  // Handle issues events where action = 'closed'
+  if (event === 'issues') {
+    const issue = payload as {
+      action?: string
+      issue?: { number?: number }
+      repository?: { html_url?: string }
+    }
+    if (issue.action === 'closed' && issue.issue?.number && issue.repository?.html_url) {
+      const repoUrl = issue.repository.html_url
+      const issueNumber = issue.issue.number
+      await db.run(
+        `UPDATE card_links SET state = 'closed'
+         WHERE provider = 'github' AND type = 'issue' AND repo_url = ? AND number = ? AND state = 'open'`,
+        repoUrl, issueNumber,
+      )
     }
   }
 

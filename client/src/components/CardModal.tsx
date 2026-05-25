@@ -1060,7 +1060,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
               ) : null}
               {tab === 'integrations' ? (
                 <>
-                  PRs/MRs
+                  PRs/Issues/MRs
                   {links.length > 0 && (
                     <span className="text-white text-[10px] font-bold rounded-full px-1.5 min-w-[1.25rem] h-4 flex items-center justify-center bg-violet-500">
                       {links.length}
@@ -1492,13 +1492,39 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
                       Linked Pull Requests (GitHub)
                     </p>
-                    {links.filter(l => l.provider === 'github').length === 0 ? (
+                    {links.filter(l => l.provider === 'github' && l.type === 'pr').length === 0 ? (
                       <p className="text-xs text-slate-400 italic">No GitHub PRs linked.</p>
                     ) : (
                       <ul className="space-y-1">
-                        {links.filter(l => l.provider === 'github').map(link => (
+                        {links.filter(l => l.provider === 'github' && l.type === 'pr').map(link => (
                           <li key={link.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
                             <span className={`text-[10px] font-bold uppercase rounded px-1.5 py-0.5 ${link.state === 'merged' ? 'bg-violet-100 text-violet-700' : link.state === 'closed' ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-700'}`}>
+                              {link.state}
+                            </span>
+                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline flex-1 truncate">
+                              {link.title || link.url}
+                            </a>
+                            <button onClick={() => handleRemoveLink(link.id)} className="text-slate-300 hover:text-red-500 transition-colors text-lg leading-none flex-shrink-0" title="Remove">×</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </FeatureGate>
+
+                {/* GitHub Issues section */}
+                <FeatureGate flag="github_integration">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
+                      Linked Issues (GitHub)
+                    </p>
+                    {links.filter(l => l.provider === 'github' && l.type === 'issue').length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">No GitHub issues linked.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {links.filter(l => l.provider === 'github' && l.type === 'issue').map(link => (
+                          <li key={link.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
+                            <span className={`text-[10px] font-bold uppercase rounded px-1.5 py-0.5 ${link.state === 'closed' ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-700'}`}>
                               {link.state}
                             </span>
                             <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline flex-1 truncate">
@@ -1544,7 +1570,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                     onClick={() => setAddingLink(true)}
                     className="text-xs text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 transition-colors"
                   >
-                    + Link a PR / MR / Commit
+                    + Link a PR / MR / Commit / Issue
                   </button>
                 ) : (
                   <div className="border border-slate-200 rounded-xl p-3 space-y-2 bg-slate-50">
@@ -1553,7 +1579,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
                       value={newLinkUrl}
                       onChange={e => setNewLinkUrl(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') handleAddLink(); if (e.key === 'Escape') setAddingLink(false) }}
-                      placeholder="Paste a GitHub PR / GitLab MR / commit URL…"
+                      placeholder="Paste a GitHub PR, issue, commit or GitLab MR / commit URL…"
                       className="w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                     <div className="flex gap-2">

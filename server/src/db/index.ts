@@ -70,6 +70,38 @@ await db.run('PRAGMA foreign_keys = ON')
 const schema = readFileSync(SCHEMA_PATH, 'utf8')
 await db.exec(schema)
 
+// Migrate card_links.type CHECK to include 'issue'
+const clSchema = await db.get<{ sql: string }>(
+  "SELECT sql FROM sqlite_master WHERE type='table' AND name='card_links'"
+)
+if (clSchema?.sql && !clSchema.sql.includes("'issue'")) {
+  await db.run('PRAGMA foreign_keys = OFF')
+  await db.exec(`
+    ALTER TABLE card_links RENAME TO _card_links_old;
+    CREATE TABLE card_links (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      card_id     INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      provider    TEXT    NOT NULL CHECK (provider IN ('github', 'gitlab')),
+      type        TEXT    NOT NULL CHECK (type IN ('pr', 'mr', 'commit', 'issue')),
+      repo_url    TEXT    NOT NULL,
+      number      INTEGER,
+      sha         TEXT,
+      title       TEXT    NOT NULL DEFAULT '',
+      url         TEXT    NOT NULL,
+      state       TEXT    NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'closed', 'merged')),
+      merged_at   TEXT,
+      created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO card_links SELECT * FROM _card_links_old;
+    DROP TABLE _card_links_old;
+    CREATE INDEX IF NOT EXISTS idx_card_links_card ON card_links(card_id);
+    CREATE INDEX IF NOT EXISTS idx_card_links_provider ON card_links(provider, repo_url, number);
+  `)
+  await db.run('PRAGMA foreign_keys = ON')
+  console.info('[db] Migrated card_links.type CHECK to include \'issue\'')
+}
+
 // Ensure every existing project has a Default Epic and Default Feature
 const projectsNeedingDefaults = await db.all<{ id: number }>(`
   SELECT p.id FROM projects p

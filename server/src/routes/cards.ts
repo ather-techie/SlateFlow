@@ -5,6 +5,7 @@ import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
 import { isEnabled } from '../lib/featureFlags.js'
 import { sendEmail, assignmentEmailHtml } from '../lib/email.js'
+import { closeGitHubIssues } from './cardLinks.js'
 
 const cards = new Hono()
 
@@ -383,8 +384,13 @@ cards.patch('/cards/:id/move', async (c) => {
   })()
 
   const movedCard = await db.get('SELECT * FROM cards WHERE id = ?', id)
-  const movedLane = await db.get<{ project_id: number }>('SELECT project_id FROM swim_lanes WHERE id = ?', lane_id)
+  const movedLane = await db.get<{ project_id: number; is_done_col: number }>('SELECT project_id, is_done_col FROM swim_lanes WHERE id = ?', lane_id)
   if (movedLane) emitBoardEvent({ type: 'card:moved', projectId: movedLane.project_id, data: movedCard })
+
+  if (movedLane?.is_done_col) {
+    closeGitHubIssues(id) // fire-and-forget; non-blocking
+  }
+
   return ok(c, movedCard)
 })
 
