@@ -135,6 +135,12 @@ If port 3000 is already in use, see [CONTRIBUTING.md](CONTRIBUTING.md#freeing-po
 | `npm run build` | Production build (client + server) |
 | `npm run lint -w client` | ESLint on the client workspace |
 
+# Run all tests
+npm run test -w server
+
+# Or individually
+npx vitest run server/src/lib/auth.test.ts
+
 ## Stack
 
 | Layer | Tech |

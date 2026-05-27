@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc || echo TypeScript type errors (pre-existing hono/TS5.9 incompatibility, JS output unaffected)",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.0",
@@ -24,6 +26,7 @@
     "@types/node": "^22.5.0",
     "@types/nodemailer": "^6.4.14",
     "tsx": "^4.17.0",
-    "typescript": "5.5.4"
+    "typescript": "5.5.4",
+    "vitest": "^2.0.0"
   }
 }
