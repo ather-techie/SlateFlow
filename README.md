@@ -2,7 +2,9 @@
 
 # SlateFlow
 
-SlateFlow is a self-hosted, single-container project management platform for agile teams. It pairs a drag-and-drop Kanban board with the full Hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown, a per-sprint Retrospective Board, a calendar that blends sprints/epics/features with team holidays, events, and vacations, a Gantt-style roadmap, velocity / cycle-time / capacity reports, test case management, real-time collaboration over Server-Sent Events, multi-user RBAC at global / project / epic level, and AI card summarisation across Claude, Gemini, OpenAI, Azure OpenAI, and Ollama. SQLite + Hono + React in a single Docker image — no external services required.
+SlateFlow is a self-hosted, AI-powered agile project management platform built for modern engineering teams. Delivered as a single-container solution, it combines a drag-and-drop Kanban board with a complete agile hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown tracking, retrospective boards, roadmap planning, velocity/cycle-time/capacity reports, test case management, and real-time collaboration using Server-Sent Events.
+
+SlateFlow also supports enterprise-grade RBAC at global, project, and epic levels, while integrating with leading AI platforms and models including Anthropic Claude, Google Gemini, OpenAI OpenAI, Microsoft Azure OpenAI, and Ollama Ollama for features like AI-powered card summarization and workflow enhancement. Built with SQLite, Hono, and React inside a single Docker image, it requires no external services, making it a lightweight yet powerful alternative to tools like Jira and Azure DevOps.
 
 ## Table of Contents
 
