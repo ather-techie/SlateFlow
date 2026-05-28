@@ -15,6 +15,11 @@ export type FeatureFlag =
   | 'gitlab_integration'
   | 'email_notifications'
   | 'card_attachments'
+  | 'read_mcp'
+  | 'create_mcp'
+  | 'update_mcp'
+  | 'delete_mcp'
+  | 'report_mcp'
 
 const KNOWN_FLAGS: FeatureFlag[] = [
   'ai',
@@ -29,6 +34,11 @@ const KNOWN_FLAGS: FeatureFlag[] = [
   'gitlab_integration',
   'email_notifications',
   'card_attachments',
+  'read_mcp',
+  'create_mcp',
+  'update_mcp',
+  'delete_mcp',
+  'report_mcp',
 ]
 
 interface OverrideRow {

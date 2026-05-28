@@ -98,6 +98,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [ ] **Risk detection** — flag cards likely to be blocked or delayed based on patterns
 - [ ] **AI-generated sprint retrospective summaries** — AI-generated recap of completed sprints
 - [ ] **Duplicate detection** — warn when a new card looks like an existing one
+- [x] **MCP server** — expose SlateFlow as a Model Context Protocol (MCP) server so AI assistants (Claude, Cursor, Copilot, etc.) can read and manage cards, sprints, epics, projects, test cases, and reports directly via standardized tools; gated by five independent flags (`read_mcp`, `create_mcp`, `update_mcp`, `delete_mcp`, `report_mcp`); auth via per-user tokens
 
 ---
 
@@ -153,4 +154,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue or pull request
 
 ---
 
-*Last updated: May 22, 2026* — OpenAPI & health check endpoints added
+*Last updated: May 28, 2026* — MCP server implemented in Phase 3

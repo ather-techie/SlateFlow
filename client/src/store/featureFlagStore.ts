@@ -13,8 +13,13 @@ export type FeatureFlag =
   | 'gitlab_integration'
   | 'email_notifications'
   | 'card_attachments'
+  | 'read_mcp'
+  | 'create_mcp'
+  | 'update_mcp'
+  | 'delete_mcp'
+  | 'report_mcp'
 
-interface Features {
+export interface Features {
   ai: boolean
   auto_test_case_generation_ai: boolean
   auto_story_generation_ai: boolean
@@ -27,6 +32,11 @@ interface Features {
   gitlab_integration: boolean
   email_notifications: boolean
   card_attachments: boolean
+  read_mcp: boolean
+  create_mcp: boolean
+  update_mcp: boolean
+  delete_mcp: boolean
+  report_mcp: boolean
 }
 
 interface FeatureFlagState {
@@ -51,6 +61,11 @@ export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
     gitlab_integration: false,
     email_notifications: false,
     card_attachments: false,
+    read_mcp: false,
+    create_mcp: false,
+    update_mcp: false,
+    delete_mcp: false,
+    report_mcp: false,
   },
   loading: true,
   setFlags: (features) => set({ features, loading: false }),

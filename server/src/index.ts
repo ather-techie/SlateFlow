@@ -31,6 +31,8 @@ import calendar from './routes/calendar.js'
 import webhooks from './routes/webhooks.js'
 import cardLinks from './routes/cardLinks.js'
 import attachmentsRoutes from './routes/attachments.js'
+import mcpRoute from './routes/mcp.js'
+import mcpTokensRoute from './routes/mcpTokens.js'
 import { requireAuth } from './middleware/requireAuth.js'
 import { openApiSpec } from './lib/openapi/index.js'
 import { startDueDateJob } from './lib/dueDateJob.js'
@@ -69,6 +71,7 @@ app.get('/api/health', (c) => c.redirect('/health', 301))
 app.route('/api', authRoutes)
 app.route('/api', configRoute)
 app.route('/api', webhooks)
+app.route('/mcp', mcpRoute)
 
 // Public OpenAPI spec and Swagger UI
 app.get('/api/openapi.json', (c) => c.json(openApiSpec))
@@ -103,6 +106,7 @@ app.route('/api', retrospectives)
 app.route('/api', calendar)
 app.route('/api', cardLinks)
 app.route('/api', attachmentsRoutes)
+app.route('/api', mcpTokensRoute)
 
 // Static file serving for uploads (dev + production)
 if (!process.versions.bun) {

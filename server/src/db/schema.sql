@@ -377,3 +377,17 @@ CREATE TABLE IF NOT EXISTS card_attachments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_card_attachments_card ON card_attachments(card_id);
+
+-- ── MCP tokens for AI assistant access ────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS mcp_tokens (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name          TEXT    NOT NULL,
+  token_hash    TEXT    NOT NULL UNIQUE,
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+  last_used_at  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user  ON mcp_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_mcp_tokens_hash  ON mcp_tokens(token_hash);

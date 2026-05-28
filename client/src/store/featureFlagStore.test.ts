@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useFeatureFlagStore } from './featureFlagStore'
-import type { Features, FeatureFlag } from './featureFlagStore'
+import type { Features } from './featureFlagStore'
 
 describe('useFeatureFlagStore', () => {
   beforeEach(() => {
@@ -18,6 +18,11 @@ describe('useFeatureFlagStore', () => {
         gitlab_integration: false,
         email_notifications: false,
         card_attachments: false,
+        read_mcp: false,
+        create_mcp: false,
+        update_mcp: false,
+        delete_mcp: false,
+        report_mcp: false,
       },
       loading: true,
     })
@@ -38,6 +43,11 @@ describe('useFeatureFlagStore', () => {
         gitlab_integration: true,
         email_notifications: true,
         card_attachments: true,
+        read_mcp: true,
+        create_mcp: true,
+        update_mcp: true,
+        delete_mcp: true,
+        report_mcp: true,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -61,6 +71,11 @@ describe('useFeatureFlagStore', () => {
         gitlab_integration: false,
         email_notifications: false,
         card_attachments: false,
+        read_mcp: false,
+        create_mcp: false,
+        update_mcp: false,
+        delete_mcp: false,
+        report_mcp: false,
       }
 
       useFeatureFlagStore.getState().setFlags(newFeatures)
@@ -83,6 +98,11 @@ describe('useFeatureFlagStore', () => {
         gitlab_integration: false,
         email_notifications: false,
         card_attachments: false,
+        read_mcp: false,
+        create_mcp: false,
+        update_mcp: false,
+        delete_mcp: false,
+        report_mcp: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)

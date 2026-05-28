@@ -65,6 +65,7 @@ SlateFlow also supports enterprise-grade RBAC at global, project, and epic level
 - **Retrospective Board** — per-sprint reflection with three fixed columns (Went well / To improve / Action items) and live drag-and-drop reorder; gated by `FEATURE_RETROSPECTIVE=true`
 - **Calendar** — month view of sprints, epics, and features alongside super-admin-managed global holidays, project events, and per-user vacations; holidays support optional country and state/province tagging; calendar view lets users filter by country; gated by `FEATURE_CALENDAR=true`
 - **GitHub & GitLab integration** — attach PR, MR, issue, or commit links to any story card; gated by `FEATURE_GITHUB_INTEGRATION` / `FEATURE_GITLAB_INTEGRATION`; webhook receivers (`POST /webhooks/github`, `POST /webhooks/gitlab`) automatically move linked cards to the done lane when a PR/MR is merged or close linked GitHub issues when the card moves to done; optional PAT for fetching titles on private repos
+- **MCP (Model Context Protocol) Server** — expose SlateFlow to AI assistants (Claude, Cursor, Copilot, etc.) via standardized MCP tools; users generate named tokens for safe, audit-logged access; five independent feature flags control read, create, update, delete, and reporting operations (`FEATURE_READ_MCP`, `FEATURE_CREATE_MCP`, `FEATURE_UPDATE_MCP`, `FEATURE_DELETE_MCP`, `FEATURE_REPORT_MCP`); respects user RBAC so AI actions are scoped to user permissions
 - **Self-host** — single Docker container, SQLite database on a named volume; no external services required
 
 ### Planning & Visibility

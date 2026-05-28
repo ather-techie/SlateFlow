@@ -77,6 +77,11 @@ export default function App() {
         gitlab_integration: false,
         email_notifications: false,
         card_attachments: false,
+        read_mcp: false,
+        create_mcp: false,
+        update_mcp: false,
+        delete_mcp: false,
+        report_mcp: false,
       }))
       .finally(() => setFlagsLoading(false))
   }, [setFlags, setFlagsLoading])

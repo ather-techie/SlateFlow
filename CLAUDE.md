@@ -61,6 +61,11 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 | `SMTP_FROM` | `SlateFlow <noreply@example.com>` | From address for outbound notification emails |
 | `FEATURE_CARD_ATTACHMENTS` | `false` | Enables file uploads and attachments on story cards (`POST/GET/DELETE /api/cards/:id/attachments`, `/api/attachments/:id`) |
 | `UPLOADS_DIR` | `./uploads` | Directory for storing uploaded files; relative to server CWD (repo root in dev, `/data/uploads` in Docker) |
+| `FEATURE_READ_MCP` | `false` | Enables read-only MCP tools (list/get operations on work items, tests, calendar) via `/mcp` with per-user tokens |
+| `FEATURE_CREATE_MCP` | `false` | Enables MCP create tools (POST operations) |
+| `FEATURE_UPDATE_MCP` | `false` | Enables MCP update/move tools (PATCH operations) |
+| `FEATURE_DELETE_MCP` | `false` | Enables MCP delete tools (safety gate separate from update) |
+| `FEATURE_REPORT_MCP` | `false` | Enables MCP reporting tools (velocity, cycle time, capacity, dashboard metrics) |
 
 ## Authentication & RBAC
 
