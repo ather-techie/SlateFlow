@@ -1,10 +1,10 @@
 import type { Card } from '../types'
 
 const cfg: Record<Card['priority'], { label: string; cls: string }> = {
-  p0: { label: 'P0', cls: 'bg-red-100 text-red-700 ring-red-200' },
-  p1: { label: 'P1', cls: 'bg-orange-100 text-orange-700 ring-orange-200' },
-  p2: { label: 'P2', cls: 'bg-blue-100 text-blue-700 ring-blue-200' },
-  p3: { label: 'P3', cls: 'bg-slate-100 text-slate-500 ring-slate-200' },
+  p0: { label: 'Critical', cls: 'bg-red-100 text-red-700 ring-red-200' },
+  p1: { label: 'High', cls: 'bg-orange-100 text-orange-700 ring-orange-200' },
+  p2: { label: 'Medium', cls: 'bg-blue-100 text-blue-700 ring-blue-200' },
+  p3: { label: 'Low', cls: 'bg-slate-100 text-slate-500 ring-slate-200' },
 }
 
 export default function PriorityBadge({ priority }: { priority: Card['priority'] }) {

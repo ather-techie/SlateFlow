@@ -48,6 +48,7 @@ SlateFlow also supports enterprise-grade RBAC at global, project, and epic level
 - **Backlog** — full CRUD on unassigned cards (create, click-to-edit via modal, delete); cards grouped by swim lane; move to any sprint in one click
 - **Story tasks** — sub-items on any story card; to-do / in-progress / done toggle with an inline progress bar in the card modal
 - **Card attachments** — upload files and images directly to story cards; preview images inline; download or delete attachments (gated by `FEATURE_CARD_ATTACHMENTS`)
+- **Card priority levels** — assign priority (Critical / High / Medium / Low) to every card with color indicators for quick visual scanning
 - **Due dates** — set due dates on cards and tasks; hourly background reminders for upcoming or overdue items; email notifications for assigned users
 - **Drag-and-drop** — powered by `@dnd-kit` with pointer sensor support
 - **Activity log** — automatic `create`, `update`, and `move` events per card

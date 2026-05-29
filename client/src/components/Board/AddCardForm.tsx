@@ -58,10 +58,10 @@ export default function AddCardForm({ onAdd }: Props) {
           onChange={e => setPriority(e.target.value as Card['priority'])}
           className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
-          <option value="p0">P0 — Critical</option>
-          <option value="p1">P1 — High</option>
-          <option value="p2">P2 — Medium</option>
-          <option value="p3">P3 — Low</option>
+          <option value="p0">Critical</option>
+          <option value="p1">High</option>
+          <option value="p2">Medium</option>
+          <option value="p3">Low</option>
         </select>
         <input
           value={assignee}

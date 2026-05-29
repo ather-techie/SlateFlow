@@ -45,7 +45,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [x] User profile management (location, work info, reporting manager) — avatar management pending
 
 ### Core UX Improvements
-- [ ] Card priority levels (High / Medium / Low) with color indicators
+- [x] Card priority levels (Critical / High / Medium / Low) with color indicators
 - [x] Due dates with overdue highlighting
 - [ ] Subtasks / inline checklists on cards
 - [ ] Card templates for recurring task types (bug, feature, chore)

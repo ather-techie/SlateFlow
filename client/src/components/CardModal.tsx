@@ -22,7 +22,7 @@ type Tab = 'description' | 'comments' | 'activity' | 'tests' | 'dependencies' | 
 
 const PRIORITIES: Card['priority'][] = ['p0', 'p1', 'p2', 'p3']
 const PRIORITY_LABELS: Record<string, string> = {
-  p0: 'P0 — Critical', p1: 'P1 — High', p2: 'P2 — Medium', p3: 'P3 — Low',
+  p0: 'Critical', p1: 'High', p2: 'Medium', p3: 'Low',
 }
 const LABEL_PALETTE = [
   '#ef4444', '#f97316', '#eab308', '#22c55e',
