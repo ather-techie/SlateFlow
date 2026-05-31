@@ -5,6 +5,7 @@ import { requireFeature } from '../middleware/requireRole.js'
 import { randomUUID } from 'crypto'
 import { promises as fs } from 'fs'
 import { join, parse } from 'path'
+import { fileTypeFromBuffer } from 'file-type'
 
 const attachments = new Hono()
 
@@ -136,9 +137,22 @@ attachments.post('/cards/:id/attachments', async (c) => {
     return err(c, `file size exceeds 10 MB limit (${(file.size / 1024 / 1024).toFixed(1)} MB)`, 413)
   }
 
-  // Validate MIME type
+  // Validate MIME type from client
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
     return err(c, `file type ${file.type} is not allowed`, 415)
+  }
+
+  // Validate actual file type via magic bytes
+  let buffer: ArrayBuffer
+  try {
+    buffer = await file.arrayBuffer()
+    const detectedType = await fileTypeFromBuffer(new Uint8Array(buffer))
+    if (detectedType && !ALLOWED_MIME_TYPES.includes(detectedType.mime)) {
+      return err(c, `file content does not match declared type (detected: ${detectedType.mime})`, 415)
+    }
+  } catch (error) {
+    console.error('File type detection error:', error)
+    return err(c, 'failed to validate file type', 500)
   }
 
   // Generate safe filename
@@ -149,7 +163,6 @@ attachments.post('/cards/:id/attachments', async (c) => {
 
   // Write file to disk
   try {
-    const buffer = await file.arrayBuffer()
     await fs.writeFile(join(UPLOADS_DIR, filename), Buffer.from(buffer))
   } catch (error) {
     console.error('Failed to write file:', error)

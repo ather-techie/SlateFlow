@@ -84,6 +84,15 @@ describe('GET /users/search', () => {
     const allCall = vi.mocked(db.all).mock.calls[0]
     expect(allCall[0]).toContain('LIMIT 20')
   })
+
+  it('escapes LIKE wildcards in search query', async () => {
+    vi.mocked(db.all).mockResolvedValueOnce([])
+    await makeApp().request('/users/search?q=%25_evil')
+    const allCall = vi.mocked(db.all).mock.calls[0]
+    const pattern = allCall[1] // First arg after SQL is the pattern
+    // %25_ should be escaped to \\%\\_
+    expect(pattern).toBe('%\\%\\_evil%')
+  })
 })
 
 // ─── GET /users ───────────────────────────────────────────────────────────────
@@ -97,50 +106,77 @@ describe('GET /users', () => {
   it('returns 200 with user list for super_admin', async () => {
     const mockUsers = [
       { id: 1, email: 'admin@test.com', display_name: 'Admin', role: 'super_admin',
-        is_active: 1, skills: '[]', reporting_manager_id: null, reporting_manager_name: null },
+        is_active: 1, created_at: '2024-01-01', skills: '[]', country: null, state: null, city: null,
+        home_country: null, home_state: null, home_city: null, timezone: null, job_title: null,
+        department: null, phone: null, gender: null, reporting_manager_id: null, reporting_manager_name: null },
     ]
+    vi.mocked(db.get).mockResolvedValueOnce({ total: 1 }) // COUNT query
     vi.mocked(db.all).mockResolvedValueOnce(mockUsers)
     const res = await makeApp(ADMIN).request('/users')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data).toHaveLength(1)
-    expect(body.data[0].skills).toEqual([]) // parseSkills converts '[]' to []
+    expect(body.data.items).toHaveLength(1)
+    expect(body.data.items[0].skills).toEqual([]) // parseSkills converts '[]' to []
+    expect(body.data.total).toBe(1)
+    expect(body.data.limit).toBe(50) // default limit
+    expect(body.data.offset).toBe(0)  // default offset
   })
 
   it('deserializes JSON skills string to array', async () => {
     const mockUsers = [{
       id: 1, email: 'a@b.com', display_name: 'A', role: 'global_reader',
-      is_active: 1, skills: '["TypeScript","React"]',
+      is_active: 1, created_at: '2024-01-01', skills: '["TypeScript","React"]', country: null, state: null, city: null,
+      home_country: null, home_state: null, home_city: null, timezone: null, job_title: null,
+      department: null, phone: null, gender: null,
       reporting_manager_id: null, reporting_manager_name: null,
     }]
+    vi.mocked(db.get).mockResolvedValueOnce({ total: 1 })
     vi.mocked(db.all).mockResolvedValueOnce(mockUsers)
     const res = await makeApp().request('/users')
     const body = await res.json()
-    expect(body.data[0].skills).toEqual(['TypeScript', 'React'])
+    expect(body.data.items[0].skills).toEqual(['TypeScript', 'React'])
   })
 
   it('falls back to empty array for malformed skills JSON', async () => {
     const mockUsers = [{
       id: 1, email: 'a@b.com', display_name: 'A', role: 'global_reader',
-      is_active: 1, skills: 'not-valid-json',
+      is_active: 1, created_at: '2024-01-01', skills: 'not-valid-json', country: null, state: null, city: null,
+      home_country: null, home_state: null, home_city: null, timezone: null, job_title: null,
+      department: null, phone: null, gender: null,
       reporting_manager_id: null, reporting_manager_name: null,
     }]
+    vi.mocked(db.get).mockResolvedValueOnce({ total: 1 })
     vi.mocked(db.all).mockResolvedValueOnce(mockUsers)
     const res = await makeApp().request('/users')
     const body = await res.json()
-    expect(body.data[0].skills).toEqual([])
+    expect(body.data.items[0].skills).toEqual([])
   })
 
   it('builds reporting_manager object when reporting_manager_id is set', async () => {
     const mockUsers = [{
       id: 2, email: 'u@b.com', display_name: 'User', role: 'global_reader',
-      is_active: 1, skills: '[]',
+      is_active: 1, created_at: '2024-01-01', skills: '[]', country: null, state: null, city: null,
+      home_country: null, home_state: null, home_city: null, timezone: null, job_title: null,
+      department: null, phone: null, gender: null,
       reporting_manager_id: 1, reporting_manager_name: 'Admin',
     }]
+    vi.mocked(db.get).mockResolvedValueOnce({ total: 1 })
     vi.mocked(db.all).mockResolvedValueOnce(mockUsers)
     const res = await makeApp().request('/users')
     const body = await res.json()
-    expect(body.data[0].reporting_manager).toEqual({ id: 1, display_name: 'Admin' })
+    expect(body.data.items[0].reporting_manager).toEqual({ id: 1, display_name: 'Admin' })
+  })
+
+  it('respects limit and offset query params', async () => {
+    vi.mocked(db.get).mockResolvedValueOnce({ total: 100 })
+    vi.mocked(db.all).mockResolvedValueOnce([])
+    await makeApp().request('/users?limit=10&offset=20')
+    const allCall = vi.mocked(db.all).mock.calls[0]
+    expect(allCall[0]).toContain('LIMIT')
+    expect(allCall[0]).toContain('OFFSET')
+    // Verify the values were passed as parameters
+    expect(allCall).toContain(10) // limit
+    expect(allCall).toContain(20) // offset
   })
 })
 

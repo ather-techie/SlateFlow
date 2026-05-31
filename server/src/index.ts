@@ -47,7 +47,15 @@ startDueDateJob()
 const app = new Hono()
 
 app.use('*', logger())
-app.use('/api/*', cors({ origin: 'http://localhost:5173', credentials: true }))
+
+const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:5173'
+app.use('/api/*', cors({ origin: allowedOrigin, credentials: true }))
+
+// Global error handler for unhandled exceptions
+app.onError((err, c) => {
+  console.error('Unhandled error:', err)
+  return c.json({ data: null, error: 'internal server error' }, 500)
+})
 
 // Health check at root (no /api prefix) with DB connectivity check
 app.get('/health', async (c) => {

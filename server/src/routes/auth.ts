@@ -7,6 +7,7 @@ import { ok, err } from '../lib/response.js'
 import { signToken, verifyToken, hashPassword, verifyPassword } from '../lib/auth.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { requireFeature } from '../middleware/requireRole.js'
+import { loginRateLimiter } from '../middleware/rateLimiter.js'
 import { google } from '../lib/oauth/google.js'
 import { github } from '../lib/oauth/github.js'
 import type { OAuthProvider, OAuthProfile } from '../lib/oauth/types.js'
@@ -29,7 +30,7 @@ const STATE_COOKIE_OPTS = {
 
 const PROVIDERS: Record<'google' | 'github', OAuthProvider> = { google, github }
 
-auth.post('/auth/login', requireFeature('auth_password'), async (c) => {
+auth.post('/auth/login', requireFeature('auth_password'), loginRateLimiter, async (c) => {
   const body = await c.req.json().catch(() => null)
   const parsed = z.object({ email: z.string().email(), password: z.string().min(1) }).safeParse(body)
   if (!parsed.success) return err(c, 'email and password are required')

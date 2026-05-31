@@ -4,6 +4,7 @@ import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
 import { requireFeature, requireSuperAdmin } from '../middleware/requireRole.js'
+import { dateSchema, optionalDateSchema } from '../lib/validators.js'
 import { canWrite } from '../lib/projectAccess.js'
 
 const calendar = new Hono()
@@ -22,19 +23,18 @@ calendar.use('/admin/holidays/*', requireSuperAdmin)
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
-const dateRx = /^\d{4}-\d{2}-\d{2}$/
 const HexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'color must be a hex value')
 
 const RangeSchema = z.object({
-  from: z.string().regex(dateRx, 'from must be YYYY-MM-DD'),
-  to:   z.string().regex(dateRx, 'to must be YYYY-MM-DD'),
+  from: dateSchema,
+  to:   dateSchema,
 })
 
 const EntryCreateSchema = z.object({
   title:       z.string().min(1, 'title is required').max(300),
   description: z.string().max(2000).nullable().optional(),
-  start_date:  z.string().regex(dateRx, 'start_date must be YYYY-MM-DD'),
-  end_date:    z.string().regex(dateRx, 'end_date must be YYYY-MM-DD'),
+  start_date:  dateSchema,
+  end_date:    dateSchema,
   color:       HexColor.nullable().optional(),
   country:     z.string().max(100).nullable().optional(),
   state_province: z.string().max(200).nullable().optional(),
@@ -44,16 +44,16 @@ const VacationCreateSchema = z.object({
   user_id:     z.number().int().positive().optional(),
   title:       z.string().min(1).max(300).optional(),
   description: z.string().max(2000).nullable().optional(),
-  start_date:  z.string().regex(dateRx, 'start_date must be YYYY-MM-DD'),
-  end_date:    z.string().regex(dateRx, 'end_date must be YYYY-MM-DD'),
+  start_date:  dateSchema,
+  end_date:    dateSchema,
   color:       HexColor.nullable().optional(),
 })
 
 const EntryUpdateSchema = z.object({
   title:       z.string().min(1).max(300).optional(),
   description: z.string().max(2000).nullable().optional(),
-  start_date:  z.string().regex(dateRx).optional(),
-  end_date:    z.string().regex(dateRx).optional(),
+  start_date:  optionalDateSchema,
+  end_date:    optionalDateSchema,
   color:       HexColor.nullable().optional(),
   country:     z.string().max(100).nullable().optional(),
   state_province: z.string().max(200).nullable().optional(),

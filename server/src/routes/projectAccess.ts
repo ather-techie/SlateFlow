@@ -13,7 +13,7 @@ function parseSkills(s: string | null | undefined): string[] {
 projectAccess.get('/projects/:id/access', async (c) => {
   const caller = c.get('user')
   const projectId = parseId(c.req.param('id'))
-  if (!projectId) return err(c, 'invalid project id', 404)
+  if (!projectId) return err(c, 'invalid project id', 400)
 
   if (!await canManageUsers(caller.id, projectId, caller.role)) {
     return err(c, 'forbidden', 403)
@@ -39,7 +39,7 @@ projectAccess.get('/projects/:id/access', async (c) => {
 projectAccess.post('/projects/:id/access', async (c) => {
   const caller = c.get('user')
   const projectId = parseId(c.req.param('id'))
-  if (!projectId) return err(c, 'invalid project id', 404)
+  if (!projectId) return err(c, 'invalid project id', 400)
 
   if (!await canManageUsers(caller.id, projectId, caller.role)) {
     return err(c, 'forbidden', 403)
@@ -91,7 +91,7 @@ projectAccess.patch('/projects/:id/access/:userId', async (c) => {
   const caller = c.get('user')
   const projectId = parseId(c.req.param('id'))
   const userId = parseId(c.req.param('userId'))
-  if (!projectId || !userId) return err(c, 'invalid id', 404)
+  if (!projectId || !userId) return err(c, 'invalid id', 400)
 
   if (!await canManageUsers(caller.id, projectId, caller.role)) {
     return err(c, 'forbidden', 403)
@@ -156,7 +156,7 @@ projectAccess.delete('/projects/:id/access/:userId', async (c) => {
   const caller = c.get('user')
   const projectId = parseId(c.req.param('id'))
   const userId = parseId(c.req.param('userId'))
-  if (!projectId || !userId) return err(c, 'invalid id', 404)
+  if (!projectId || !userId) return err(c, 'invalid id', 400)
 
   if (!await canManageUsers(caller.id, projectId, caller.role)) {
     return err(c, 'forbidden', 403)

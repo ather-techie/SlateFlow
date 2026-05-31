@@ -50,9 +50,9 @@ describe('projectAccess routes', () => {
   })
 
   describe('GET /projects/:id/access', () => {
-    it('returns 404 for invalid project id', async () => {
+    it('returns 400 for invalid project id', async () => {
       const res = await makeApp().request('/projects/invalid/access')
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(400)
     })
 
     it('returns 403 when user cannot manage users', async () => {
@@ -99,12 +99,12 @@ describe('projectAccess routes', () => {
   })
 
   describe('POST /projects/:id/access', () => {
-    it('returns 404 for invalid project id', async () => {
+    it('returns 400 for invalid project id', async () => {
       const res = await makeApp().request('/projects/invalid/access', {
         method: 'POST',
         body: JSON.stringify({ user_id: 2, role: 'contributor' }),
       })
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(400)
     })
 
     it('returns 403 when user cannot manage users', async () => {

@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
+import { logActivity } from '../lib/activityLog.js'
+import { buildUpdate } from '../lib/buildUpdate.js'
 
 const testcases = new Hono()
 
@@ -57,6 +59,13 @@ const ReorderSchema = z.object({
 const BulkStatusSchema = z.object({
   ids:    z.array(z.number().int().positive()).min(1),
   status: z.enum(['untested', 'passed', 'failed', 'blocked', 'skipped']),
+})
+
+const TestCaseQuerySchema = z.object({
+  suite_id:  z.string().optional(),
+  status:    z.enum(['untested', 'passed', 'failed', 'blocked', 'skipped']).optional(),
+  priority:  z.enum(['critical', 'high', 'medium', 'low']).optional(),
+  test_type: z.enum(['manual', 'automated']).optional(),
 })
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
@@ -146,15 +155,11 @@ testcases.patch('/test-suites/:id', async (c) => {
   const parsed = SuiteUpdateSchema.safeParse(body)
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
-  const sets: string[] = []
-  const vals: unknown[] = []
-  if (parsed.data.name        !== undefined) { sets.push('name = ?');        vals.push(parsed.data.name) }
-  if (parsed.data.description !== undefined) { sets.push('description = ?'); vals.push(parsed.data.description) }
+  const upd = buildUpdate(parsed.data, ['name', 'description'], { withTimestamp: false })
+  if (!upd) return err(c, 'no fields to update', 400)
 
-  if (sets.length === 0) return err(c, 'no fields to update', 400)
-
-  vals.push(id)
-  await db.run(`UPDATE test_suites SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+  upd.params.push(id)
+  await db.run(`UPDATE test_suites SET ${upd.sql} WHERE id = ?`, ...upd.params)
   return ok(c, await db.get('SELECT * FROM test_suites WHERE id = ?', id))
 })
 
@@ -293,25 +298,25 @@ testcases.patch('/test-cases/:id', async (c) => {
   const parsed = TestCaseUpdateSchema.safeParse(body)
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
-  const sets: string[] = ["updated_at = datetime('now')"]
-  const vals: unknown[] = []
   const d = parsed.data
+  const updateFields: Record<string, unknown> = {}
 
-  if (d.title           !== undefined) { sets.push('title = ?');           vals.push(d.title) }
-  if (d.description     !== undefined) { sets.push('description = ?');     vals.push(d.description) }
-  if (d.suite_id        !== undefined) { sets.push('suite_id = ?');        vals.push(d.suite_id) }
-  if (d.status          !== undefined) { sets.push('status = ?');          vals.push(d.status) }
-  if (d.priority        !== undefined) { sets.push('priority = ?');        vals.push(d.priority) }
-  if (d.test_type       !== undefined) { sets.push('test_type = ?');       vals.push(d.test_type) }
-  if (d.steps           !== undefined) { sets.push('steps = ?');           vals.push(d.steps ? JSON.stringify(d.steps) : null) }
-  if (d.preconditions   !== undefined) { sets.push('preconditions = ?');   vals.push(d.preconditions) }
-  if (d.expected_result !== undefined) { sets.push('expected_result = ?'); vals.push(d.expected_result) }
-  if (d.assigned_to     !== undefined) { sets.push('assigned_to = ?');     vals.push(d.assigned_to) }
+  if (d.title           !== undefined) updateFields.title = d.title
+  if (d.description     !== undefined) updateFields.description = d.description
+  if (d.suite_id        !== undefined) updateFields.suite_id = d.suite_id
+  if (d.status          !== undefined) updateFields.status = d.status
+  if (d.priority        !== undefined) updateFields.priority = d.priority
+  if (d.test_type       !== undefined) updateFields.test_type = d.test_type
+  if (d.steps           !== undefined) updateFields.steps = d.steps ? JSON.stringify(d.steps) : null
+  if (d.preconditions   !== undefined) updateFields.preconditions = d.preconditions
+  if (d.expected_result !== undefined) updateFields.expected_result = d.expected_result
+  if (d.assigned_to     !== undefined) updateFields.assigned_to = d.assigned_to
 
-  if (sets.length === 1) return err(c, 'no fields to update', 400)
+  const upd = buildUpdate(updateFields, ['title', 'description', 'suite_id', 'status', 'priority', 'test_type', 'steps', 'preconditions', 'expected_result', 'assigned_to'])
+  if (!upd) return err(c, 'no fields to update', 400)
 
-  vals.push(id)
-  await db.run(`UPDATE test_cases SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+  upd.params.push(id)
+  await db.run(`UPDATE test_cases SET ${upd.sql} WHERE id = ?`, ...upd.params)
 
   const updated = await db.get<TestCaseRow>('SELECT * FROM test_cases WHERE id = ?', id)
   return ok(c, withParsedSteps(updated!))
@@ -391,10 +396,7 @@ testcases.post('/test-cases/:id/runs', async (c) => {
       status, testCaseId,
     )
 
-    await db.run(
-      "INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'test_run', ?)",
-      tc.card_id, JSON.stringify({ title: tc.title, status, run_by: run_by ?? null }),
-    )
+    await logActivity(tc.card_id as number, 'test_run', { title: tc.title as string, status: status as string, run_by: run_by ?? null })
 
     return db.get('SELECT * FROM test_runs WHERE id = ?', lastID)
   })()
@@ -423,10 +425,18 @@ testcases.get('/projects/:id/test-cases', async (c) => {
   const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
-  const suiteId  = c.req.query('suite_id')
-  const status   = c.req.query('status')
-  const priority = c.req.query('priority')
-  const testType = c.req.query('test_type')
+  const queryParsed = TestCaseQuerySchema.safeParse({
+    suite_id: c.req.query('suite_id'),
+    status: c.req.query('status'),
+    priority: c.req.query('priority'),
+    test_type: c.req.query('test_type'),
+  })
+  if (!queryParsed.success) return err(c, zodErr(queryParsed.error.issues), 422)
+
+  const { suite_id: suiteId, status, priority, test_type: testType } = queryParsed.data
+
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 500) || 50
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0) || 0
 
   const conditions: string[] = ['tc.project_id = ?']
   const vals: unknown[] = [projectId]
@@ -435,6 +445,12 @@ testcases.get('/projects/:id/test-cases', async (c) => {
   if (status)   { conditions.push('tc.status = ?');    vals.push(status) }
   if (priority) { conditions.push('tc.priority = ?');  vals.push(priority) }
   if (testType) { conditions.push('tc.test_type = ?'); vals.push(testType) }
+
+  const countRow = await db.get<{ total: number }>(
+    `SELECT COUNT(*) as total FROM test_cases tc WHERE ${conditions.join(' AND ')}`,
+    ...vals
+  )
+  const total = countRow?.total ?? 0
 
   type RowWithRunAndCard = TestCaseRow & {
     card_title: string | null
@@ -451,17 +467,23 @@ testcases.get('/projects/:id/test-cases', async (c) => {
      LEFT JOIN test_runs tr ON tr.id = (
        SELECT id FROM test_runs WHERE test_case_id = tc.id ORDER BY run_at DESC, id DESC LIMIT 1
      )
-     WHERE ${conditions.join(' AND ')} ORDER BY tc.position, tc.id`,
-    ...vals,
+     WHERE ${conditions.join(' AND ')} ORDER BY tc.position, tc.id
+     LIMIT ? OFFSET ?`,
+    ...vals, limit, offset,
   )
 
-  return ok(c, rows.map(({ latest_run_id, latest_run_status, latest_run_notes, latest_run_by, latest_run_at, ...tc }) => ({
-    ...withParsedSteps(tc as TestCaseRow),
-    card_title: (tc as unknown as { card_title: string | null }).card_title,
-    latest_run: latest_run_id
-      ? { id: latest_run_id, status: latest_run_status, notes: latest_run_notes, run_by: latest_run_by, run_at: latest_run_at }
-      : null,
-  })))
+  return ok(c, {
+    items: rows.map(({ latest_run_id, latest_run_status, latest_run_notes, latest_run_by, latest_run_at, ...tc }) => ({
+      ...withParsedSteps(tc as TestCaseRow),
+      card_title: (tc as unknown as { card_title: string | null }).card_title,
+      latest_run: latest_run_id
+        ? { id: latest_run_id, status: latest_run_status, notes: latest_run_notes, run_by: latest_run_by, run_at: latest_run_at }
+        : null,
+    })),
+    total,
+    limit,
+    offset,
+  })
 })
 
 // PATCH /cards/:id/test-cases/bulk-status

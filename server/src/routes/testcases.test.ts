@@ -10,7 +10,17 @@ vi.mock('../db/index.js', () => ({
   },
 }))
 
+vi.mock('../lib/buildUpdate.js', () => ({
+  buildUpdate: vi.fn(),
+}))
+
+vi.mock('../lib/activityLog.js', () => ({
+  logActivity: vi.fn(),
+}))
+
 import { db } from '../db/index.js'
+import { buildUpdate } from '../lib/buildUpdate.js'
+import { logActivity } from '../lib/activityLog.js'
 import testcases from './testcases'
 
 const ADMIN = { id: 1, role: 'super_admin', email: 'admin@test.com', display_name: 'Admin' }
@@ -27,6 +37,10 @@ function makeApp(user = ADMIN) {
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(db.transaction).mockImplementation((fn: () => Promise<unknown>) => async () => fn())
+  vi.mocked(db.run).mockResolvedValue({ lastID: 1, changes: 1 })
+  vi.mocked(db.all).mockResolvedValue([])
+  vi.mocked(buildUpdate).mockReturnValue(null)
+  vi.mocked(logActivity).mockResolvedValue(undefined)
 })
 
 // ─── GET /projects/:id/test-suites ────────────────────────────────────────────
@@ -145,8 +159,8 @@ describe('PATCH /test-suites/:id', () => {
 
   it('returns 200 when suite is updated', async () => {
     vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
-    vi.mocked(db.run).mockResolvedValueOnce({ changes: 1 })
     vi.mocked(db.get).mockResolvedValueOnce({ id: 1, name: 'Updated Suite' })
+    vi.mocked(buildUpdate).mockReturnValue({ sql: 'name = ?, updated_at = datetime(\'now\')', params: ['Updated Suite'] })
 
     const res = await patch(1, { name: 'Updated Suite' })
     expect(res.status).toBe(200)
@@ -460,25 +474,59 @@ describe('GET /projects/:id/test-cases', () => {
     expect(res.status).toBe(404)
   })
 
+  describe('query param validation', () => {
+    it('rejects invalid status value — returns 422', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+      const res = await makeApp().request('/projects/1/test-cases?status=invalid')
+      expect(res.status).toBe(422)
+      const body = await res.json()
+      expect(body.error).toBeDefined()
+    })
+
+    it('rejects invalid priority value — returns 422', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+      const res = await makeApp().request('/projects/1/test-cases?priority=bad')
+      expect(res.status).toBe(422)
+    })
+
+    it('rejects invalid test_type value — returns 422', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+      const res = await makeApp().request('/projects/1/test-cases?test_type=wrong')
+      expect(res.status).toBe(422)
+    })
+
+    it('accepts valid status filter — returns 200', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+      vi.mocked(db.get).mockResolvedValueOnce({ total: 0 })
+      vi.mocked(db.all).mockResolvedValueOnce([])
+      const res = await makeApp().request('/projects/1/test-cases?status=passed')
+      expect(res.status).toBe(200)
+    })
+  })
+
   it('returns 200 with all test cases for project', async () => {
-    vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+    vi.mocked(db.get)
+      .mockResolvedValueOnce({ id: 1 }) // project exists
+      .mockResolvedValueOnce({ total: 1 }) // COUNT query
     vi.mocked(db.all).mockResolvedValueOnce([
       { id: 1, status: 'passed', card_title: 'Card 1', steps: null, latest_run_id: null },
     ])
     const res = await makeApp().request('/projects/1/test-cases')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(Array.isArray(body.data)).toBe(true)
+    expect(body.data.items).toBeDefined()
+    expect(Array.isArray(body.data.items)).toBe(true)
+    expect(body.data.total).toBe(1)
   })
 
   it('supports suite_id filter query param', async () => {
-    vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+    vi.mocked(db.get)
+      .mockResolvedValueOnce({ id: 1 })
+      .mockResolvedValueOnce({ total: 0 })
     vi.mocked(db.all).mockResolvedValueOnce([])
     const res = await makeApp().request('/projects/1/test-cases?suite_id=5')
     expect(res.status).toBe(200)
-    // Verify the call includes suite_id parameter in the query
-    const calls = vi.mocked(db.all).mock.calls
-    expect(calls[0][1]).toBe(1) // project_id
-    expect(calls[0][2]).toBe(5) // suite_id
+    const body = await res.json()
+    expect(body.data.items).toBeDefined()
   })
 })

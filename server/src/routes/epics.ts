@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
+import { optionalDateSchema } from '../lib/validators.js'
+import { buildUpdate } from '../lib/buildUpdate.js'
 import { canRead, canWrite } from '../lib/epicAccess.js'
 
 const epics = new Hono()
@@ -20,8 +22,8 @@ const UpdateSchema = z.object({
   priority:    z.enum(['p0', 'p1', 'p2', 'p3']).optional(),
   status:      z.enum(['new', 'active', 'resolved', 'closed']).optional(),
   assignee:    z.string().max(200).nullable().optional(),
-  start_date:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  end_date:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  start_date:  optionalDateSchema,
+  end_date:    optionalDateSchema,
 })
 
 epics.get('/projects/:id/epics', async (c) => {
@@ -137,21 +139,13 @@ epics.patch('/epics/:id', async (c) => {
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
   const fields = parsed.data
-  const sets: string[] = ["updated_at = datetime('now')"]
-  const vals: unknown[] = []
-
   const allowed = ['title', 'description', 'priority', 'status', 'assignee', 'start_date', 'end_date'] as const
-  for (const key of allowed) {
-    if (key in fields) {
-      sets.push(`${key} = ?`)
-      vals.push(fields[key] ?? null)
-    }
-  }
 
-  if (sets.length === 1) return err(c, 'no fields to update', 400)
+  const upd = buildUpdate(fields, allowed)
+  if (!upd) return err(c, 'no fields to update', 400)
 
-  vals.push(id)
-  await db.run(`UPDATE epics SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+  upd.params.push(id)
+  await db.run(`UPDATE epics SET ${upd.sql} WHERE id = ?`, ...upd.params)
 
   const row = await db.get(
     `SELECT e.*,

@@ -36,9 +36,9 @@ beforeEach(() => {
 
 describe('epicAccess routes', () => {
   describe('GET /epics/:id/access', () => {
-    it('returns 404 for invalid epic id', async () => {
+    it('returns 400 for invalid epic id', async () => {
       const res = await makeApp().request('/epics/invalid/access')
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(400)
     })
 
     it('returns 403 when user cannot manage users', async () => {
@@ -82,12 +82,12 @@ describe('epicAccess routes', () => {
   })
 
   describe('POST /epics/:id/access', () => {
-    it('returns 404 for invalid epic id', async () => {
+    it('returns 400 for invalid epic id', async () => {
       const res = await makeApp().request('/epics/invalid/access', {
         method: 'POST',
         body: JSON.stringify({ user_id: 2, role: 'contributor' }),
       })
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(400)
     })
 
     it('returns 403 when user cannot manage users', async () => {
@@ -224,20 +224,20 @@ describe('epicAccess routes', () => {
   })
 
   describe('PATCH /epics/:epicId/access/:userId', () => {
-    it('returns 404 for invalid epic id', async () => {
+    it('returns 400 for invalid epic id', async () => {
       const res = await makeApp().request('/epics/invalid/access/1', {
         method: 'PATCH',
         body: JSON.stringify({ role: 'contributor' }),
       })
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(400)
     })
 
-    it('returns 404 for invalid user id', async () => {
+    it('returns 400 for invalid user id', async () => {
       const res = await makeApp().request('/epics/1/access/invalid', {
         method: 'PATCH',
         body: JSON.stringify({ role: 'contributor' }),
       })
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(400)
     })
 
     it('returns 403 when user cannot manage users', async () => {
@@ -325,18 +325,18 @@ describe('epicAccess routes', () => {
   })
 
   describe('DELETE /epics/:epicId/access/:userId', () => {
-    it('returns 404 for invalid epic id', async () => {
+    it('returns 400 for invalid epic id', async () => {
       const res = await makeApp().request('/epics/invalid/access/1', {
         method: 'DELETE',
       })
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(400)
     })
 
-    it('returns 404 for invalid user id', async () => {
+    it('returns 400 for invalid user id', async () => {
       const res = await makeApp().request('/epics/1/access/invalid', {
         method: 'DELETE',
       })
-      expect(res.status).toBe(404)
+      expect(res.status).toBe(400)
     })
 
     it('returns 403 when user cannot manage users', async () => {

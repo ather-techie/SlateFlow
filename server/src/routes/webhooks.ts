@@ -4,6 +4,7 @@ import { db } from '../db/index.js'
 import { ok, err } from '../lib/response.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
 import { isEnabled } from '../lib/featureFlags.js'
+import { logActivity } from '../lib/activityLog.js'
 
 const webhooks = new Hono()
 
@@ -48,15 +49,11 @@ async function moveCardToDone(cardId: number): Promise<void> {
     newPos,
     cardId,
   )
-  await db.run(
-    "INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'move', ?)",
-    cardId,
-    JSON.stringify({
-      from_lane_id: card.swim_lane_id,
-      to_lane_id: doneLane.id,
-      reason: 'pr_merged',
-    }),
-  )
+  await logActivity(cardId, 'move', {
+    from_lane_id: card.swim_lane_id,
+    to_lane_id: doneLane.id,
+    reason: 'pr_merged',
+  })
 
   const movedCard = await db.get('SELECT * FROM cards WHERE id = ?', cardId)
   emitBoardEvent({ type: 'card:moved', projectId: lane.project_id, data: movedCard })

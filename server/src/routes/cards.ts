@@ -5,6 +5,11 @@ import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
 import { isEnabled } from '../lib/featureFlags.js'
 import { sendEmail, assignmentEmailHtml } from '../lib/email.js'
+import { optionalDateSchema } from '../lib/validators.js'
+import { logActivity } from '../lib/activityLog.js'
+import { notifyAssignment } from '../lib/notifications.js'
+import { buildUpdate } from '../lib/buildUpdate.js'
+import { resolveDefaultFeature, resolveDefaultSprint } from '../lib/defaults.js'
 import { closeGitHubIssues } from './cardLinks.js'
 
 const cards = new Hono()
@@ -38,7 +43,7 @@ const UpdateSchema = z.object({
   assignee:     z.string().max(200).nullable().optional(),
   sprint_id:    z.number().int().positive().nullable().optional(),
   feature_id:   z.number().int().positive().nullable().optional(),
-  due_date:     z.string().nullable().optional(),
+  due_date:     optionalDateSchema,
 })
 
 const TaskCreateSchema = z.object({
@@ -53,7 +58,7 @@ const TaskUpdateSchema = z.object({
   description: z.string().max(5000).optional(),
   status:      z.enum(['to-do', 'in-progress', 'done']).optional(),
   assignee:    z.string().max(200).nullable().optional(),
-  due_date:    z.string().nullable().optional(),
+  due_date:    optionalDateSchema,
 })
 
 const TaskReorderSchema = z.object({
@@ -74,8 +79,20 @@ cards.get('/lanes/:id/cards', async (c) => {
   const lane = await db.get('SELECT id FROM swim_lanes WHERE id = ?', laneId)
   if (!lane) return err(c, 'lane not found', 404)
 
-  const rows = await db.all('SELECT * FROM cards WHERE swim_lane_id = ? ORDER BY position, id', laneId)
-  return ok(c, rows)
+  const limit = Math.min(parseInt(c.req.query('limit') || '100', 10), 500) || 100
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0) || 0
+
+  const countRow = await db.get<{ total: number }>(
+    'SELECT COUNT(*) as total FROM cards WHERE swim_lane_id = ?',
+    laneId
+  )
+  const total = countRow?.total ?? 0
+
+  const rows = await db.all(
+    'SELECT * FROM cards WHERE swim_lane_id = ? ORDER BY position, id LIMIT ? OFFSET ?',
+    laneId, limit, offset
+  )
+  return ok(c, { items: rows, total, limit, offset })
 })
 
 cards.post('/lanes/:id/cards', async (c) => {
@@ -93,17 +110,8 @@ cards.post('/lanes/:id/cards', async (c) => {
 
   const { title, description, priority, story_points, assignee, sprint_id, feature_id, label_ids } = parsed.data
 
-  let resolvedFeatureId: number | null = feature_id ?? null
-  if (!resolvedFeatureId) {
-    const def = await db.get<{ id: number }>('SELECT id FROM features WHERE project_id = ? AND is_default = 1 LIMIT 1', lane.project_id)
-    if (def) resolvedFeatureId = def.id
-  }
-
-  let resolvedSprintId: number | null = sprint_id ?? null
-  if (!resolvedSprintId) {
-    const defSprint = await db.get<{ id: number }>('SELECT id FROM sprints WHERE project_id = ? AND is_default = 1 LIMIT 1', lane.project_id)
-    if (defSprint) resolvedSprintId = defSprint.id
-  }
+  const resolvedFeatureId = feature_id ?? await resolveDefaultFeature(lane.project_id)
+  const resolvedSprintId = sprint_id ?? await resolveDefaultSprint(lane.project_id)
 
   const maxPosRow = await db.get<{ m: number }>('SELECT COALESCE(MAX(position), -1) as m FROM cards WHERE swim_lane_id = ?', laneId)
 
@@ -123,40 +131,17 @@ cards.post('/lanes/:id/cards', async (c) => {
       }
     }
 
-    await db.run(
-      "INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'create', ?)",
-      lastID, JSON.stringify({ swim_lane_id: laneId }),
-    )
+    await logActivity(lastID as number, 'create', { swim_lane_id: laneId })
 
-    // Send assignment notification if set on creation
     if (assignee) {
-      const assigneeUser = await db.get<{ id: number; email: string; email_notifications: number }>(
-        `SELECT id, email, email_notifications FROM users
-         WHERE display_name = ? AND deleted_at IS NULL`,
-        assignee,
-      )
-
-      if (assigneeUser && assigneeUser.id !== user.id) {
-        await db.run(
-          "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'assignment', 'card', ?, ?)",
-          assigneeUser.id, lastID, `${user.display_name} assigned you to "${title}"`,
-        )
-        emitBoardEvent({ type: 'notification', userId: assigneeUser.id, data: { type: 'assignment', card_id: lastID } })
-
-        const emailEnabled = await isEnabled('email_notifications')
-        if (emailEnabled && assigneeUser.email_notifications) {
-          sendEmail({
-            to: assigneeUser.email,
-            subject: `You've been assigned to "${title}"`,
-            html: assignmentEmailHtml({
-              assignedBy: user.display_name,
-              cardTitle: title,
-              cardId: lastID as number,
-              type: 'card',
-            }),
-          }).catch(console.error)
-        }
-      }
+      await notifyAssignment({
+        assigneeName: assignee,
+        assignedById: user.id,
+        assignedByName: user.display_name,
+        entityType: 'card',
+        entityId: lastID as number,
+        entityTitle: title,
+      })
     }
 
     return await db.get('SELECT * FROM cards WHERE id = ?', lastID)
@@ -192,11 +177,7 @@ cards.post('/columns/:id/cards', async (c) => {
 
   const { title, description, priority, story_points, assignee, sprint_id } = parsed.data
 
-  let resolvedColSprintId: number | null = sprint_id ?? null
-  if (!resolvedColSprintId) {
-    const defSprint = await db.get<{ id: number }>('SELECT id FROM sprints WHERE project_id = ? AND is_default = 1 LIMIT 1', col.project_id)
-    if (defSprint) resolvedColSprintId = defSprint.id
-  }
+  const resolvedColSprintId = sprint_id ?? await resolveDefaultSprint(col.project_id)
 
   const maxPosRow = await db.get<{ m: number }>('SELECT COALESCE(MAX(position), -1) as m FROM cards WHERE column_id = ?', columnId)
 
@@ -208,10 +189,7 @@ cards.post('/columns/:id/cards', async (c) => {
     story_points ?? null, assignee ?? null, (maxPosRow?.m ?? -1) + 1,
   )
 
-  await db.run(
-    "INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'create', ?)",
-    lastID, JSON.stringify({ column_id: columnId }),
-  )
+  await logActivity(lastID as number, 'create', { column_id: columnId })
 
   return ok(c, await db.get('SELECT * FROM cards WHERE id = ?', lastID), 201)
 })
@@ -252,63 +230,32 @@ cards.patch('/cards/:id', async (c) => {
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
   const fields = parsed.data
-  const sets: string[] = ["updated_at = datetime('now')"]
-  const vals: unknown[] = []
-
   const allowed = ['title', 'description', 'priority', 'story_points', 'assignee', 'sprint_id', 'feature_id', 'due_date'] as const
-  for (const key of allowed) {
-    if (key in fields) {
-      sets.push(`${key} = ?`)
-      vals.push(fields[key] ?? null)
-    }
-  }
 
-  if (sets.length === 1) return err(c, 'no fields to update', 400)
+  const upd = buildUpdate(fields, allowed)
+  if (!upd) return err(c, 'no fields to update', 400)
 
-  vals.push(id)
-  await db.run(`UPDATE cards SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+  upd.params.push(id)
+  await db.run(`UPDATE cards SET ${upd.sql} WHERE id = ?`, ...upd.params)
 
   await db.transaction(async () => {
     for (const key of allowed) {
       if (key in fields) {
-        await db.run(
-          "INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'field_changed', ?)",
-          id, JSON.stringify({ field: key, from: existing[key] ?? null, to: fields[key] ?? null }),
-        )
+        await logActivity(id, 'field_changed', { field: key, from: existing[key] ?? null, to: fields[key] ?? null })
       }
     }
   })()
 
-  // Handle assignment change notification/email
   const user = c.get('user')
   if ('assignee' in fields && fields.assignee && fields.assignee !== existing.assignee) {
-    const assigneeUser = await db.get<{ id: number; email: string; email_notifications: number }>(
-      `SELECT id, email, email_notifications FROM users
-       WHERE display_name = ? AND deleted_at IS NULL`,
-      fields.assignee,
-    )
-
-    if (assigneeUser && assigneeUser.id !== user.id) {
-      await db.run(
-        "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'assignment', 'card', ?, ?)",
-        assigneeUser.id, id, `${user.display_name} assigned you to "${existing.title}"`,
-      )
-      emitBoardEvent({ type: 'notification', userId: assigneeUser.id, data: { type: 'assignment', card_id: id } })
-
-      const emailEnabled = await isEnabled('email_notifications')
-      if (emailEnabled && assigneeUser.email_notifications) {
-        sendEmail({
-          to: assigneeUser.email,
-          subject: `You've been assigned to "${existing.title}"`,
-          html: assignmentEmailHtml({
-            assignedBy: user.display_name,
-            cardTitle: existing.title as string,
-            cardId: id,
-            type: 'card',
-          }),
-        }).catch(console.error)
-      }
-    }
+    await notifyAssignment({
+      assigneeName: fields.assignee,
+      assignedById: user.id,
+      assignedByName: user.display_name,
+      entityType: 'card',
+      entityId: id,
+      entityTitle: existing.title as string,
+    })
   }
 
   const updated = await db.get<{ swim_lane_id?: number }>('SELECT * FROM cards WHERE id = ?', id)
@@ -377,10 +324,7 @@ cards.patch('/cards/:id/move', async (c) => {
       lane_id, id,
     )
 
-    await db.run(
-      "INSERT INTO activity_log (card_id, action, meta) VALUES (?, 'move', ?)",
-      id, JSON.stringify({ from_lane_id: card.swim_lane_id, to_lane_id: lane_id, position: targetPos }),
-    )
+    await logActivity(id, 'move', { from_lane_id: card.swim_lane_id, to_lane_id: lane_id, position: targetPos })
   })()
 
   const movedCard = await db.get('SELECT * FROM cards WHERE id = ?', id)
@@ -467,52 +411,24 @@ cards.patch('/tasks/:id', async (c) => {
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
   const fields = parsed.data
-  const sets: string[] = ["updated_at = datetime('now')"]
-  const vals: unknown[] = []
-
   const allowed = ['title', 'description', 'status', 'assignee', 'due_date'] as const
-  for (const key of allowed) {
-    if (key in fields) {
-      sets.push(`${key} = ?`)
-      vals.push(fields[key] ?? null)
-    }
-  }
 
-  if (sets.length === 1) return err(c, 'no fields to update', 400)
+  const upd = buildUpdate(fields, allowed)
+  if (!upd) return err(c, 'no fields to update', 400)
 
-  vals.push(id)
-  await db.run(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+  upd.params.push(id)
+  await db.run(`UPDATE tasks SET ${upd.sql} WHERE id = ?`, ...upd.params)
 
-  // Handle assignment change notification/email for tasks
   const user = c.get('user')
   if ('assignee' in fields && fields.assignee && fields.assignee !== existing.assignee) {
-    const assigneeUser = await db.get<{ id: number; email: string; email_notifications: number }>(
-      `SELECT id, email, email_notifications FROM users
-       WHERE display_name = ? AND deleted_at IS NULL`,
-      fields.assignee,
-    )
-
-    if (assigneeUser && assigneeUser.id !== user.id) {
-      await db.run(
-        "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'assignment', 'task', ?, ?)",
-        assigneeUser.id, id, `${user.display_name} assigned you to "${existing.title}"`,
-      )
-      emitBoardEvent({ type: 'notification', userId: assigneeUser.id, data: { type: 'assignment', card_id: id } })
-
-      const emailEnabled = await isEnabled('email_notifications')
-      if (emailEnabled && assigneeUser.email_notifications) {
-        sendEmail({
-          to: assigneeUser.email,
-          subject: `You've been assigned to task "${existing.title}"`,
-          html: assignmentEmailHtml({
-            assignedBy: user.display_name,
-            cardTitle: existing.title as string,
-            cardId: id,
-            type: 'task',
-          }),
-        }).catch(console.error)
-      }
-    }
+    await notifyAssignment({
+      assigneeName: fields.assignee,
+      assignedById: user.id,
+      assignedByName: user.display_name,
+      entityType: 'task',
+      entityId: id,
+      entityTitle: existing.title as string,
+    })
   }
 
   return ok(c, await db.get('SELECT * FROM tasks WHERE id = ?', id))

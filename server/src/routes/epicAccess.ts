@@ -9,7 +9,7 @@ const epicAccess = new Hono()
 epicAccess.get('/epics/:id/access', async (c) => {
   const user = c.get('user')
   const epicId = parseId(c.req.param('id'))
-  if (!epicId) return err(c, 'invalid epic id', 404)
+  if (!epicId) return err(c, 'invalid epic id', 400)
 
   if (!await canManageUsers(user.id, epicId, user.role)) return err(c, 'forbidden', 403)
 
@@ -28,7 +28,7 @@ epicAccess.get('/epics/:id/access', async (c) => {
 epicAccess.post('/epics/:id/access', async (c) => {
   const user = c.get('user')
   const epicId = parseId(c.req.param('id'))
-  if (!epicId) return err(c, 'invalid epic id', 404)
+  if (!epicId) return err(c, 'invalid epic id', 400)
 
   if (!await canManageUsers(user.id, epicId, user.role)) return err(c, 'forbidden', 403)
 
@@ -69,7 +69,7 @@ epicAccess.patch('/epics/:epicId/access/:userId', async (c) => {
   const user = c.get('user')
   const epicId = parseId(c.req.param('epicId'))
   const targetUserId = parseId(c.req.param('userId'))
-  if (!epicId || !targetUserId) return err(c, 'invalid id', 404)
+  if (!epicId || !targetUserId) return err(c, 'invalid id', 400)
 
   if (!await canManageUsers(user.id, epicId, user.role)) return err(c, 'forbidden', 403)
 
@@ -104,7 +104,7 @@ epicAccess.delete('/epics/:epicId/access/:userId', async (c) => {
   const user = c.get('user')
   const epicId = parseId(c.req.param('epicId'))
   const targetUserId = parseId(c.req.param('userId'))
-  if (!epicId || !targetUserId) return err(c, 'invalid id', 404)
+  if (!epicId || !targetUserId) return err(c, 'invalid id', 400)
 
   if (!await canManageUsers(user.id, epicId, user.role)) return err(c, 'forbidden', 403)
 

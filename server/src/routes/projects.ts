@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { canWrite } from '../lib/projectAccess.js'
+import { seedProjectDefaults } from '../lib/defaults.js'
 
 const projects = new Hono()
 
@@ -74,21 +75,7 @@ projects.post('/projects', async (c) => {
       swim_lanes.push(await db.get('SELECT * FROM swim_lanes WHERE id = ?', lastID))
     }
 
-    const { lastID: defaultEpicId } = await db.run(
-      `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
-       VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`,
-      projectId,
-    )
-    await db.run(
-      `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
-       VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`,
-      projectId, defaultEpicId,
-    )
-    await db.run(
-      `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
-       VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`,
-      projectId,
-    )
+    await seedProjectDefaults(projectId)
 
     const project = await db.get('SELECT * FROM projects WHERE id = ?', projectId)
     return { ...(project as object), swim_lanes }

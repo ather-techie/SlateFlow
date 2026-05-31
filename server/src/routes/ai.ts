@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { requireFeature } from '../middleware/requireRole.js'
+import { aiRateLimiter } from '../middleware/rateLimiter.js'
 import { getProvider } from '../lib/ai.js'
 import { db } from '../db/index.js'
 import { CARD_SUMMARIZE_SYSTEM, CARD_SUMMARIZE_USER_TEMPLATE, GENERATE_TEST_CASES_SYSTEM, GENERATE_TEST_CASES_USER_TEMPLATE, GENERATE_STORIES_SYSTEM, GENERATE_STORIES_USER_TEMPLATE, PARSE_ITEM_USER_TEMPLATE, interpolate } from '../lib/prompts.js'
@@ -9,6 +10,7 @@ import { CARD_SUMMARIZE_SYSTEM, CARD_SUMMARIZE_USER_TEMPLATE, GENERATE_TEST_CASE
 const ai = new Hono()
 
 ai.use('/ai/*', requireFeature('ai'))
+ai.use('/ai/*', aiRateLimiter)
 
 interface CardRow {
   id: number

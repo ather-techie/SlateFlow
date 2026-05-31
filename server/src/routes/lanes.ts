@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
+import { buildUpdate } from '../lib/buildUpdate.js'
 
 const lanes = new Hono()
 
@@ -95,16 +96,16 @@ lanes.patch('/lanes/:id', async (c) => {
       )
     }
 
-    const sets: string[] = []
-    const vals: unknown[] = []
-    if (name        !== undefined) { sets.push('name = ?');        vals.push(name) }
-    if (color       !== undefined) { sets.push('color = ?');       vals.push(color) }
-    if (position    !== undefined) { sets.push('position = ?');    vals.push(position) }
-    if (is_done_col !== undefined) { sets.push('is_done_col = ?'); vals.push(is_done_col ? 1 : 0) }
+    const updateFields: Record<string, unknown> = {}
+    if (name !== undefined) updateFields.name = name
+    if (color !== undefined) updateFields.color = color
+    if (position !== undefined) updateFields.position = position
+    if (is_done_col !== undefined) updateFields.is_done_col = is_done_col ? 1 : 0
 
-    if (sets.length) {
-      vals.push(id)
-      await db.run(`UPDATE swim_lanes SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+    const upd = buildUpdate(updateFields, ['name', 'color', 'position', 'is_done_col'], { withTimestamp: false })
+    if (upd) {
+      upd.params.push(id)
+      await db.run(`UPDATE swim_lanes SET ${upd.sql} WHERE id = ?`, ...upd.params)
     }
   })()
 

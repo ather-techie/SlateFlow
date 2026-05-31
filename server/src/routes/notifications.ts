@@ -31,7 +31,7 @@ notifications.patch('/notifications/read-all', async (c) => {
 notifications.patch('/notifications/:id/read', async (c) => {
   const user = c.get('user')
   const id = parseId(c.req.param('id'))
-  if (!id) return err(c, 'invalid id', 404)
+  if (!id) return err(c, 'invalid id', 400)
 
   const result = await db.run(
     'UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?',

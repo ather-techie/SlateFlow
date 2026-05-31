@@ -13,12 +13,13 @@ function parseSkills(s: string | null | undefined): string[] {
 
 users.get('/users/search', async (c) => {
   const q = c.req.query('q') ?? ''
+  const escapedQ = q.replace(/[%_\\]/g, '\\$&')
   const rows = await db.all(
     `SELECT id, display_name, email, role FROM users
      WHERE deleted_at IS NULL AND is_active = 1
-       AND (display_name LIKE ? OR email LIKE ?)
+       AND (display_name LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\')
      ORDER BY display_name LIMIT 20`,
-    `%${q}%`, `%${q}%`,
+    `%${escapedQ}%`, `%${escapedQ}%`,
   )
   return ok(c, rows)
 })
@@ -28,6 +29,14 @@ users.use('/users/:id', requireSuperAdmin)
 users.use('/users/:id/project-access', requireSuperAdmin)
 
 users.get('/users', async (c) => {
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 500) || 50
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0) || 0
+
+  const countRow = await db.get<{ total: number }>(
+    'SELECT COUNT(*) as total FROM users WHERE deleted_at IS NULL'
+  )
+  const total = countRow?.total ?? 0
+
   const rows = await db.all<{
     id: number
     email: string
@@ -57,13 +66,20 @@ users.get('/users', async (c) => {
      FROM users u
      LEFT JOIN users mgr ON u.reporting_manager_id = mgr.id AND mgr.deleted_at IS NULL
      WHERE u.deleted_at IS NULL
-     ORDER BY u.created_at DESC`,
+     ORDER BY u.created_at DESC
+     LIMIT ? OFFSET ?`,
+    limit, offset,
   )
-  return ok(c, rows.map(r => ({
-    ...r,
-    skills: parseSkills(r.skills),
-    reporting_manager: r.reporting_manager_id ? { id: r.reporting_manager_id, display_name: r.reporting_manager_name } : null,
-  })))
+  return ok(c, {
+    items: rows.map(r => ({
+      ...r,
+      skills: parseSkills(r.skills),
+      reporting_manager: r.reporting_manager_id ? { id: r.reporting_manager_id, display_name: r.reporting_manager_name } : null,
+    })),
+    total,
+    limit,
+    offset,
+  })
 })
 
 users.post('/users', async (c) => {

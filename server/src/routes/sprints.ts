@@ -2,16 +2,16 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
+import { dateSchema } from '../lib/validators.js'
+import { buildUpdate } from '../lib/buildUpdate.js'
 
 const sprints = new Hono()
-
-const dateRx = /^\d{4}-\d{2}-\d{2}$/
 
 const CreateSchema = z.object({
   name: z.string().min(1, 'name is required').max(200),
   goal: z.string().max(2000).optional().default(''),
-  start_date: z.string().regex(dateRx, 'start_date must be YYYY-MM-DD'),
-  end_date: z.string().regex(dateRx, 'end_date must be YYYY-MM-DD'),
+  start_date: dateSchema,
+  end_date: dateSchema,
   status: z.enum(['active', 'completed', 'planned']).optional().default('planned'),
 })
 
@@ -65,17 +65,13 @@ sprints.patch('/sprints/:id', async (c) => {
   if (!parsed.success) return err(c, zodErr(parsed.error.issues), 422)
 
   const fields = parsed.data
-  const sets: string[] = []
-  const vals: unknown[] = []
+  const allowed = Object.keys(fields) as (keyof typeof fields)[]
 
-  for (const [key, val] of Object.entries(fields)) {
-    if (val !== undefined) { sets.push(`${key} = ?`); vals.push(val) }
-  }
+  const upd = buildUpdate(fields, allowed, { withTimestamp: false })
+  if (!upd) return err(c, 'no fields to update', 400)
 
-  if (sets.length === 0) return err(c, 'no fields to update', 400)
-
-  vals.push(id)
-  await db.run(`UPDATE sprints SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+  upd.params.push(id)
+  await db.run(`UPDATE sprints SET ${upd.sql} WHERE id = ?`, ...upd.params)
 
   return ok(c, await db.get('SELECT * FROM sprints WHERE id = ?', id))
 })

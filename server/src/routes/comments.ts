@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
-import { isEnabled } from '../lib/featureFlags.js'
-import { sendEmail, mentionEmailHtml } from '../lib/email.js'
+import { logActivity } from '../lib/activityLog.js'
+import { notifyMentions } from '../lib/notifications.js'
 
 const comments = new Hono()
 
@@ -19,8 +19,20 @@ comments.get('/cards/:id/comments', async (c) => {
   const card = await db.get('SELECT id FROM cards WHERE id = ?', cardId)
   if (!card) return err(c, 'card not found', 404)
 
-  const rows = await db.all('SELECT * FROM comments WHERE card_id = ? ORDER BY created_at ASC', cardId)
-  return ok(c, rows)
+  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 500) || 50
+  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0) || 0
+
+  const countRow = await db.get<{ total: number }>(
+    'SELECT COUNT(*) as total FROM comments WHERE card_id = ?',
+    cardId
+  )
+  const total = countRow?.total ?? 0
+
+  const rows = await db.all(
+    'SELECT * FROM comments WHERE card_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?',
+    cardId, limit, offset
+  )
+  return ok(c, { items: rows, total, limit, offset })
 })
 
 comments.post('/cards/:id/comments', async (c) => {
@@ -45,50 +57,16 @@ comments.post('/cards/:id/comments', async (c) => {
     cardId, author, user.id, text,
   )
 
-  await db.run(
-    "INSERT INTO activity_log (card_id, action, meta, user_id) VALUES (?, 'comment_added', ?, ?)",
-    cardId, JSON.stringify({ author }), user.id,
-  )
+  await logActivity(cardId, 'comment_added', { author }, user.id)
 
-  const mentionPattern = /@([\w.-]+)/g
-  const mentions: string[] = []
-  let m: RegExpExecArray | null
-  while ((m = mentionPattern.exec(text)) !== null) {
-    mentions.push(m[1].toLowerCase())
-  }
-
-  if (mentions.length > 0) {
-    const placeholders = mentions.map(() => '?').join(', ')
-    const mentionedUsers = await db.all<{ id: number; display_name: string; email: string; email_notifications: number }>(
-      `SELECT id, display_name, email, email_notifications FROM users
-       WHERE LOWER(REPLACE(REPLACE(display_name, ' ', ''), '.', '')) IN (${placeholders})
-         AND deleted_at IS NULL AND id != ?`,
-      ...mentions, user.id,
-    )
-
-    const emailEnabled = await isEnabled('email_notifications')
-
-    for (const mentioned of mentionedUsers) {
-      await db.run(
-        "INSERT INTO notifications (user_id, type, entity_type, entity_id, message) VALUES (?, 'mention', 'comment', ?, ?)",
-        mentioned.id, lastID, `${author} mentioned you in a comment on "${card.title}"`,
-      )
-      emitBoardEvent({ type: 'notification', userId: mentioned.id, data: { type: 'mention', card_id: cardId, comment_id: lastID } })
-
-      if (emailEnabled && mentioned.email_notifications) {
-        sendEmail({
-          to: mentioned.email,
-          subject: `${author} mentioned you on "${card.title}"`,
-          html: mentionEmailHtml({
-            mentionedBy: author,
-            cardTitle: card.title,
-            cardId,
-            commentId: lastID as number,
-          }),
-        }).catch(console.error)
-      }
-    }
-  }
+  await notifyMentions({
+    commentBody: text,
+    mentionedByName: author,
+    mentionedById: user.id,
+    cardId,
+    cardTitle: card.title,
+    commentId: lastID as number,
+  })
 
   const comment = await db.get('SELECT * FROM comments WHERE id = ?', lastID)
   return ok(c, comment, 201)

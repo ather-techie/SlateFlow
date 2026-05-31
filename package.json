@@ -10,5 +10,8 @@
     "dev": "node scripts/dev.js",
     "build": "npm run build -w client && npm run build -w server",
     "lint": "npm run lint -w client"
+  },
+  "dependencies": {
+    "file-type": "^21.3.4"
   }
 }

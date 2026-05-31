@@ -159,9 +159,9 @@ describe('PATCH /notifications/read-all', () => {
 // ─── PATCH /notifications/:id/read ────────────────────────────────────────────
 
 describe('PATCH /notifications/:id/read', () => {
-  it('returns 404 for non-numeric notification id', async () => {
+  it('returns 400 for non-numeric notification id', async () => {
     const res = await makeApp(USER).request('/notifications/abc/read', { method: 'PATCH' })
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
   })
 
   it('returns 404 when notification not found', async () => {

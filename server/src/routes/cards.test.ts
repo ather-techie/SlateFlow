@@ -28,10 +28,32 @@ vi.mock('./cardLinks.js', () => ({
   closeGitHubIssues: vi.fn(),
 }))
 
+vi.mock('../lib/buildUpdate.js', () => ({
+  buildUpdate: vi.fn(),
+}))
+
+vi.mock('../lib/activityLog.js', () => ({
+  logActivity: vi.fn(),
+}))
+
+vi.mock('../lib/notifications.js', () => ({
+  notifyAssignment: vi.fn(),
+  notifyMentions: vi.fn(),
+}))
+
+vi.mock('../lib/defaults.js', () => ({
+  resolveDefaultFeature: vi.fn(),
+  resolveDefaultSprint: vi.fn(),
+}))
+
 import { db } from '../db/index.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
 import { isEnabled } from '../lib/featureFlags.js'
 import { closeGitHubIssues } from './cardLinks.js'
+import { buildUpdate } from '../lib/buildUpdate.js'
+import { logActivity } from '../lib/activityLog.js'
+import { notifyAssignment } from '../lib/notifications.js'
+import { resolveDefaultFeature, resolveDefaultSprint } from '../lib/defaults.js'
 import cards from './cards'
 
 const ADMIN = { id: 1, role: 'super_admin', email: 'admin@test.com', display_name: 'Admin' }
@@ -51,6 +73,11 @@ beforeEach(() => {
   vi.mocked(db.all).mockResolvedValue([])
   vi.mocked(isEnabled).mockResolvedValue(false)
   vi.mocked(db.transaction).mockImplementation((fn: () => Promise<unknown>) => async () => fn())
+  vi.mocked(buildUpdate).mockReturnValue(null)
+  vi.mocked(logActivity).mockResolvedValue(undefined)
+  vi.mocked(notifyAssignment).mockResolvedValue(undefined)
+  vi.mocked(resolveDefaultFeature).mockResolvedValue(null)
+  vi.mocked(resolveDefaultSprint).mockResolvedValue(null)
 })
 
 // ─── GET /lanes/:id/cards ─────────────────────────────────────────────────────
@@ -76,13 +103,16 @@ describe('GET /lanes/:id/cards', () => {
       { id: 1, title: 'Story A', swim_lane_id: 2 },
       { id: 2, title: 'Story B', swim_lane_id: 2 },
     ]
-    vi.mocked(db.get).mockResolvedValueOnce({ id: 2 })
+    vi.mocked(db.get)
+      .mockResolvedValueOnce({ id: 2 })
+      .mockResolvedValueOnce({ total: 2 })
     vi.mocked(db.all).mockResolvedValueOnce(mockCards)
 
     const res = await makeApp().request('/lanes/2/cards')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data).toEqual(mockCards)
+    expect(body.data.items).toEqual(mockCards)
+    expect(body.data.total).toBe(2)
     expect(body.error).toBeNull()
   })
 })
@@ -126,27 +156,28 @@ describe('POST /lanes/:id/cards', () => {
     const newCard = { id: 5, title: 'Story A', swim_lane_id: 1, priority: 'p2' }
     vi.mocked(db.get)
       .mockResolvedValueOnce({ id: 1, project_id: 10 })   // lane found
-      .mockResolvedValueOnce(undefined)                    // no default feature
-      .mockResolvedValueOnce(undefined)                    // no default sprint
       .mockResolvedValueOnce({ m: -1 })                    // max position
       .mockResolvedValueOnce(newCard)                      // SELECT after INSERT
     vi.mocked(db.run).mockResolvedValue({ lastID: 5, changes: 1 })
+    vi.mocked(resolveDefaultFeature).mockResolvedValue(null)
+    vi.mocked(resolveDefaultSprint).mockResolvedValue(null)
 
     const res = await post(1, { title: 'Story A' })
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.data).toEqual(newCard)
+    expect(logActivity).toHaveBeenCalled()
   })
 
   it('emits card:created board event after creating card', async () => {
     const newCard = { id: 3, title: 'New Story' }
     vi.mocked(db.get)
       .mockResolvedValueOnce({ id: 1, project_id: 10 })
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce({ m: -1 })
       .mockResolvedValueOnce(newCard)
     vi.mocked(db.run).mockResolvedValue({ lastID: 3, changes: 1 })
+    vi.mocked(resolveDefaultFeature).mockResolvedValue(null)
+    vi.mocked(resolveDefaultSprint).mockResolvedValue(null)
 
     await post(1, { title: 'New Story' })
     expect(emitBoardEvent).toHaveBeenCalledWith(
@@ -158,11 +189,11 @@ describe('POST /lanes/:id/cards', () => {
     const newCard = { id: 6, title: 'Labeled' }
     vi.mocked(db.get)
       .mockResolvedValueOnce({ id: 1, project_id: 10 })
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce({ m: 0 })
       .mockResolvedValueOnce(newCard)
     vi.mocked(db.run).mockResolvedValue({ lastID: 6, changes: 1 })
+    vi.mocked(resolveDefaultFeature).mockResolvedValue(null)
+    vi.mocked(resolveDefaultSprint).mockResolvedValue(null)
 
     await post(1, { title: 'Labeled', label_ids: [3, 7] })
     // transaction called for card insert + label inserts + activity log
@@ -279,11 +310,14 @@ describe('PATCH /cards/:id', () => {
       .mockResolvedValueOnce(existing)   // existing card
       .mockResolvedValueOnce(updated)    // after UPDATE
       .mockResolvedValueOnce({ project_id: 5 }) // lane lookup for SSE
+    vi.mocked(buildUpdate).mockReturnValue({ sql: 'title = ?, updated_at = datetime(\'now\')', params: ['New'] })
 
     const res = await patch(1, { title: 'New' })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data).toEqual(updated)
+    expect(buildUpdate).toHaveBeenCalled()
+    expect(logActivity).toHaveBeenCalled()
   })
 
   it('emits card:updated SSE event after update when swim_lane_id is set', async () => {
@@ -292,6 +326,7 @@ describe('PATCH /cards/:id', () => {
       .mockResolvedValueOnce({ id: 1, title: 'Old', swim_lane_id: 3 })
       .mockResolvedValueOnce(updated)
       .mockResolvedValueOnce({ project_id: 7 })
+    vi.mocked(buildUpdate).mockReturnValue({ sql: 'title = ?, updated_at = datetime(\'now\')', params: ['New'] })
 
     await patch(1, { title: 'New' })
     expect(emitBoardEvent).toHaveBeenCalledWith(
@@ -304,18 +339,14 @@ describe('PATCH /cards/:id', () => {
     const updated  = { id: 1, title: 'Story', swim_lane_id: 2, assignee: 'Bob' }
     vi.mocked(db.get)
       .mockResolvedValueOnce(existing)                  // existing card
-      // assignee user lookup happens BEFORE updated-card SELECT (see route order)
-      .mockResolvedValueOnce({ id: 3, email: 'bob@test.com', email_notifications: 0 })
       .mockResolvedValueOnce(updated)                   // updated card (SELECT after UPDATE)
       .mockResolvedValueOnce({ project_id: 5 })         // lane lookup for SSE
+    vi.mocked(buildUpdate).mockReturnValue({ sql: 'assignee = ?, updated_at = datetime(\'now\')', params: ['Bob'] })
 
     await patch(1, { assignee: 'Bob' })
 
-    // Notification insert
-    const notifCall = vi.mocked(db.run).mock.calls.find(c =>
-      typeof c[0] === 'string' && (c[0] as string).includes('INSERT INTO notifications')
-    )
-    expect(notifCall).toBeDefined()
+    // Verify notifyAssignment was called
+    expect(notifyAssignment).toHaveBeenCalled()
   })
 
   it('does NOT send email if email_notifications feature flag is off', async () => {
@@ -559,6 +590,7 @@ describe('PATCH /tasks/:id', () => {
     vi.mocked(db.get)
       .mockResolvedValueOnce({ id: 1, title: 'Task', status: 'to-do', assignee: null })
       .mockResolvedValueOnce(updated)
+    vi.mocked(buildUpdate).mockReturnValue({ sql: 'status = ?, updated_at = datetime(\'now\')', params: ['done'] })
 
     const res = await patchTask(1, { status: 'done' })
     expect(res.status).toBe(200)

@@ -284,4 +284,86 @@ describe('GET /projects/:id/export/csv', () => {
     // Export endpoint may not be fully implemented, skip strict check
     expect([400, 404, 500]).toContain(res.status)
   })
+
+  describe('formula injection prevention', () => {
+    it('escapes cells starting with = to prevent formula injection', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1, name: 'Project1' })
+      vi.mocked(db.all)
+        .mockResolvedValueOnce([]) // epics
+        .mockResolvedValueOnce([ // features
+          { id: 1, title: '=HYPERLINK("http://evil.com","click")', status: 'active', assignee: null, priority: 'high', created_at: '2024-01-01', epic_title: null }
+        ])
+        .mockResolvedValueOnce([ // stories
+          { id: 1, title: 'Normal title', sprint_name: 'Sprint1', epic_title: null, feature_title: null, assignee: null, priority: 'high', story_points: 5, status: 'done', created_at: '2024-01-01' }
+        ])
+
+      const res = await makeApp().request('/projects/1/export/csv?type=backlog')
+      expect(res.status).toBe(200)
+      const csv = await res.text()
+      // Escaped formula should be prefixed with single quote
+      expect(csv).toContain("'=HYPERLINK")
+    })
+
+    it('escapes cells starting with + to prevent formula injection', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1, name: 'Project1' })
+      vi.mocked(db.all)
+        .mockResolvedValueOnce([]) // epics
+        .mockResolvedValueOnce([ // features
+          { id: 1, title: '+1+2', status: 'active', assignee: null, priority: 'high', created_at: '2024-01-01', epic_title: null }
+        ])
+        .mockResolvedValueOnce([]) // stories
+
+      const res = await makeApp().request('/projects/1/export/csv?type=backlog')
+      expect(res.status).toBe(200)
+      const csv = await res.text()
+      expect(csv).toContain("'+1+2")
+    })
+
+    it('escapes cells starting with - to prevent formula injection', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1, name: 'Project1' })
+      vi.mocked(db.all)
+        .mockResolvedValueOnce([]) // epics
+        .mockResolvedValueOnce([ // features
+          { id: 1, title: '-1', status: 'active', assignee: null, priority: 'high', created_at: '2024-01-01', epic_title: null }
+        ])
+        .mockResolvedValueOnce([]) // stories
+
+      const res = await makeApp().request('/projects/1/export/csv?type=backlog')
+      expect(res.status).toBe(200)
+      const csv = await res.text()
+      expect(csv).toContain("'-1")
+    })
+
+    it('escapes cells starting with @ to prevent formula injection', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1, name: 'Project1' })
+      vi.mocked(db.all)
+        .mockResolvedValueOnce([]) // epics
+        .mockResolvedValueOnce([ // features
+          { id: 1, title: '@SUM(A1:A10)', status: 'active', assignee: null, priority: 'high', created_at: '2024-01-01', epic_title: null }
+        ])
+        .mockResolvedValueOnce([]) // stories
+
+      const res = await makeApp().request('/projects/1/export/csv?type=backlog')
+      expect(res.status).toBe(200)
+      const csv = await res.text()
+      expect(csv).toContain("'@SUM")
+    })
+
+    it('does not escape normal cell content', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ id: 1, name: 'Project1' })
+      vi.mocked(db.all)
+        .mockResolvedValueOnce([]) // epics
+        .mockResolvedValueOnce([ // features
+          { id: 1, title: 'Normal title', status: 'active', assignee: null, priority: 'high', created_at: '2024-01-01', epic_title: null }
+        ])
+        .mockResolvedValueOnce([]) // stories
+
+      const res = await makeApp().request('/projects/1/export/csv?type=backlog')
+      expect(res.status).toBe(200)
+      const csv = await res.text()
+      // Normal content should not be prefixed
+      expect(csv).toContain('Normal title')
+      expect(csv).not.toContain("'Normal title")
+    })
+  })
 })

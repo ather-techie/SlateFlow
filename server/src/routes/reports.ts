@@ -202,7 +202,13 @@ reports.get('/projects/:id/capacity', async (c) => {
 
 function escapeCsvField(val: unknown): string {
   if (val === null || val === undefined) return ''
-  const s = String(val)
+  let s = String(val)
+
+  // Prevent CSV formula injection by prefixing dangerous characters
+  if (s[0] === '=' || s[0] === '+' || s[0] === '-' || s[0] === '@') {
+    s = "'" + s
+  }
+
   if (s.includes(',') || s.includes('"') || s.includes('\n')) {
     return '"' + s.replace(/"/g, '""') + '"'
   }

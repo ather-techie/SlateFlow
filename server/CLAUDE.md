@@ -179,8 +179,87 @@ Every streaming provider parses SSE via [lib/sseLines.ts](src/lib/sseLines.ts). 
 - **Validation:** every POST/PATCH parses with Zod and returns `err(c, zodErr(...), 422)` on failure.
 - **Authorization:** check `c.get('user')` + the appropriate `lib/*Access.ts` helper at the top of write routes. `super_admin` short-circuits to allow.
 - **Default-X protection:** any DELETE on a `is_default = 1` row returns `409` with a clear message. Mirror existing handlers in `projects.ts`, `epics.ts`, `features.ts`, `sprints.ts`.
-- **Activity log:** every card mutation appends to `activity_log` with a JSON `meta` describing the change. Don't skip this — it powers the Activity tab and cycle-time reports.
-- **Mention parsing:** comment creation runs `body.match(/@([\w.-]+)/g)` and resolves matches against `users.display_name` (lowercased, space-stripped) and `users.email` prefix; matches get a `notifications` row + SSE event.
+
+## Helper functions
+
+Extracted architectural patterns that eliminate boilerplate across route handlers. Always use these helpers — do not reimplement them inline.
+
+### `lib/buildUpdate.ts`
+
+Dynamic UPDATE SQL builder for PATCH handlers. Returns null if no allowed field is present (handler returns 400).
+
+```ts
+const upd = buildUpdate(fields, ['name', 'color'], { withTimestamp: true })
+if (!upd) return err(c, 'no fields to update', 400)
+await db.run(`UPDATE cards SET ${upd.sql} WHERE id = ?`, ...upd.params, id)
+```
+
+Replaces the scattered `sets = []; vals = []` boilerplate in 8+ PATCH handlers. Automatically includes `updated_at = datetime('now')` unless `withTimestamp: false`.
+
+### `lib/activityLog.ts`
+
+Centralized activity logging for card mutations. Every card create/update/move/comment appends an `activity_log` row.
+
+```ts
+import { logActivity } from '../lib/activityLog.js'
+
+await logActivity(cardId, 'field_changed', { field: 'priority', from: 'p2', to: 'p1' }, userId)
+```
+
+Owned by the `card_id` FK. Supports action types: `create`, `field_changed`, `move`, `comment_added`, `test_run`. Meta is type-safe via discriminated union (`ActivityMeta`). **Do not skip** — it powers the Activity tab and cycle-time reports.
+
+### `lib/notifications.ts`
+
+Notification dispatch pipeline for assignments and mentions.
+
+```ts
+import { notifyAssignment, notifyMentions } from '../lib/notifications.js'
+
+// Assignment notification (guards self-assignment, creates row, emits SSE, sends email if enabled)
+await notifyAssignment({
+  assigneeName: 'Alice',
+  assignedById: user.id,
+  assignedByName: user.display_name,
+  entityType: 'card',
+  entityId: cardId,
+  entityTitle: card.title,
+})
+
+// Mention notifications (parses @mentions, looks up users, creates rows, emits SSE, sends emails if enabled)
+await notifyMentions({
+  commentBody: '@alice check this @bob',
+  mentionedByName: user.display_name,
+  mentionedById: user.id,
+  cardId,
+  cardTitle: card.title,
+  commentId,
+})
+```
+
+Both functions own DB inserts, self-assignment guards, SSE event emission, and conditional email sending. Call site is simpler; email logic is centralized.
+
+### `lib/defaults.ts`
+
+Default entity resolution and seeding.
+
+```ts
+import { resolveDefaultFeature, resolveDefaultSprint, resolveDefaultEpic, seedProjectDefaults } from '../lib/defaults.js'
+
+const epicId = await resolveDefaultEpic(projectId) // returns id or null
+const featureId = await resolveDefaultFeature(projectId)
+const sprintId = await resolveDefaultSprint(projectId)
+
+// Seed all three defaults atomically for a new project
+await seedProjectDefaults(newProjectId)
+```
+
+Replaces scattered `SELECT ... WHERE is_default = 1` queries and inline INSERT triplets. Used on project/feature/card creation to auto-assign fallback entities.
+
+## Activity log
+
+- **Pattern:** every card mutation appends to `activity_log` with a JSON `meta` describing the change via [lib/activityLog.ts](src/lib/activityLog.ts).
+- **Type safety:** action types and meta shapes are discriminated unions (`ActivityAction`, `ActivityMeta`). Reuse them.
+- **Mention parsing:** comment creation calls `notifyMentions` which owns the regex parsing against `users.display_name` and `users.email` prefix; matches get a `notifications` row + SSE event.
 
 ## Email Notifications
 

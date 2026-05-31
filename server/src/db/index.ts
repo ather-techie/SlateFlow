@@ -64,6 +64,8 @@ export const db = {
 
 // ── Initialization (top-level await) ──────────────────────────────────────────
 
+const { seedProjectDefaults } = await import('../lib/defaults.js')
+
 await db.run('PRAGMA journal_mode = WAL')
 await db.run('PRAGMA foreign_keys = ON')
 
@@ -109,21 +111,10 @@ const projectsNeedingDefaults = await db.all<{ id: number }>(`
 `)
 
 if (projectsNeedingDefaults.length > 0) {
-  await db.transaction(async () => {
-    for (const { id: projectId } of projectsNeedingDefaults) {
-      const { lastID: epicId } = await db.run(
-        `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
-         VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`,
-        projectId,
-      )
-      await db.run(
-        `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
-         VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`,
-        projectId, epicId,
-      )
-    }
-  })()
-  console.info(`[db] Seeded Default Epic/Feature for ${projectsNeedingDefaults.length} existing project(s)`)
+  for (const { id: projectId } of projectsNeedingDefaults) {
+    await seedProjectDefaults(projectId)
+  }
+  console.info(`[db] Seeded Default Epic/Feature/Sprint for ${projectsNeedingDefaults.length} existing project(s)`)
 }
 
 // Ensure a Default Project exists globally
@@ -132,22 +123,8 @@ if (!defaultProject) {
   const { lastID: dpId } = await db.run(
     `INSERT INTO projects (name, description, color, is_default) VALUES ('Default Project', '', '#6366f1', 1)`
   )
-  const { lastID: dpEpicId } = await db.run(
-    `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
-     VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`,
-    dpId,
-  )
-  await db.run(
-    `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
-     VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`,
-    dpId, dpEpicId,
-  )
-  await db.run(
-    `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
-     VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`,
-    dpId,
-  )
-  console.info('[db] Created Default Project with Default Sprint')
+  await seedProjectDefaults(dpId)
+  console.info('[db] Created Default Project with defaults')
 }
 
 // Ensure every existing project has a Default Sprint

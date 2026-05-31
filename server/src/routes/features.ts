@@ -2,7 +2,10 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
+import { optionalDateSchema } from '../lib/validators.js'
 import { canWrite } from '../lib/epicAccess.js'
+import { buildUpdate } from '../lib/buildUpdate.js'
+import { resolveDefaultEpic } from '../lib/defaults.js'
 
 const features = new Hono()
 
@@ -22,8 +25,8 @@ const UpdateSchema = z.object({
   priority:    z.enum(['p0', 'p1', 'p2', 'p3']).optional(),
   status:      z.enum(['new', 'active', 'resolved', 'closed']).optional(),
   assignee:    z.string().max(200).nullable().optional(),
-  start_date:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  end_date:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  start_date:  optionalDateSchema,
+  end_date:    optionalDateSchema,
 })
 
 const FEATURE_WITH_COUNTS = `
@@ -93,12 +96,9 @@ features.post('/projects/:id/features', async (c) => {
 
   const { title, description, epic_id, priority, status, assignee } = parsed.data
 
-  let resolvedEpicId: number | null = epic_id ?? null
-  if (!resolvedEpicId) {
-    const def = await db.get<{ id: number }>('SELECT id FROM epics WHERE project_id = ? AND is_default = 1 LIMIT 1', projectId)
-    if (def) resolvedEpicId = def.id
-  } else {
-    const exists = await db.get('SELECT id FROM epics WHERE id = ? AND project_id = ?', resolvedEpicId, projectId)
+  const resolvedEpicId = epic_id ?? await resolveDefaultEpic(projectId)
+  if (epic_id) {
+    const exists = await db.get('SELECT id FROM epics WHERE id = ? AND project_id = ?', epic_id, projectId)
     if (!exists) return err(c, 'epic not found in this project', 404)
   }
 
@@ -153,21 +153,13 @@ features.patch('/features/:id', async (c) => {
     if (!epic) return err(c, 'epic not found in this project', 404)
   }
 
-  const sets: string[] = ["updated_at = datetime('now')"]
-  const vals: unknown[] = []
-
   const allowed = ['title', 'description', 'epic_id', 'priority', 'status', 'assignee', 'start_date', 'end_date'] as const
-  for (const key of allowed) {
-    if (key in fields) {
-      sets.push(`${key} = ?`)
-      vals.push(fields[key] ?? null)
-    }
-  }
 
-  if (sets.length === 1) return err(c, 'no fields to update', 400)
+  const upd = buildUpdate(fields, allowed)
+  if (!upd) return err(c, 'no fields to update', 400)
 
-  vals.push(id)
-  await db.run(`UPDATE features SET ${sets.join(', ')} WHERE id = ?`, ...vals)
+  upd.params.push(id)
+  await db.run(`UPDATE features SET ${upd.sql} WHERE id = ?`, ...upd.params)
 
   return ok(c, await db.get(`${FEATURE_WITH_COUNTS} WHERE f.id = ?`, id))
 })

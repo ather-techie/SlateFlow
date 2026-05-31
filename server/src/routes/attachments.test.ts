@@ -25,7 +25,12 @@ vi.mock('crypto', () => ({
   randomUUID: vi.fn().mockReturnValue('test-uuid-1234'),
 }))
 
+vi.mock('file-type', () => ({
+  fileTypeFromBuffer: vi.fn(),
+}))
+
 import { db } from '../db/index.js'
+import { fileTypeFromBuffer } from 'file-type'
 import attachments from './attachments'
 
 const ADMIN = { id: 1, role: 'super_admin', email: 'admin@test.com', display_name: 'Admin' }
@@ -42,6 +47,8 @@ function makeApp(user = ADMIN) {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  // Default: magic bytes match content-type (image/jpeg)
+  vi.mocked(fileTypeFromBuffer).mockResolvedValue({ mime: 'image/jpeg', ext: 'jpg' })
 })
 
 // ─── GET /cards/:id/attachments ───────────────────────────────────────────────
@@ -250,6 +257,40 @@ describe('POST /cards/:id/attachments', () => {
       body: formData,
     })
     expect(res.status).toBe(201)
+  })
+
+  describe('magic bytes validation', () => {
+    it('accepts file when magic bytes MIME matches Content-Type', async () => {
+      vi.mocked(db.get)
+        .mockResolvedValueOnce({ id: 1, swim_lane_id: 1 })
+        .mockResolvedValueOnce({ project_id: 10 })
+        .mockResolvedValueOnce({ id: 1 })
+      vi.mocked(db.run).mockResolvedValueOnce({ lastID: 1, changes: 1 })
+      vi.mocked(db.get).mockResolvedValueOnce({
+        id: 1,
+        card_id: 1,
+        filename: 'test-uuid-file.png',
+        original_name: 'test.png',
+        mime_type: 'image/png',
+        size: 1024,
+        uploaded_by: 1,
+        uploader_name: 'Admin',
+        created_at: '2024-01-01',
+      })
+
+      // fileTypeFromBuffer is already mocked in beforeEach to return matching MIME
+      const formData = new FormData()
+      const file = new File(['content'], 'test.png', { type: 'image/png' })
+      formData.append('file', file)
+
+      const res = await makeApp().request('/cards/1/attachments', {
+        method: 'POST',
+        body: formData,
+      })
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.data).toBeDefined()
+    })
   })
 })
 
