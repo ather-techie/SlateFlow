@@ -14,10 +14,14 @@ npm run dev -w client     # client only
 npm run dev -w server     # server only
 npm run build             # production build
 npm run lint -w client    # ESLint (client only — no lint config for server)
+npm run test -w client    # unit tests (vitest)
+npm run test:watch -w client # tests in watch mode
 docker-compose up -d      # self-hosted single container on :3000
 ```
 
-No test suite is configured.
+## Testing
+
+Client-side tests run with **Vitest** + **jsdom** + **@testing-library/react**. Test files live alongside source (e.g. `components/Board/Card.test.tsx`). Coverage includes components, hooks, and stores; run tests with `npm run test -w client` (once) or `npm run test:watch -w client` (watch mode).
 
 ## Environment Variables
 

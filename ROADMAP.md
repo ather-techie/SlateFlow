@@ -61,6 +61,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [ ] WIP limits per swim lane (Kanban throughput enforcement)
 - [x] OpenAPI / Swagger documentation for the REST API
 - [x] Health check endpoint (`/health`) for container orchestration
+- [x] Unit test suite — comprehensive tests for client components, hooks, and stores (Vitest + jsdom + React Testing Library)
 - [ ] Backup and restore CLI for SQLite database
 
 ---
@@ -154,4 +155,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue or pull request
 
 ---
 
-*Last updated: May 28, 2026* — MCP server implemented in Phase 3
+*Last updated: May 31, 2026* — Unit test suite (Vitest) and component refactor completed
