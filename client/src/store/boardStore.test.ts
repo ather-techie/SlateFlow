@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useBoardStore } from './boardStore'
-import type { Card, Lane, TestCaseSummary } from '../types'
+import type { Card, TestCaseSummary } from '../types'
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {
@@ -17,18 +17,6 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     position: 0,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
-    ...overrides,
-  }
-}
-
-function makeLane(overrides: Partial<Lane> = {}): Lane {
-  return {
-    id: 1,
-    project_id: 1,
-    name: 'Todo',
-    position: 0,
-    color: '#FF0000',
-    is_done_col: 0,
     ...overrides,
   }
 }

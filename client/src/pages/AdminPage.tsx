@@ -8,6 +8,7 @@ import { useFeatureFlagStore } from '../store/featureFlagStore'
 import { COUNTRIES } from '../constants/countries'
 import type { CalendarHoliday, Project, User } from '../types'
 import ProjectAccessModal from '../components/ProjectAccessModal'
+import { FeatureGate } from '../components/FeatureGate'
 import EntryFormModal, { type EntryEditing } from '../components/Calendar/EntryFormModal'
 
 type Tab = 'users' | 'settings' | 'holidays'
@@ -754,7 +755,6 @@ function SettingsTab() {
 // ─── Holidays Tab ─────────────────────────────────────────────────────────────
 
 function HolidaysTab() {
-  const calendarEnabled = useFeatureFlagStore(s => s.isEnabled('calendar'))
   const [holidays, setHolidays] = useState<CalendarHoliday[]>([])
   const [loading, setLoading] = useState(true)
   const [filterCountry, setFilterCountry] = useState('')
@@ -762,7 +762,6 @@ function HolidaysTab() {
   const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'edit'; entry: EntryEditing } | null>(null)
 
   function loadHolidays() {
-    if (!calendarEnabled) { setLoading(false); return }
     setLoading(true)
     const params: { country?: string; state_province?: string } = {}
     if (filterCountry) params.country = filterCountry
@@ -773,15 +772,7 @@ function HolidaysTab() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(loadHolidays, [calendarEnabled, filterCountry, filterState])
-
-  if (!calendarEnabled) {
-    return (
-      <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 text-sm text-slate-400">
-        Enable the <span className="font-semibold text-slate-200">Calendar</span> feature flag in Settings to manage holidays.
-      </div>
-    )
-  }
+  useEffect(loadHolidays, [filterCountry, filterState])
 
   if (loading) return <p className="text-slate-400 text-sm">Loading…</p>
 
@@ -917,12 +908,14 @@ export default function AdminPage() {
           >
             Users
           </button>
-          <button
-            onClick={() => setActiveTab('holidays')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'holidays' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
-          >
-            Holidays
-          </button>
+          <FeatureGate flag="calendar">
+            <button
+              onClick={() => setActiveTab('holidays')}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'holidays' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+            >
+              Holidays
+            </button>
+          </FeatureGate>
           <button
             onClick={() => setActiveTab('settings')}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'settings' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
@@ -932,7 +925,9 @@ export default function AdminPage() {
         </div>
 
         {activeTab === 'users' && <UsersTab />}
-        {activeTab === 'holidays' && <HolidaysTab />}
+        <FeatureGate flag="calendar">
+          {activeTab === 'holidays' && <HolidaysTab />}
+        </FeatureGate>
         {activeTab === 'settings' && <SettingsTab />}
       </div>
     </div>

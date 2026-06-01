@@ -1,26 +1,5 @@
 import { create } from 'zustand'
-
-export interface AuthUser {
-  id: number
-  email: string
-  display_name: string
-  role: 'super_admin' | 'global_reader'
-  email_notifications?: boolean
-  country?: string | null
-  state?: string | null
-  city?: string | null
-  home_country?: string | null
-  home_state?: string | null
-  home_city?: string | null
-  timezone?: string | null
-  job_title?: string | null
-  department?: string | null
-  phone?: string | null
-  gender?: string | null
-  reporting_manager_id?: number | null
-  reporting_manager?: { id: number; display_name: string } | null
-  project_access: { project_id: number; role: 'project_admin' | 'contributor' | 'reader' }[]
-}
+import type { AuthUser } from '../types'
 
 interface AuthState {
   user: AuthUser | null

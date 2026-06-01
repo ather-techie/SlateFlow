@@ -3,7 +3,8 @@ import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { api } from '../api'
 import { useAuthStore } from '../store/authStore'
-import { useFeatureFlagStore } from '../store/featureFlagStore'
+import { useServerSentEvents } from '../hooks/useServerSentEvents'
+import { FeatureGate } from './FeatureGate'
 import { ProfileSettingsModal } from './ProfileSettingsModal'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -269,8 +270,6 @@ export default function Layout() {
   const { projectId } = useParams<{ projectId?: string }>()
   const navigate = useNavigate()
   const { logout, canManageProject } = useAuthStore()
-  const retrospectiveEnabled = useFeatureFlagStore(s => s.isEnabled('retrospective'))
-  const calendarEnabled = useFeatureFlagStore(s => s.isEnabled('calendar'))
   const [expanded, setExpanded] = useState(false)
   const [hasFailedTests, setHasFailedTests] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -289,14 +288,9 @@ export default function Layout() {
       .catch(() => {})
   }, [])
 
-  // SSE — update unread count on incoming notification events
-  useEffect(() => {
-    const es = new EventSource('/api/events', { withCredentials: true })
-    es.addEventListener('notification', () => {
-      setUnreadCount(n => n + 1)
-    })
-    return () => es.close()
-  }, [])
+  useServerSentEvents('notification', () => {
+    setUnreadCount(n => n + 1)
+  })
 
   async function handleLogout() {
     try { await api.auth.logout() } catch { /* ignore */ }
@@ -348,7 +342,7 @@ export default function Layout() {
             expanded={expanded}
             disabled={!projectId}
           />
-          {calendarEnabled && (
+          <FeatureGate flag="calendar">
             <NavItem
               to={projectId ? `/projects/${projectId}/calendar` : undefined}
               icon={<CalendarIcon />}
@@ -356,7 +350,7 @@ export default function Layout() {
               expanded={expanded}
               disabled={!projectId}
             />
-          )}
+          </FeatureGate>
           <NavItem
             to={projectId ? `/projects/${projectId}/board` : undefined}
             icon={<BoardIcon />}
@@ -378,7 +372,7 @@ export default function Layout() {
             expanded={expanded}
             disabled={!projectId}
           />
-          {retrospectiveEnabled && (
+          <FeatureGate flag="retrospective">
             <NavItem
               to={projectId ? `/projects/${projectId}/retrospective` : undefined}
               icon={<RetroIcon />}
@@ -386,7 +380,7 @@ export default function Layout() {
               expanded={expanded}
               disabled={!projectId}
             />
-          )}
+          </FeatureGate>
           <NavItem
             to={projectId ? `/projects/${projectId}/tests` : undefined}
             icon={<TestsIcon />}

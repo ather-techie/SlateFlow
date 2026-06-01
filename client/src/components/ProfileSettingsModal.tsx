@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { api } from '../api'
-import { useFeatureFlagStore } from '../store/featureFlagStore'
 import { useAuthStore } from '../store/authStore'
+import { FeatureGate } from './FeatureGate'
 
 interface ProfileSettingsModalProps {
   isOpen: boolean
@@ -12,7 +12,6 @@ interface ProfileSettingsModalProps {
 
 export function ProfileSettingsModal({ isOpen, onClose, onSettingsChanged }: ProfileSettingsModalProps) {
   const { user } = useAuthStore()
-  const emailNotificationsEnabled = useFeatureFlagStore(s => s.isEnabled('email_notifications'))
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [loading, setLoading] = useState(false)
 
@@ -163,7 +162,7 @@ export function ProfileSettingsModal({ isOpen, onClose, onSettingsChanged }: Pro
 
         <div className="space-y-6">
           {/* Email Notifications */}
-          {emailNotificationsEnabled && (
+          <FeatureGate flag="email_notifications">
             <div className="pb-4 border-b border-slate-200">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -178,7 +177,7 @@ export function ProfileSettingsModal({ isOpen, onClose, onSettingsChanged }: Pro
                 </span>
               </label>
             </div>
-          )}
+          </FeatureGate>
 
           {/* Work Location */}
           <div>

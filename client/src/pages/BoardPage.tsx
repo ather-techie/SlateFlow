@@ -15,6 +15,7 @@ import { arrayMove } from '@dnd-kit/sortable'
 import type { Card as CardType, Epic, Feature, Lane, Project, Sprint, TestCaseSummary } from '../types'
 import { api } from '../api'
 import { useBoardStore } from '../store/boardStore'
+import { useBoardCardEvents } from '../hooks/useBoardEvents'
 import Header from '../components/Header'
 import Column from '../components/Board/Column'
 import CardContent from '../components/CardContent'
@@ -73,6 +74,17 @@ export default function BoardPage() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
+
+  // ── SSE: Live card updates ───────────────────────────────────────────────────
+  useBoardCardEvents(pid, (card, type, cardId) => {
+    if (type === 'created') {
+      setAllCards(prev => [...prev, card])
+    } else if (type === 'updated' || type === 'moved') {
+      setAllCards(prev => prev.map(c => (c.id === card.id ? card : c)))
+    } else if (type === 'deleted') {
+      setAllCards(prev => prev.filter(c => c.id !== cardId))
+    }
+  })
 
   // ── Load ─────────────────────────────────────────────────────────────────────
   useEffect(() => {

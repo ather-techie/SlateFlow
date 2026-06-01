@@ -1,10 +1,5 @@
 import { create } from 'zustand'
-import type { Card, Lane, TestCaseSummary } from '../types'
-
-export interface TaskSummary {
-  total: number
-  done: number
-}
+import type { Card, Lane, TestCaseSummary, TaskSummary } from '../types'
 
 interface BoardState {
   lanes: Lane[]

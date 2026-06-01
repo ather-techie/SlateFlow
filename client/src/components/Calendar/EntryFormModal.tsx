@@ -4,23 +4,9 @@ import { api } from '../../api/index'
 import { api as legacyApi } from '../../api'
 import { useAuthStore } from '../../store/authStore'
 import { COUNTRIES } from '../../constants/countries'
-import type { CalendarEntryKind } from '../../types'
+import type { EntryFormKind, EntryEditing } from '../../types'
 
-export type EntryFormKind = CalendarEntryKind
-
-export interface EntryEditing {
-  id: number
-  kind: EntryFormKind
-  title: string
-  description: string | null
-  start_date: string
-  end_date: string
-  color: string | null
-  user_id?: number | null
-  project_id?: number | null
-  country?: string | null
-  state_province?: string | null
-}
+export type { EntryFormKind, EntryEditing }
 
 interface Props {
   projectId: number

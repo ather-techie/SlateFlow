@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Card as CardType } from '../../types'
 import CardContent from '../CardContent'
+import { useBoardStore } from '../../store/boardStore'
 
 interface Props {
   card: CardType
@@ -14,6 +15,10 @@ export default function BoardCard({ card, onClick }: Props) {
     data: { type: 'card', card },
   })
 
+  const testCaseSummary = useBoardStore(s => s.testCaseSummary[card.id])
+  const taskSummary = useBoardStore(s => s.taskSummary[card.id])
+  const linkCount = useBoardStore(s => s.linkCount[card.id] ?? 0)
+
   return (
     <div
       ref={setNodeRef}
@@ -25,6 +30,9 @@ export default function BoardCard({ card, onClick }: Props) {
     >
       <CardContent
         card={card}
+        testCaseSummary={testCaseSummary}
+        taskSummary={taskSummary}
+        linkCount={linkCount}
         className={
           isDragging
             ? 'opacity-40 shadow-none'

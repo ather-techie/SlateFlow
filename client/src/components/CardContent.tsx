@@ -1,20 +1,24 @@
-import type { Card } from '../types'
+import type { Card, TestCaseSummary, TaskSummary } from '../types'
 import PriorityBadge from './PriorityBadge'
-import { useBoardStore } from '../store/boardStore'
-import { useFeatureFlagStore } from '../store/featureFlagStore'
 
 interface Props {
   card: Card
+  testCaseSummary?: TestCaseSummary
+  taskSummary?: TaskSummary
+  linkCount?: number
   className?: string
   style?: React.CSSProperties
 }
 
-export default function CardContent({ card, className = '', style }: Props) {
-  const summary = useBoardStore(s => s.testCaseSummary[card.id])
-  const taskSummary = useBoardStore(s => s.taskSummary[card.id])
-  const linkCount = useBoardStore(s => s.linkCount[card.id] ?? 0)
-  const { isEnabled } = useFeatureFlagStore()
-  const showLinks = (isEnabled('github_integration') || isEnabled('gitlab_integration')) && linkCount > 0
+export default function CardContent({
+  card,
+  testCaseSummary: summary,
+  taskSummary,
+  linkCount = 0,
+  className = '',
+  style
+}: Props) {
+  const showLinks = linkCount > 0
 
   const indicatorColor = summary && summary.total > 0
     ? summary.failed > 0

@@ -50,12 +50,9 @@ export default function App() {
 
   // Hydrate auth state on mount
   useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'include' })
-      .then(res => res.json())
-      .then(json => {
-        if (json.data) setUser(json.data)
-        else setUser(null)
-      })
+    api.auth
+      .me()
+      .then(user => setUser(user))
       .catch(() => setUser(null))
   }, [setUser])
 

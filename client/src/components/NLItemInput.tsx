@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+import { api } from '../api/index'
 import type { NLAllowedType, ParsedIntent } from '../api/index'
-import * as api from '../api'
 import toast from 'react-hot-toast'
 
-// Map human-readable priority names to p0-p3 codes
 const priorityMap: Record<string, 'p0' | 'p1' | 'p2' | 'p3'> = {
   critical: 'p0',
   high: 'p1',
@@ -12,68 +11,7 @@ const priorityMap: Record<string, 'p0' | 'p1' | 'p2' | 'p3'> = {
   low: 'p3',
 }
 
-const normalizePriority = (priority: string): 'p0' | 'p1' | 'p2' | 'p3' => priorityMap[priority] || 'p2'
-
-// Bridge API calls that may not exist in the fetch-based api.ts
-const createEpic = async (projectId: number, data: any) => {
-  return (api as any).epics?.create?.(projectId, data) ??
-    fetch(`/api/projects/${projectId}/epics`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).then(r => r.ok ? r.json() : Promise.reject(new Error('Failed')))
-}
-
-const createFeature = async (projectId: number, data: any) => {
-  return (api as any).features?.create?.(projectId, data) ??
-    fetch(`/api/projects/${projectId}/features`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).then(r => r.ok ? r.json() : Promise.reject(new Error('Failed')))
-}
-
-const createLaneCard = async (laneId: number, data: any) => {
-  return (api as any).createLaneCard?.(laneId, data) ??
-    fetch(`/api/lanes/${laneId}/cards`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).then(r => r.ok ? r.json() : Promise.reject(new Error('Failed')))
-}
-
-const createTask = async (storyId: number, data: any) => {
-  return (api as any).createTask?.(storyId, data) ??
-    fetch(`/api/cards/${storyId}/tasks`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).then(r => r.ok ? r.json() : Promise.reject(new Error('Failed')))
-}
-
-const createProject = async (data: any) => {
-  return (api as any).createProject?.(data) ??
-    fetch('/api/projects', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).then(r => r.ok ? r.json() : Promise.reject(new Error('Failed')))
-}
-
-const createSprint = async (projectId: number, data: any) => {
-  return (api as any).createSprint?.(projectId, data) ??
-    fetch(`/api/projects/${projectId}/sprints`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).then(r => r.ok ? r.json() : Promise.reject(new Error('Failed')))
-}
+export const normalizePriority = (priority: string): 'p0' | 'p1' | 'p2' | 'p3' => priorityMap[priority] || 'p2'
 
 interface Lane {
   id: number
@@ -97,19 +35,6 @@ interface NLItemInputProps {
 
 type State = 'idle' | 'input' | 'loading' | 'preview' | 'confirming'
 
-const parseItem = async (data: any): Promise<ParsedIntent> => {
-  const response = await fetch('/api/ai/parse-item', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
-  if (!response.ok) throw new Error('Failed to parse item')
-  const json = await response.json()
-  if (json.error) throw new Error(json.error)
-  return json.data as ParsedIntent
-}
-
 export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onCreated }: NLItemInputProps) {
   const [state, setState] = useState<State>('idle')
   const [input, setInput] = useState('')
@@ -121,7 +46,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
     if (!input.trim()) return
     setState('loading')
     try {
-      const result = await parseItem({
+      const result = await api.ai.parseItem({
         input,
         context: { ...context, allowedTypes },
       })
@@ -141,7 +66,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
       switch (parsed.type) {
         case 'epic':
           if (!context?.projectId) throw new Error('Project ID required')
-          await createEpic(context.projectId, {
+          await api.epics.create(context.projectId, {
             title: payload.title,
             description: payload.description,
             priority: normalizePriority(payload.priority),
@@ -151,7 +76,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
 
         case 'feature':
           if (!context?.projectId) throw new Error('Project ID required')
-          await createFeature(context.projectId, {
+          await api.features.create(context.projectId, {
             title: payload.title,
             description: payload.description,
             priority: normalizePriority(payload.priority),
@@ -161,7 +86,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
 
         case 'story':
           if (!selectedLaneId) throw new Error('Lane required')
-          await createLaneCard(selectedLaneId, {
+          await api.cards.create(selectedLaneId, {
             title: payload.title,
             priority: normalizePriority(payload.priority),
             assignee: payload.assignee,
@@ -170,7 +95,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
 
         case 'task':
           if (!selectedCardId) throw new Error('Parent card required')
-          await createTask(selectedCardId, {
+          await api.cards.createTask(selectedCardId, {
             title: payload.title,
             description: payload.description,
             assignee: payload.assignee,
@@ -178,7 +103,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
           break
 
         case 'project':
-          await createProject({
+          await api.projects.create({
             name: payload.name,
             description: payload.description,
             preset_id: 1,
@@ -187,7 +112,7 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
 
         case 'sprint':
           if (!context?.projectId) throw new Error('Project ID required')
-          await createSprint(context.projectId, {
+          await api.sprints.create(context.projectId, {
             name: payload.name,
             goal: payload.goal,
             start_date: payload.start_date,
@@ -197,18 +122,11 @@ export function NLItemInput({ allowedTypes, context, lanes = [], cards = [], onC
 
         case 'calendar':
           if (!context?.projectId) throw new Error('Project ID required')
-          await fetch(`/api/projects/${context.projectId}/calendar/events`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: payload.title,
-              description: payload.description,
-              start_date: payload.start_date,
-              end_date: payload.end_date,
-            }),
-          }).then(r => {
-            if (!r.ok) throw new Error('Failed to create calendar entry')
+          await api.calendar.events.create(context.projectId, {
+            title: payload.title,
+            description: payload.description,
+            start_date: payload.start_date,
+            end_date: payload.end_date,
           })
           break
       }

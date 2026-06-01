@@ -53,10 +53,7 @@ export default function CalendarPage() {
   // Project + sprints metadata
   useEffect(() => {
     api.projects.get(pid).then(setProject).catch(() => {})
-    fetch(`/api/projects/${pid}/sprints`, { credentials: 'include' })
-      .then(r => r.json())
-      .then(j => setSprints(((j?.data ?? []) as Sprint[])))
-      .catch(() => setSprints([]))
+    api.sprints.list(pid).then(setSprints).catch(() => setSprints([]))
   }, [pid])
 
   const refetch = useCallback(() => {

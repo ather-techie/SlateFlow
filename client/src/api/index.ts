@@ -2,28 +2,41 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import type {
   ActivityItem,
+  ActivityLog,
+  AuthUser,
   CalendarEvent,
   CalendarHoliday,
   CalendarRange,
   CalendarVacation,
+  CapacityEntry,
   Card,
   CardLink,
   Comment,
+  CycleTimeEntry,
   DashboardStats,
+  Dependency,
+  DependencyList,
   Epic,
   Feature,
+  Label,
   Lane,
+  LanePreset,
+  Notification,
   Project,
+  ProjectAccessEntry,
   ProjectSummary,
   RetroCategory,
   RetroItem,
   Retrospective,
+  RoadmapEpic,
   Sprint,
   Task,
   TestCase,
   TestCaseSummary,
   TestRun,
   TestSuite,
+  User,
+  VelocityEntry,
 } from '../types'
 
 type Priority = 'low' | 'medium' | 'high' | 'critical'
@@ -101,6 +114,7 @@ export const api = {
   },
   cards: {
     listByLane: (laneId: number) => unwrap<Card[]>(http.get(`/lanes/${laneId}/cards`)),
+    listBySprint: (sprintId: number) => unwrap<Card[]>(http.get(`/sprints/${sprintId}/cards`)),
     get: (cardId: number) => unwrap<Card>(http.get(`/cards/${cardId}`)),
     create: (
       laneId: number,
@@ -123,6 +137,10 @@ export const api = {
     deleteTask: (taskId: number) => unwrap<{ id: number }>(http.delete(`/tasks/${taskId}`)),
     reorderTasks: (cardId: number, ids: number[]) => unwrap<Task[]>(http.post(`/cards/${cardId}/tasks/reorder`, { ids })),
     listProjectTasks: (projectId: number) => unwrap<(Task & { story_title: string })[]>(http.get(`/projects/${projectId}/tasks`)),
+    searchStories: (projectId: number, q: string) =>
+      unwrap<Pick<Card, 'id' | 'title' | 'priority' | 'story_points' | 'assignee' | 'swim_lane_id'>[]>(
+        http.get(`/projects/${projectId}/stories/search`, { params: { q } })
+      ),
   },
   epics: {
     list: (projectId: number) => unwrap<Epic[]>(http.get(`/projects/${projectId}/epics`)),
@@ -152,10 +170,14 @@ export const api = {
     update: (id: number, data: Partial<Pick<Sprint, 'name' | 'goal' | 'start_date' | 'end_date' | 'status'>>) =>
       unwrap<Sprint>(http.patch(`/sprints/${id}`, data)),
     delete: (id: number) => unwrap<{ id: number }>(http.delete(`/sprints/${id}`)),
+    complete: (id: number) => unwrap<Sprint>(http.post(`/sprints/${id}/complete`)),
+  },
+  backlog: {
+    get: (projectId: number) => unwrap<Card[]>(http.get(`/projects/${projectId}/backlog`)),
   },
   comments: {
     list: (cardId: number) => unwrap<Comment[]>(http.get(`/cards/${cardId}/comments`)),
-    create: (cardId: number, data: { author: string; body: string }) =>
+    create: (cardId: number, data: { body: string }) =>
       unwrap<Comment>(http.post(`/cards/${cardId}/comments`, data)),
     delete: (commentId: number) => unwrap<{ id: number }>(http.delete(`/comments/${commentId}`)),
   },
@@ -258,5 +280,129 @@ export const api = {
       }))
     },
     remove: (attachmentId: number) => unwrap<{ deleted: boolean }>(http.delete(`/attachments/${attachmentId}`)),
+  },
+  activity: {
+    getCardActivity: (cardId: number) => unwrap<ActivityLog[]>(http.get(`/cards/${cardId}/activity`)),
+  },
+  labels: {
+    list: (projectId: number) => unwrap<Label[]>(http.get(`/projects/${projectId}/labels`)),
+    create: (projectId: number, data: { name: string; color?: string }) =>
+      unwrap<Label>(http.post(`/projects/${projectId}/labels`, data)),
+    getCardLabels: (cardId: number) => unwrap<Label[]>(http.get(`/cards/${cardId}/labels`)),
+    addCardLabel: (cardId: number, labelId: number) =>
+      unwrap<{ card_id: number; label_id: number }>(http.post(`/cards/${cardId}/labels`, { label_id: labelId })),
+    removeCardLabel: (cardId: number, labelId: number) =>
+      unwrap<{ card_id: number; label_id: number }>(http.delete(`/cards/${cardId}/labels/${labelId}`)),
+  },
+  dependencies: {
+    list: (cardId: number) => unwrap<DependencyList>(http.get(`/cards/${cardId}/dependencies`)),
+    add: (cardId: number, data: { target_id: number; type: 'blocks' | 'blocked_by' }) =>
+      unwrap<Dependency>(http.post(`/cards/${cardId}/dependencies`, data)),
+    remove: (depId: number) => unwrap<{ id: number }>(http.delete(`/dependencies/${depId}`)),
+  },
+  auth: {
+    login: (data: { email: string; password: string }) =>
+      unwrap<AuthUser>(http.post('/auth/login', data)),
+    logout: () => unwrap<{ ok: true }>(http.post('/auth/logout')),
+    me: () => unwrap<AuthUser & { project_access: ProjectAccessEntry[] }>(http.get('/auth/me')),
+    updateMe: (data: {
+      display_name?: string
+      current_password?: string
+      new_password?: string
+      country?: string | null
+      state?: string | null
+      city?: string | null
+      home_country?: string | null
+      home_state?: string | null
+      home_city?: string | null
+      timezone?: string | null
+      job_title?: string | null
+      department?: string | null
+      phone?: string | null
+      gender?: string | null
+      reporting_manager_id?: number | null
+      email_notifications?: boolean
+    }) =>
+      unwrap<AuthUser>(http.patch('/auth/me', data)),
+  },
+  users: {
+    list: () => unwrap<User[]>(http.get('/users')),
+    search: (q: string) => unwrap<User[]>(http.get('/users/search', { params: { q } })),
+    create: (data: {
+      email: string
+      display_name: string
+      password: string
+      role?: string
+      skills?: string[]
+      country?: string | null
+      state?: string | null
+      city?: string | null
+      home_country?: string | null
+      home_state?: string | null
+      home_city?: string | null
+      timezone?: string | null
+      job_title?: string | null
+      department?: string | null
+      phone?: string | null
+      gender?: string | null
+      reporting_manager_id?: number | null
+    }) =>
+      unwrap<User>(http.post('/users', data)),
+    update: (id: number, data: {
+      display_name?: string
+      role?: string
+      is_active?: boolean
+      new_password?: string
+      skills?: string[]
+      country?: string | null
+      state?: string | null
+      city?: string | null
+      home_country?: string | null
+      home_state?: string | null
+      home_city?: string | null
+      timezone?: string | null
+      job_title?: string | null
+      department?: string | null
+      phone?: string | null
+      gender?: string | null
+      reporting_manager_id?: number | null
+    }) =>
+      unwrap<User>(http.patch(`/users/${id}`, data)),
+    delete: (id: number) => unwrap<{ id: number }>(http.delete(`/users/${id}`)),
+    projectAccess: (userId: number) =>
+      unwrap<{ project_id: number; project_name: string; role: 'project_admin' | 'contributor' | 'reader' | null }[]>(
+        http.get(`/users/${userId}/project-access`)
+      ),
+  },
+  projectAccess: {
+    list: (projectId: number) => unwrap<ProjectAccessEntry[]>(http.get(`/projects/${projectId}/access`)),
+    grant: (projectId: number, data: { user_id: number; role: string; skills?: string[]; capacity?: number | null }) =>
+      unwrap<ProjectAccessEntry>(http.post(`/projects/${projectId}/access`, data)),
+    update: (projectId: number, userId: number, data: { role?: string; skills?: string[]; capacity?: number | null }) =>
+      unwrap<ProjectAccessEntry>(http.patch(`/projects/${projectId}/access/${userId}`, data)),
+    revoke: (projectId: number, userId: number) =>
+      unwrap<{ user_id: number; project_id: number }>(http.delete(`/projects/${projectId}/access/${userId}`)),
+  },
+  notifications: {
+    list: (unreadOnly?: boolean) =>
+      unwrap<Notification[]>(http.get('/notifications', { params: unreadOnly ? { unread_only: 1 } : undefined })),
+    markRead: (id: number) => unwrap<{ id: number }>(http.patch(`/notifications/${id}/read`)),
+    markAllRead: () => unwrap<{ count: number }>(http.patch('/notifications/read-all')),
+  },
+  roadmap: {
+    get: (projectId: number) => unwrap<RoadmapEpic[]>(http.get(`/projects/${projectId}/roadmap`)),
+  },
+  reports: {
+    velocity: (projectId: number) => unwrap<VelocityEntry[]>(http.get(`/projects/${projectId}/velocity`)),
+    cycleTime: (projectId: number) => unwrap<CycleTimeEntry[]>(http.get(`/projects/${projectId}/cycle-time`)),
+    capacity: (projectId: number, sprintId: number) =>
+      unwrap<CapacityEntry[]>(http.get(`/projects/${projectId}/capacity`, { params: { sprint_id: sprintId } })),
+    exportUrl: (projectId: number, type: 'backlog' | 'sprint' | 'full', sprintId?: number) => {
+      const base = `/api/projects/${projectId}/export/csv?type=${type}`
+      return sprintId ? `${base}&sprint_id=${sprintId}` : base
+    },
+  },
+  lanePresets: {
+    list: () => unwrap<LanePreset[]>(http.get('/lane-presets')),
   },
 }

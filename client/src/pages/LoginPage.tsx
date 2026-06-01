@@ -1,8 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { api } from '../api/index'
 import { useAuthStore } from '../store/authStore'
 import { useFeatureFlagStore } from '../store/featureFlagStore'
+import { FeatureGate } from '../components/FeatureGate'
 
 const ERROR_MESSAGES: Record<string, string> = {
   email_not_verified: 'Your provider did not verify your email address. Sign in with password first to link the account.',
@@ -12,14 +14,27 @@ const ERROR_MESSAGES: Record<string, string> = {
   account_inactive: 'This account is inactive. Contact your administrator.',
 }
 
+function DividerWithAuthMethods() {
+  const isEnabled = useFeatureFlagStore(s => s.isEnabled)
+  const hasOAuth = isEnabled('auth_google') || isEnabled('auth_github')
+  const hasPassword = isEnabled('auth_password')
+
+  if (!hasOAuth || !hasPassword) return null
+
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <div className="flex-1 h-px bg-slate-800" />
+      <span className="text-xs text-slate-500 uppercase tracking-wider">or</span>
+      <div className="flex-1 h-px bg-slate-800" />
+    </div>
+  )
+}
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const { setUser } = useAuthStore()
   const isEnabled = useFeatureFlagStore(s => s.isEnabled)
   const flagsLoading = useFeatureFlagStore(s => s.loading)
-  const passwordEnabled = isEnabled('auth_password')
-  const googleEnabled = isEnabled('auth_google')
-  const githubEnabled = isEnabled('auth_github')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,30 +55,18 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      const json = await res.json()
-      if (json.error) {
-        toast.error(json.error)
-        return
-      }
-      const meRes = await fetch('/api/auth/me', { credentials: 'include' })
-      const me = await meRes.json()
-      setUser(me.data)
+      await api.auth.login({ email, password })
+      const user = await api.auth.me()
+      setUser(user)
       navigate('/', { replace: true })
     } catch {
-      toast.error('Unable to connect to server')
+      toast.error('Sign in failed. Please check your email and password.')
     } finally {
       setLoading(false)
     }
   }
 
-  const anyOAuth = googleEnabled || githubEnabled
-  const noLoginMethods = !flagsLoading && !passwordEnabled && !anyOAuth
+  const noLoginMethods = !flagsLoading && !isEnabled('auth_password') && !isEnabled('auth_google') && !isEnabled('auth_github')
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
@@ -87,7 +90,7 @@ export default function LoginPage() {
             </p>
           )}
 
-          {googleEnabled && (
+          <FeatureGate flag="auth_google">
             <a
               href="/api/auth/google/start"
               className="w-full flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-900 font-medium rounded-lg py-2 text-sm transition-colors"
@@ -100,9 +103,9 @@ export default function LoginPage() {
               </svg>
               Continue with Google
             </a>
-          )}
+          </FeatureGate>
 
-          {githubEnabled && (
+          <FeatureGate flag="auth_github">
             <a
               href="/api/auth/github/start"
               className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium rounded-lg py-2 text-sm transition-colors border border-slate-700"
@@ -112,17 +115,11 @@ export default function LoginPage() {
               </svg>
               Continue with GitHub
             </a>
-          )}
+          </FeatureGate>
 
-          {anyOAuth && passwordEnabled && (
-            <div className="flex items-center gap-3 py-1">
-              <div className="flex-1 h-px bg-slate-800" />
-              <span className="text-xs text-slate-500 uppercase tracking-wider">or</span>
-              <div className="flex-1 h-px bg-slate-800" />
-            </div>
-          )}
+          <DividerWithAuthMethods />
 
-          {passwordEnabled && (
+          <FeatureGate flag="auth_password">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
@@ -174,7 +171,7 @@ export default function LoginPage() {
                 {loading ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
-          )}
+          </FeatureGate>
         </div>
       </div>
     </div>

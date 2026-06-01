@@ -15,7 +15,7 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { api } from '../api/index'
 import { useAuthStore } from '../store/authStore'
 import { useRetroStore } from '../store/retroStore'
-import { useBoardEvents } from '../hooks/useBoardEvents'
+import { useRetrospectiveEvents } from '../hooks/useBoardEvents'
 import type { Project, RetroCategory, RetroItem, Sprint } from '../types'
 import Header from '../components/Header'
 import RetroColumn from '../components/Retro/RetroColumn'
@@ -50,7 +50,7 @@ export default function RetrospectivePage() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
-  useBoardEvents(pid)
+  useRetrospectiveEvents()
 
   // Load project + sprints
   useEffect(() => {

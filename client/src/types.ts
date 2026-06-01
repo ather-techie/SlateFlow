@@ -135,6 +135,11 @@ export interface Task {
   updated_at: string
 }
 
+export interface TaskSummary {
+  total: number
+  done: number
+}
+
 export interface Sprint {
   id: number
   project_id: number
@@ -378,6 +383,22 @@ export interface RetroItem {
 // ── Calendar ──────────────────────────────────────────────────────────────────
 
 export type CalendarEntryKind = 'holiday' | 'event' | 'vacation'
+
+export type EntryFormKind = CalendarEntryKind
+
+export interface EntryEditing {
+  id: number
+  kind: EntryFormKind
+  title: string
+  description: string | null
+  start_date: string
+  end_date: string
+  color: string | null
+  user_id?: number | null
+  project_id?: number | null
+  country?: string | null
+  state_province?: string | null
+}
 
 export interface CalendarSprintEntry {
   id: number
