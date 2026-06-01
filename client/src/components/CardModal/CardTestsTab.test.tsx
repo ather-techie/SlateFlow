@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { Card } from '../../types'
+import type { Card } from '../../types/board'
 
 // CardTestsTab is a stub component (TODO: Extract test case management, test runs, AI generation).
 // Component rendering tests require @testing-library/react which is not configured in this project.
@@ -7,16 +7,18 @@ import type { Card } from '../../types'
 
 const mockCard: Card = {
   id: 1,
+  column_id: null,
+  swim_lane_id: null,
   sprint_id: 1,
-  epic_id: 1,
   feature_id: 1,
   title: 'Test Card',
   description: 'Test description',
-  status: 'todo',
   priority: 'p1',
   story_points: 5,
+  assignee: null,
   assignee_id: null,
-  created_by_id: 1,
+  position: 0,
+  due_date: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 }

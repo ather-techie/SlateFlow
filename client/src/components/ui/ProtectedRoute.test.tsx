@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore } from '../../store/authStore'
 
 describe('ProtectedRoute', () => {
   beforeEach(() => {
@@ -51,7 +51,7 @@ describe('ProtectedRoute', () => {
         email: 'test@example.com',
         display_name: 'Test User',
         role: 'global_reader',
-        created_at: new Date().toISOString(),
+        project_access: [],
       },
     })
     renderProtected()
@@ -66,7 +66,7 @@ describe('ProtectedRoute', () => {
         email: 'test@example.com',
         display_name: 'Test User',
         role: 'global_reader',
-        created_at: new Date().toISOString(),
+        project_access: [],
       },
     })
     renderProtected(

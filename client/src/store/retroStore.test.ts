@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useRetroStore } from './retroStore'
-import type { RetroItem } from '../types'
+import type { RetroItem } from '../types/retro'
 
 function makeRetroItem(overrides: Partial<RetroItem> = {}): RetroItem {
   return {

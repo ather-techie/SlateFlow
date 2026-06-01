@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useBoardStore } from './boardStore'
-import type { Card, TestCaseSummary } from '../types'
+import type { Card } from '../types/board'
+import type { TestCaseSummary } from '../types/testing'
 
 function makeCard(overrides: Partial<Card> = {}): Card {
   return {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useProjectStore } from './projectStore'
-import type { Project } from '../types'
+import type { Project } from '../types/planning'
 
 vi.mock('../api/index', () => ({
   api: {

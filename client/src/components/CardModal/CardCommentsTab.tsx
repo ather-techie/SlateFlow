@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import type { Card, Comment } from '../../types'
-import { api } from '../../api'
-import { fmtRelative } from './cardModalHelpers'
+import { api } from '../../api/index'
+import { fmtRelative } from '../../utils/cardModal'
 
 interface Props {
   card: Card

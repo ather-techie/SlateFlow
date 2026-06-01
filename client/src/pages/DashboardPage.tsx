@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from '../api'
+import { api } from '../api/index'
 import type { ActivityItem, DashboardStats, Project, ProjectSummary } from '../types'
-import { FeatureGate } from '../components/FeatureGate'
+import { FeatureGate } from '../components/ui/FeatureGate'
 import { NLItemInput } from '../components/NLItemInput'
 
 const PROJECT_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6']

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import PriorityBadge, { cfg } from './PriorityBadge'
-import type { Card } from '../types'
+import type { Card } from '../../types/board'
 
 describe('PriorityBadge', () => {
   describe('cfg data', () => {

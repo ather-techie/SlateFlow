@@ -4,7 +4,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Card from './Card'
 import { useBoardStore } from '../../store/boardStore'
-import type { Card as CardType, TestCaseSummary, TaskSummary } from '../../types'
+import type { Card as CardType, TaskSummary } from '../../types/board'
+import type { TestCaseSummary } from '../../types/testing'
 
 // Mock @dnd-kit modules
 vi.mock('@dnd-kit/sortable', () => ({
@@ -29,21 +30,20 @@ vi.mock('@dnd-kit/utilities', () => ({
 describe('Board Card', () => {
   const makeCard = (overrides?: Partial<CardType>): CardType => ({
     id: 1,
-    sprint_id: 1,
+    column_id: null,
     swim_lane_id: 1,
+    sprint_id: 1,
+    feature_id: null,
     title: 'Test card',
     description: '',
     priority: 'p2',
     story_points: null,
     assignee: null,
-    assigned_to: null,
+    assignee_id: null,
+    position: 0,
+    due_date: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    created_by: 'user1',
-    feature_id: null,
-    epic_id: null,
-    sort_order: 0,
-    position: 0,
     ...overrides,
   })
 
@@ -76,13 +76,13 @@ describe('Board Card', () => {
     const mockOnClick = vi.fn()
     const card = makeCard({ title: 'Clickable' })
     render(<Card card={card} onClick={mockOnClick} />)
-    await user.click(screen.getByText('Clickable').closest('div'))
+    await user.click(screen.getByText('Clickable').closest('div') as Element)
     expect(mockOnClick).toHaveBeenCalled()
   })
 
   it('receives testCaseSummary from board store and renders it', () => {
     const card = makeCard({ id: 42, title: 'Card with tests' })
-    const testSummary: TestCaseSummary = { total: 3, passed: 2, failed: 1, untested: 0 }
+    const testSummary: TestCaseSummary = { total: 3, passed: 2, failed: 1, untested: 0, blocked: 0, skipped: 0 }
     useBoardStore.setState({
       testCaseSummary: { [card.id]: testSummary },
     })
@@ -112,7 +112,7 @@ describe('Board Card', () => {
   it('does not have opacity-40 class by default (isDragging=false)', () => {
     const card = makeCard({ title: 'Static card' })
     const { container } = render(<Card card={card} onClick={vi.fn()} />)
-    const cardDiv = container.firstChild
+    const cardDiv = container.firstChild as Element
     expect(cardDiv?.className).toContain('cursor-pointer')
     expect(cardDiv?.className).toContain('touch-none')
     // Check that opacity-40 is NOT present by default
@@ -145,7 +145,7 @@ describe('Board Card', () => {
   it('renders all board store data without throwing', () => {
     const card = makeCard({ id: 55, title: 'Full card' })
     useBoardStore.setState({
-      testCaseSummary: { [card.id]: { total: 2, passed: 1, failed: 1, untested: 0 } },
+      testCaseSummary: { [card.id]: { total: 2, passed: 1, failed: 1, untested: 0, blocked: 0, skipped: 0 } },
       taskSummary: { [card.id]: { total: 4, done: 2 } },
       linkCount: { [card.id]: 1 },
     })

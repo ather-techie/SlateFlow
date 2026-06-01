@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { api } from '../api'
+import { api } from '../api/index'
 import type { User } from '../types'
 
 type ProjectRole = 'project_admin' | 'contributor' | 'reader'

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { api } from '../api'
+import { api } from '../api/index'
 import { useAuthStore } from '../store/authStore'
-import { FeatureGate } from './FeatureGate'
+import { FeatureGate } from './ui/FeatureGate'
 
 interface ProfileSettingsModalProps {
   isOpen: boolean

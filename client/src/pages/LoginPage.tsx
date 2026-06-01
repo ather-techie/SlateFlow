@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { api } from '../api/index'
 import { useAuthStore } from '../store/authStore'
 import { useFeatureFlagStore } from '../store/featureFlagStore'
-import { FeatureGate } from '../components/FeatureGate'
+import { FeatureGate } from '../components/ui/FeatureGate'
 
 const ERROR_MESSAGES: Record<string, string> = {
   email_not_verified: 'Your provider did not verify your email address. Sign in with password first to link the account.',

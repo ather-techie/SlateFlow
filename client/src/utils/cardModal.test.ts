@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { TestCase } from '../../types'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import type { TestCase } from '../types/testing'
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -8,9 +8,9 @@ import {
   activityText,
   renderMarkdown,
   computeSummary,
-} from './cardModalHelpers'
+} from './cardModal'
 
-describe('cardModalHelpers', () => {
+describe('cardModal utilities', () => {
   describe('PRIORITIES', () => {
     it('contains all four priority levels', () => {
       expect(PRIORITIES).toEqual(['p0', 'p1', 'p2', 'p3'])

@@ -2,26 +2,26 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import CardContent from './CardContent'
-import type { Card, TestCaseSummary, TaskSummary } from '../types'
+import type { Card, TaskSummary } from '../types/board'
+import type { TestCaseSummary } from '../types/testing'
 
 describe('CardContent', () => {
   const makeCard = (overrides?: Partial<Card>): Card => ({
     id: 1,
-    sprint_id: 1,
+    column_id: null,
     swim_lane_id: 1,
+    sprint_id: 1,
+    feature_id: null,
     title: 'Test card',
     description: '',
     priority: 'p2',
     story_points: null,
     assignee: null,
-    assigned_to: null,
+    assignee_id: null,
+    position: 0,
+    due_date: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    created_by: 'user1',
-    feature_id: null,
-    epic_id: null,
-    sort_order: 0,
-    position: 0,
     ...overrides,
   })
 
@@ -115,7 +115,7 @@ describe('CardContent', () => {
     it('applies text-emerald-600 class when all tasks done', () => {
       const card = makeCard()
       const taskSummary: TaskSummary = { total: 3, done: 3 }
-      const { container } = render(<CardContent card={card} taskSummary={taskSummary} />)
+      render(<CardContent card={card} taskSummary={taskSummary} />)
       const taskSpan = screen.getByText('3/3 tasks')
       expect(taskSpan.className).toContain('text-emerald-600')
     })
@@ -123,7 +123,7 @@ describe('CardContent', () => {
     it('does not apply text-emerald-600 when tasks incomplete', () => {
       const card = makeCard()
       const taskSummary: TaskSummary = { total: 3, done: 1 }
-      const { container } = render(<CardContent card={card} taskSummary={taskSummary} />)
+      render(<CardContent card={card} taskSummary={taskSummary} />)
       const taskSpan = screen.getByText('1/3 tasks')
       expect(taskSpan.className).not.toContain('text-emerald-600')
     })
@@ -138,21 +138,21 @@ describe('CardContent', () => {
 
     it('does not render test indicator when total is 0', () => {
       const card = makeCard()
-      const testSummary: TestCaseSummary = { total: 0, passed: 0, failed: 0, untested: 0 }
+      const testSummary: TestCaseSummary = { total: 0, passed: 0, failed: 0, untested: 0, blocked: 0, skipped: 0 }
       render(<CardContent card={card} testCaseSummary={testSummary} />)
       expect(screen.queryByText(/passed/)).not.toBeInTheDocument()
     })
 
     it('renders test indicator when total > 0', () => {
       const card = makeCard()
-      const testSummary: TestCaseSummary = { total: 5, passed: 3, failed: 1, untested: 1 }
+      const testSummary: TestCaseSummary = { total: 5, passed: 3, failed: 1, untested: 1, blocked: 0, skipped: 0 }
       render(<CardContent card={card} testCaseSummary={testSummary} />)
       expect(screen.getByText('3/5 passed')).toBeInTheDocument()
     })
 
     it('applies text-red-500 class when any tests failed', () => {
       const card = makeCard()
-      const testSummary: TestCaseSummary = { total: 5, passed: 3, failed: 2, untested: 0 }
+      const testSummary: TestCaseSummary = { total: 5, passed: 3, failed: 2, untested: 0, blocked: 0, skipped: 0 }
       render(<CardContent card={card} testCaseSummary={testSummary} />)
       const testDiv = screen.getByText('3/5 passed').closest('div')
       expect(testDiv?.className).toContain('text-red-500')
@@ -160,7 +160,7 @@ describe('CardContent', () => {
 
     it('applies text-green-600 class when all tests passed', () => {
       const card = makeCard()
-      const testSummary: TestCaseSummary = { total: 5, passed: 5, failed: 0, untested: 0 }
+      const testSummary: TestCaseSummary = { total: 5, passed: 5, failed: 0, untested: 0, blocked: 0, skipped: 0 }
       render(<CardContent card={card} testCaseSummary={testSummary} />)
       const testDiv = screen.getByText('5/5 passed').closest('div')
       expect(testDiv?.className).toContain('text-green-600')
@@ -168,7 +168,7 @@ describe('CardContent', () => {
 
     it('applies text-slate-400 class when tests are mixed', () => {
       const card = makeCard()
-      const testSummary: TestCaseSummary = { total: 5, passed: 3, failed: 0, untested: 2 }
+      const testSummary: TestCaseSummary = { total: 5, passed: 3, failed: 0, untested: 2, blocked: 0, skipped: 0 }
       render(<CardContent card={card} testCaseSummary={testSummary} />)
       const testDiv = screen.getByText('3/5 passed').closest('div')
       expect(testDiv?.className).toContain('text-slate-400')
@@ -176,9 +176,9 @@ describe('CardContent', () => {
 
     it('renders tooltip with test summary details', () => {
       const card = makeCard()
-      const testSummary: TestCaseSummary = { total: 5, passed: 3, failed: 1, untested: 1 }
+      const testSummary: TestCaseSummary = { total: 5, passed: 3, failed: 1, untested: 1, blocked: 0, skipped: 0 }
       const { container } = render(<CardContent card={card} testCaseSummary={testSummary} />)
-      const testDiv = container.querySelector('div[title*="test case"]')
+      const testDiv = container.querySelector<HTMLElement>('div[title*="test case"]')
       expect(testDiv?.title).toContain('5 test cases')
       expect(testDiv?.title).toContain('3 passed')
       expect(testDiv?.title).toContain('1 failed')

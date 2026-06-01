@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { api } from '../../api/index'
-import { api as legacyApi } from '../../api'
 import { useAuthStore } from '../../store/authStore'
 import { COUNTRIES } from '../../constants/countries'
 import type { EntryFormKind, EntryEditing } from '../../types'
@@ -63,7 +62,7 @@ export default function EntryFormModal({ projectId, initialDate, initialKind, ed
   useEffect(() => {
     if (kind !== 'vacation') return
     if (!isSuperAdmin) return
-    legacyApi.users.list()
+    api.users.list()
       .then(rows => setUsers(rows.map(u => ({ id: u.id, display_name: u.display_name, email: u.email }))))
       .catch(() => {})
   }, [kind, isSuperAdmin])

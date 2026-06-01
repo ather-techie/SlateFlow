@@ -8,7 +8,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 - **Tailwind CSS v3** via PostCSS — no CSS-in-JS
 - **react-router-dom v7** — `BrowserRouter` in `App.tsx`
 - **Zustand** for global state (no Redux, no Context)
-- **axios + native fetch** — codebase is mid-migration; see *API clients* below
+- **axios** via [src/api/index.ts](src/api/index.ts) — single canonical API client; all pages import from this namespace
 - **@dnd-kit/core + @dnd-kit/sortable** with `PointerSensor` for card and lane DnD
 - **recharts** — `LineChart` for burndown (SprintsPage), bar/line for ReportsPage
 - **react-hot-toast** — universal toast surface
@@ -65,8 +65,10 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 - `Calendar/MonthGrid`, `Calendar/EntryBar`, `Calendar/EntryFormModal` — calendar surface in [src/components/Calendar/](src/components/Calendar/). `EntryFormModal` is reused by `AdminPage`'s Holidays tab via `allowedKinds={['holiday']}`
 - `Board/ManageLanesModal` — CRUD lanes (create, rename, recolor, reorder, delete with card-count guard)
 - `CardModal` — full story editor; **6 tabs**: Description (with inline Tasks checklist), Comments, Activity, Tests, Dependencies (blocks / blocked-by), Integrations (linked GitHub PRs and GitLab MRs, gated by flags). Right sidebar holds Sprint, Feature, Assignee, Priority, Story Points selectors
-- `ProtectedRoute` — auth gate; redirects to `/login` when no session
-- `FeatureGate` — `<FeatureGate flag="ai">{children}</FeatureGate>`; renders only when the flag resolves true
+- `ui/ProtectedRoute` — auth gate; redirects to `/login` when no session
+- `ui/FeatureGate` — `<FeatureGate flag="ai">{children}</FeatureGate>`; renders only when the flag resolves true
+- `ui/PriorityBadge` — colour-coded priority pill (p0–p3 → Critical/High/Medium/Low); used on cards and CardModal
+- `ui/BoardSkeleton` — loading skeleton for the Kanban board; used as Suspense fallback
 - `ProfileSettingsModal` — user email notification preference toggle; accessible via user avatar dropdown Settings button; reads `email_notifications` from `GET /auth/me`, toggled via `PATCH /auth/me`; wrapped in `<FeatureGate flag="email_notifications">` at mount site in `Layout`
 - `NLItemInput` — universal natural-language work item creation (gated by `FEATURE_AI`). Props: `allowedTypes` (array of types the parser can return), `context` (projectId/epicId/laneId), `lanes` (for story lane picker), `cards` (for task parent picker), `onCreated` (refresh callback). State machine: idle → input → loading → preview → confirming. Editable fields appear based on inferred type (priority/assignee for epics/features/stories, dates for sprints/calendar, parent selectors as needed). Wrapped in `<FeatureGate flag="ai">` at every mount site: BoardPage, EpicsPage, SprintsPage, CalendarPage, DashboardPage
 - `ProjectAccessModal` — per-user table of all projects with role dropdowns; saves inline on change
@@ -85,12 +87,9 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 
 ## API clients
 
-Two files exist; the codebase is mid-migration:
+One canonical client: [src/api/index.ts](src/api/index.ts) — axios namespace (`api.projects.list()`, `api.cards.create()`, …). All components and pages import from the explicit `'../api/index'` or `'../../api/index'` path.
 
-- [src/api.ts](src/api.ts) — fetch-based, flat function exports. Most existing pages import from `'../api'` which resolves to this file (TS prefers the `.ts` over the `api/` directory).
-- [src/api/index.ts](src/api/index.ts) — newer axios namespace (`api.projects.list()`, `api.cards.create()`, …). More complete coverage of new endpoints (roadmap, reports, projectAccess, ai).
-
-**When adding new endpoints:** add to the axios namespace in `api/index.ts`. Don't extend `api.ts` further. If you touch a page that's still on fetch, leave the migration for a separate change unless trivial — do NOT mix axios and fetch in the same component.
+**When adding new endpoints:** add to the axios namespace in `api/index.ts`. Always use the explicit import path (not `'../api'`).
 
 **AI methods and types exported from `api/index.ts`:**
 - `api.ai.parseItem(data)` — `(input: string, context?: { projectId?, epicId?, laneId?, allowedTypes? }) => Promise<ParsedIntent>` — parses natural-language input into a work item
@@ -102,7 +101,7 @@ Two files exist; the codebase is mid-migration:
 - `api.cardLinks.add(cardId, { url })` — adds a new link by URL; parses provider/type/number; optionally fetches metadata
 - `api.cardLinks.remove(cardId, linkId)` — deletes a link
 
-Vite proxies `/api` → `localhost:3000` in dev (see `vite.config.ts`). Both clients send credentials so the `sf_token` cookie is included.
+Vite proxies `/api` → `localhost:3000` in dev (see `vite.config.ts`). The axios client sends credentials so the `sf_token` cookie is included.
 
 ## Email Notifications
 
@@ -124,4 +123,4 @@ Users control whether they receive emails for mentions, assignments, and due-dat
 - **Toasts:** `toast.success(...)`, `toast.error(...)` from react-hot-toast. The `<Toaster />` is mounted once in `App.tsx`.
 - **DnD pattern:** see `BoardPage` for the canonical `DndContext` + `useSensor(PointerSensor)` + `SortableContext` setup.
 - **Tailwind:** prefer composition with utility classes; avoid `@apply` and custom CSS files. Common patterns: `rounded-md border border-slate-200 bg-white shadow-sm`, indigo (`indigo-600`) is the accent, slate for neutrals.
-- **API errors:** the response envelope is `{ data, error }`. The fetch helper in `api.ts` throws on `error` non-null; catch + `toast.error(err.message)`.
+- **API errors:** the response envelope is `{ data, error }`. The axios client in `api/index.ts` throws on `error` non-null; catch + `toast.error(err.message)`.

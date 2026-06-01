@@ -155,4 +155,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) and open an issue or pull request
 
 ---
 
-*Last updated: May 31, 2026* — Unit test suite (Vitest) and component refactor completed
+*Last updated: June 1, 2026* — Client architecture refactored: domain-split types (`src/types/`), `components/ui/` primitives, `src/utils/` helpers, single axios API client (`api/index.ts`), route-level code splitting with React.lazy

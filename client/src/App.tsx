@@ -1,27 +1,30 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { api } from './api/index'
 import { useAuthStore } from './store/authStore'
 import { useFeatureFlagStore } from './store/featureFlagStore'
-import { ProtectedRoute } from './components/ProtectedRoute'
+import { ProtectedRoute } from './components/ui/ProtectedRoute'
+import BoardSkeleton from './components/ui/BoardSkeleton'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import BoardPage from './pages/BoardPage'
-import BacklogPage from './pages/BacklogPage'
-import SprintsPage from './pages/SprintsPage'
-import TestSuitePage from './pages/TestSuitePage'
-import EpicsPage from './pages/EpicsPage'
 import ProjectSetupPage from './pages/ProjectSetupPage'
 import AdminPage from './pages/AdminPage'
-import ProjectAdminPage from './pages/ProjectAdminPage'
-import RoadmapPage from './pages/RoadmapPage'
-import ReportsPage from './pages/ReportsPage'
-import RetrospectivePage from './pages/RetrospectivePage'
-import CalendarPage from './pages/CalendarPage'
 import NotFoundPage from './pages/NotFoundPage'
-import { FeatureGate } from './components/FeatureGate'
+import { FeatureGate } from './components/ui/FeatureGate'
+
+// Lazy-loaded pages
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const BoardPage = lazy(() => import('./pages/BoardPage'))
+const BacklogPage = lazy(() => import('./pages/BacklogPage'))
+const SprintsPage = lazy(() => import('./pages/SprintsPage'))
+const TestSuitePage = lazy(() => import('./pages/TestSuitePage'))
+const EpicsPage = lazy(() => import('./pages/EpicsPage'))
+const RoadmapPage = lazy(() => import('./pages/RoadmapPage'))
+const ReportsPage = lazy(() => import('./pages/ReportsPage'))
+const ProjectAdminPage = lazy(() => import('./pages/ProjectAdminPage'))
+const RetrospectivePage = lazy(() => import('./pages/RetrospectivePage'))
+const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 
 function RootRedirect() {
   const [hasProjects, setHasProjects] = useState<boolean | null>(null)
@@ -92,46 +95,48 @@ export default function App() {
           error: { style: { background: '#7f1d1d', color: '#fecaca' } },
         }}
       />
-      <Routes>
-        {/* Public */}
-        <Route path="/login" element={<LoginPage />} />
+      <Suspense fallback={<BoardSkeleton />}>
+        <Routes>
+          {/* Public */}
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected root redirect */}
-        <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
+          {/* Protected root redirect */}
+          <Route path="/" element={<ProtectedRoute><RootRedirect /></ProtectedRoute>} />
 
-        {/* Protected project setup (outside Layout) */}
-        <Route path="/projects/new" element={<ProtectedRoute><ProjectSetupPage /></ProtectedRoute>} />
+          {/* Protected project setup (outside Layout) */}
+          <Route path="/projects/new" element={<ProtectedRoute><ProjectSetupPage /></ProtectedRoute>} />
 
-        {/* Admin — super_admin only */}
-        <Route path="/admin" element={
-          <ProtectedRoute>
-            <AdminPage />
-          </ProtectedRoute>
-        } />
+          {/* Admin — super_admin only */}
+          <Route path="/admin" element={
+            <ProtectedRoute>
+              <AdminPage />
+            </ProtectedRoute>
+          } />
 
-        {/* Protected app routes with Layout */}
-        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/projects/:projectId/epics" element={<EpicsPage />} />
-          <Route path="/projects/:projectId/board" element={<BoardPage />} />
-          <Route path="/projects/:projectId/backlog" element={<BacklogPage />} />
-          <Route path="/projects/:projectId/sprints" element={<SprintsPage />} />
-          <Route path="/projects/:projectId/tests" element={<TestSuitePage />} />
-          <Route path="/projects/:projectId/roadmap" element={<RoadmapPage />} />
-          <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
-          <Route path="/projects/:projectId/admin" element={<ProjectAdminPage />} />
-          <Route
-            path="/projects/:projectId/retrospective"
-            element={<FeatureGate flag="retrospective" fallback={<NotFoundPage />}><RetrospectivePage /></FeatureGate>}
-          />
-          <Route
-            path="/projects/:projectId/calendar"
-            element={<FeatureGate flag="calendar" fallback={<NotFoundPage />}><CalendarPage /></FeatureGate>}
-          />
-        </Route>
+          {/* Protected app routes with Layout */}
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/projects/:projectId/epics" element={<EpicsPage />} />
+            <Route path="/projects/:projectId/board" element={<BoardPage />} />
+            <Route path="/projects/:projectId/backlog" element={<BacklogPage />} />
+            <Route path="/projects/:projectId/sprints" element={<SprintsPage />} />
+            <Route path="/projects/:projectId/tests" element={<TestSuitePage />} />
+            <Route path="/projects/:projectId/roadmap" element={<RoadmapPage />} />
+            <Route path="/projects/:projectId/reports" element={<ReportsPage />} />
+            <Route path="/projects/:projectId/admin" element={<ProjectAdminPage />} />
+            <Route
+              path="/projects/:projectId/retrospective"
+              element={<FeatureGate flag="retrospective" fallback={<NotFoundPage />}><RetrospectivePage /></FeatureGate>}
+            />
+            <Route
+              path="/projects/:projectId/calendar"
+              element={<FeatureGate flag="calendar" fallback={<NotFoundPage />}><CalendarPage /></FeatureGate>}
+            />
+          </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

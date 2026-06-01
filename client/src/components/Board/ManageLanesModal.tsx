@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Lane } from '../../types'
-import { api } from '../../api'
+import { api } from '../../api/index'
 
 const LANE_COLORS = [
   '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',

@@ -1,28 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useBoardStore } from '../store/boardStore'
 import { useRetroStore } from '../store/retroStore'
-import type { Card, RetroItem } from '../types'
+import type { Card } from '../types/board'
+import type { RetroItem } from '../types/retro'
 
 // Test the store mutations directly that are triggered by the hooks
 // The hooks can't be directly called in node environment, but we can test the logic
 describe('useBoardEvents', () => {
   const makeCard = (overrides?: Partial<Card>): Card => ({
     id: 1,
-    sprint_id: 1,
+    column_id: null,
     swim_lane_id: 1,
+    sprint_id: 1,
+    feature_id: null,
     title: 'Test card',
     description: '',
     priority: 'p2',
     story_points: null,
     assignee: null,
-    assigned_to: null,
+    assignee_id: null,
+    position: 0,
+    due_date: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    created_by: 'user1',
-    feature_id: null,
-    epic_id: null,
-    sort_order: 0,
-    position: 0,
     ...overrides,
   })
 
@@ -77,12 +77,14 @@ describe('useBoardEvents', () => {
     it('updateCard with test case summary updates testCaseSummary', () => {
       const card = makeCard({ id: 50 })
       useBoardStore.getState().addCard(card)
-      useBoardStore.getState().setTestCaseSummary(50, { total: 5, passed: 4, failed: 1, untested: 0 })
+      useBoardStore.getState().setTestCaseSummary(50, { total: 5, passed: 4, failed: 1, untested: 0, blocked: 0, skipped: 0 })
       expect(useBoardStore.getState().testCaseSummary[50]).toEqual({
         total: 5,
         passed: 4,
         failed: 1,
         untested: 0,
+        blocked: 0,
+        skipped: 0,
       })
     })
   })
@@ -91,9 +93,10 @@ describe('useBoardEvents', () => {
     const makeRetroItem = (overrides?: Partial<RetroItem>): RetroItem => ({
       id: 1,
       retrospective_id: 1,
-      column: 'went_well',
-      content: 'Test item',
-      created_by: 'user1',
+      category: 'went_well',
+      body: 'Test item',
+      position: 0,
+      author_id: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       ...overrides,
@@ -116,12 +119,12 @@ describe('useBoardEvents', () => {
     })
 
     it('updateItem updates an existing retro item', () => {
-      const item = makeRetroItem({ id: 102, retrospective_id: 1, content: 'Original' })
+      const item = makeRetroItem({ id: 102, retrospective_id: 1, body: 'Original' })
       useRetroStore.getState().addItem(item)
-      const updated = makeRetroItem({ id: 102, retrospective_id: 1, content: 'Updated' })
+      const updated = makeRetroItem({ id: 102, retrospective_id: 1, body: 'Updated' })
       useRetroStore.getState().updateItem(updated)
       const stored = useRetroStore.getState().items.find((i) => i.id === 102)
-      expect(stored?.content).toBe('Updated')
+      expect(stored?.body).toBe('Updated')
     })
 
     it('removeItem deletes a retro item', () => {

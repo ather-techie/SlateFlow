@@ -1,4 +1,4 @@
-import { useFeatureFlagStore, type FeatureFlag } from '../store/featureFlagStore'
+import { useFeatureFlagStore, type FeatureFlag } from '../../store/featureFlagStore'
 
 interface Props {
   flag: FeatureFlag

@@ -15,7 +15,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { api } from '../api'
+import { api } from '../api/index'
 import type { LanePreset } from '../types'
 
 const PROJECT_COLORS = [

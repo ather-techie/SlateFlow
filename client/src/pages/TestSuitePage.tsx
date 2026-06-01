@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { api } from '../api'
+import { api } from '../api/index'
 import type { Card, Lane, Project, Sprint, TestCase, TestPriority, TestRun, TestStatus, TestSuite } from '../types'
 import Header from '../components/Header'
 import CardModal from '../components/CardModal'

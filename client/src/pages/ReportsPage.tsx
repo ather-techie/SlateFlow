@@ -11,7 +11,7 @@ import {
   YAxis,
   Legend,
 } from 'recharts'
-import { api } from '../api'
+import { api } from '../api/index'
 import type { CycleTimeEntry, Project, Sprint, VelocityEntry } from '../types'
 import Header from '../components/Header'
 

@@ -1,4 +1,4 @@
-import type { TestCase, TestCaseSummary } from '../../types'
+import type { TestCase, TestCaseSummary } from '../types'
 
 export const PRIORITIES: ('p0' | 'p1' | 'p2' | 'p3')[] = ['p0', 'p1', 'p2', 'p3']
 export const PRIORITY_LABELS: Record<string, string> = {

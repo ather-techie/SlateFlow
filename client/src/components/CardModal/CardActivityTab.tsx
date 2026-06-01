@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Card, ActivityLog } from '../../types'
-import { api } from '../../api'
-import { fmtRelative, activityText } from './cardModalHelpers'
+import { api } from '../../api/index'
+import { fmtRelative, activityText } from '../../utils/cardModal'
 
 interface Props {
   card: Card

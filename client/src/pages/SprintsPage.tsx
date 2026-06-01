@@ -11,11 +11,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { api } from '../api'
+import { api } from '../api/index'
 import type { CapacityEntry, Card, Column, Project, Sprint } from '../types'
 import Header from '../components/Header'
-import PriorityBadge from '../components/PriorityBadge'
-import { FeatureGate } from '../components/FeatureGate'
+import PriorityBadge from '../components/ui/PriorityBadge'
+import { FeatureGate } from '../components/ui/FeatureGate'
 import { NLItemInput } from '../components/NLItemInput'
 
 // ── helpers ────────────────────────────────────────────────────────────────

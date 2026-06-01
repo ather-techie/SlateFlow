@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { api } from '../api'
+import { api } from '../api/index'
 import type { BacklogCard, Card, Epic, Feature, Lane, Project, Sprint, Task } from '../types'
 import CardModal from '../components/CardModal'
 import Header from '../components/Header'
-import PriorityBadge from '../components/PriorityBadge'
+import PriorityBadge from '../components/ui/PriorityBadge'
 
 type TypeFilter = 'all' | 'epics' | 'features' | 'stories' | 'tasks'
 

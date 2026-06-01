@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { api } from '../api'
+import { api } from '../api/index'
 import { useAuthStore } from '../store/authStore'
 
 type Tab = 'members' | 'settings' | 'lanes'

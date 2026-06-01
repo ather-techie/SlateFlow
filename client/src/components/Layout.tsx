@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { api } from '../api'
+import { api } from '../api/index'
 import { useAuthStore } from '../store/authStore'
 import { useServerSentEvents } from '../hooks/useServerSentEvents'
-import { FeatureGate } from './FeatureGate'
+import { FeatureGate } from './ui/FeatureGate'
 import { ProfileSettingsModal } from './ProfileSettingsModal'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────

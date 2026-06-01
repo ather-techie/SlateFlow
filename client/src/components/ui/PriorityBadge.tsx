@@ -1,4 +1,4 @@
-import type { Card } from '../types'
+import type { Card } from '../../types'
 
 export const cfg: Record<Card['priority'], { label: string; cls: string }> = {
   p0: { label: 'Critical', cls: 'bg-red-100 text-red-700 ring-red-200' },

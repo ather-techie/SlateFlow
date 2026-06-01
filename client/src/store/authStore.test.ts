@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useAuthStore } from './authStore'
-import type { AuthUser, ProjectAccessEntry } from '../types'
+import type { AuthUser, ProjectAccessEntry } from '../types/auth'
 
 // ---------------------------------------------------------------------------
 // Helpers

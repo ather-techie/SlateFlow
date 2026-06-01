@@ -7,7 +7,7 @@ import type { CalendarEvent, CalendarHoliday, CalendarRange, CalendarVacation, P
 import Header from '../components/Header'
 import MonthGrid from '../components/Calendar/MonthGrid'
 import EntryFormModal, { type EntryEditing } from '../components/Calendar/EntryFormModal'
-import { FeatureGate } from '../components/FeatureGate'
+import { FeatureGate } from '../components/ui/FeatureGate'
 import { NLItemInput } from '../components/NLItemInput'
 
 function pad(n: number): string {

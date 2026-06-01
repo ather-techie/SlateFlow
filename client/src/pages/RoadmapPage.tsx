@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { api } from '../api'
+import { api } from '../api/index'
 import type { Feature, Project, RoadmapEpic } from '../types'
 import Header from '../components/Header'
 
