@@ -62,178 +62,220 @@ export const db = {
   },
 }
 
+// Export seedProjectDefaults for use in routes
+export { seedProjectDefaults }
+
 // ── Initialization (top-level await) ──────────────────────────────────────────
 
-const { seedProjectDefaults } = await import('../lib/defaults.js')
-
-await db.run('PRAGMA journal_mode = WAL')
-await db.run('PRAGMA foreign_keys = ON')
-
-const schema = readFileSync(SCHEMA_PATH, 'utf8')
-await db.exec(schema)
-
-// Migrate card_links.type CHECK to include 'issue'
-const clSchema = await db.get<{ sql: string }>(
-  "SELECT sql FROM sqlite_master WHERE type='table' AND name='card_links'"
-)
-if (clSchema?.sql && !clSchema.sql.includes("'issue'")) {
-  await db.run('PRAGMA foreign_keys = OFF')
-  await db.exec(`
-    ALTER TABLE card_links RENAME TO _card_links_old;
-    CREATE TABLE card_links (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      card_id     INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
-      provider    TEXT    NOT NULL CHECK (provider IN ('github', 'gitlab')),
-      type        TEXT    NOT NULL CHECK (type IN ('pr', 'mr', 'commit', 'issue')),
-      repo_url    TEXT    NOT NULL,
-      number      INTEGER,
-      sha         TEXT,
-      title       TEXT    NOT NULL DEFAULT '',
-      url         TEXT    NOT NULL,
-      state       TEXT    NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'closed', 'merged')),
-      merged_at   TEXT,
-      created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-    );
-    INSERT INTO card_links SELECT * FROM _card_links_old;
-    DROP TABLE _card_links_old;
-    CREATE INDEX IF NOT EXISTS idx_card_links_card ON card_links(card_id);
-    CREATE INDEX IF NOT EXISTS idx_card_links_provider ON card_links(provider, repo_url, number);
-  `)
-  await db.run('PRAGMA foreign_keys = ON')
-  console.info('[db] Migrated card_links.type CHECK to include \'issue\'')
-}
-
-// Ensure every existing project has a Default Epic and Default Feature
-const projectsNeedingDefaults = await db.all<{ id: number }>(`
-  SELECT p.id FROM projects p
-  WHERE NOT EXISTS (SELECT 1 FROM epics e WHERE e.project_id = p.id AND e.is_default = 1)
-`)
-
-if (projectsNeedingDefaults.length > 0) {
-  for (const { id: projectId } of projectsNeedingDefaults) {
-    await seedProjectDefaults(projectId)
-  }
-  console.info(`[db] Seeded Default Epic/Feature/Sprint for ${projectsNeedingDefaults.length} existing project(s)`)
-}
-
-// Ensure a Default Project exists globally
-const defaultProject = await db.get<{ id: number }>('SELECT id FROM projects WHERE is_default = 1')
-if (!defaultProject) {
-  const { lastID: dpId } = await db.run(
-    `INSERT INTO projects (name, description, color, is_default) VALUES ('Default Project', '', '#6366f1', 1)`
+// Inline seedProjectDefaults to avoid circular dependency with lib/defaults.js
+async function seedProjectDefaults(projectId: number): Promise<void> {
+  const { lastID: epicId } = await db.run(
+    `INSERT INTO epics (project_id, title, description, priority, status, is_default, position)
+     VALUES (?, 'Default Epic', '', 'p2', 'active', 1, 0)`,
+    projectId,
   )
-  await seedProjectDefaults(dpId)
-  console.info('[db] Created Default Project with defaults')
-}
-
-// Ensure every existing project has a Default Sprint
-const projectsNeedingDefaultSprint = await db.all<{ id: number }>(`
-  SELECT p.id FROM projects p
-  WHERE NOT EXISTS (SELECT 1 FROM sprints s WHERE s.project_id = p.id AND s.is_default = 1)
-`)
-
-if (projectsNeedingDefaultSprint.length > 0) {
-  await db.transaction(async () => {
-    for (const { id: projectId } of projectsNeedingDefaultSprint) {
-      await db.run(
-        `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
-         VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`,
-        projectId,
-      )
-    }
-  })()
-  console.info(`[db] Seeded Default Sprint for ${projectsNeedingDefaultSprint.length} existing project(s)`)
-}
-
-// Migrate legacy 'member' role to 'global_reader'
-await db.run("UPDATE users SET role = 'global_reader' WHERE role = 'member'")
-
-// Seed the super admin user on first run
-const adminExists = await db.get("SELECT id FROM users WHERE email = 'admin@flow.local'")
-if (!adminExists) {
-  const hash = bcrypt.hashSync('Admin1234!', 12)
   await db.run(
-    "INSERT INTO users (email, display_name, password_hash, role) VALUES ('admin@flow.local', 'Administrator', ?, 'super_admin')",
-    hash,
+    `INSERT INTO features (project_id, epic_id, title, description, priority, status, is_default, position)
+     VALUES (?, ?, 'Default Feature', '', 'p2', 'active', 1, 0)`,
+    projectId, epicId,
   )
-  console.info('[db] Seeded admin@flow.local (super_admin) — change password after first login')
+  await db.run(
+    `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
+     VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`,
+    projectId,
+  )
 }
 
-// Backfill: every existing user gets a 'password' identity row so the table is
-// consistent on legacy DBs. provider_user_id is just users.id as a placeholder —
-// password auth still verifies against users.password_hash, not this row.
-await db.run(`
-  INSERT OR IGNORE INTO user_identities (user_id, provider, provider_user_id)
-  SELECT id, 'password', CAST(id AS TEXT) FROM users
-`)
+try {
+  await db.run('PRAGMA journal_mode = WAL')
+  await db.run('PRAGMA foreign_keys = ON')
 
-await db.run(`
-  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by,updated_at)
-  VALUES ('ai', 1,1, datetime('now'))
-`)
+  const schema = readFileSync(SCHEMA_PATH, 'utf8')
+  await db.exec(schema)
 
-// Default-on for password login so existing deployments don't lose login on upgrade.
-// Env var FEATURE_AUTH_PASSWORD still wins (false hard-blocks).
-await db.run(`
-  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by,updated_at)
-  VALUES ('auth_password', 1,1, datetime('now'))
-`)
+  // Migrate card_links.type CHECK to include 'issue'
+  const clSchema = await db.get<{ sql: string }>(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='card_links'"
+  )
+  if (clSchema?.sql && !clSchema.sql.includes("'issue'")) {
+    // Clean up stale _card_links_old from any previous partial run
+    const oldTableExists = await db.get(
+      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='_card_links_old'"
+    )
+    if (oldTableExists) {
+      console.warn('[db] Cleaning up stale _card_links_old from previous partial migration')
+      await db.exec('DROP TABLE _card_links_old')
+    }
 
-await db.run(`
-  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by, updated_at)
-  VALUES ('auth_google', 1,1, datetime('now'))
-`)
+    try {
+      await db.run('PRAGMA foreign_keys = OFF')
+      await db.exec(`
+        ALTER TABLE card_links RENAME TO _card_links_old;
+        CREATE TABLE card_links (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          card_id     INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+          provider    TEXT    NOT NULL CHECK (provider IN ('github', 'gitlab')),
+          type        TEXT    NOT NULL CHECK (type IN ('pr', 'mr', 'commit', 'issue')),
+          repo_url    TEXT    NOT NULL,
+          number      INTEGER,
+          sha         TEXT,
+          title       TEXT    NOT NULL DEFAULT '',
+          url         TEXT    NOT NULL,
+          state       TEXT    NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'closed', 'merged')),
+          merged_at   TEXT,
+          created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO card_links SELECT * FROM _card_links_old;
+        DROP TABLE _card_links_old;
+        CREATE INDEX IF NOT EXISTS idx_card_links_card ON card_links(card_id);
+        CREATE INDEX IF NOT EXISTS idx_card_links_provider ON card_links(provider, repo_url, number);
+      `)
+      await db.run('PRAGMA foreign_keys = ON')
+      console.info('[db] Migrated card_links.type CHECK to include \'issue\'')
+    } catch (migErr) {
+      console.error('[db] card_links migration failed — this is likely a database inconsistency:', migErr)
+      await db.run('PRAGMA foreign_keys = ON').catch(() => {})
+      throw migErr
+    }
+  }
 
-await db.run(`
-  INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by, updated_at)
-  VALUES ('auth_github', 1,1, datetime('now'))
-`)
+  // Ensure every existing project has a Default Epic and Default Feature
+  const projectsNeedingDefaults = await db.all<{ id: number }>(`
+    SELECT p.id FROM projects p
+    WHERE NOT EXISTS (SELECT 1 FROM epics e WHERE e.project_id = p.id AND e.is_default = 1)
+  `)
 
-for (const sql of [
-  'ALTER TABLE cards ADD COLUMN due_date TEXT',
-  'ALTER TABLE cards ADD COLUMN due_reminder_sent_at TEXT',
-  'ALTER TABLE tasks ADD COLUMN due_date TEXT',
-  'ALTER TABLE tasks ADD COLUMN due_reminder_sent_at TEXT',
-  'ALTER TABLE users ADD COLUMN email_notifications INTEGER NOT NULL DEFAULT 1',
-  'ALTER TABLE users ADD COLUMN skills TEXT NOT NULL DEFAULT \'[]\'',
-  'ALTER TABLE project_access ADD COLUMN skills TEXT NOT NULL DEFAULT \'[]\'',
-  'ALTER TABLE project_access ADD COLUMN capacity INTEGER',
-  'ALTER TABLE sprints ADD COLUMN velocity_completed_points INTEGER NOT NULL DEFAULT 0',
-  'ALTER TABLE sprints ADD COLUMN velocity_total_points INTEGER NOT NULL DEFAULT 0',
-  'ALTER TABLE sprints ADD COLUMN velocity_completed_stories INTEGER NOT NULL DEFAULT 0',
-  'ALTER TABLE sprints ADD COLUMN velocity_total_stories INTEGER NOT NULL DEFAULT 0',
-  'ALTER TABLE users ADD COLUMN country TEXT',
-  'ALTER TABLE users ADD COLUMN state TEXT',
-  'ALTER TABLE users ADD COLUMN city TEXT',
-  'ALTER TABLE users ADD COLUMN home_country TEXT',
-  'ALTER TABLE users ADD COLUMN home_state TEXT',
-  'ALTER TABLE users ADD COLUMN home_city TEXT',
-  'ALTER TABLE users ADD COLUMN timezone TEXT',
-  'ALTER TABLE users ADD COLUMN job_title TEXT',
-  'ALTER TABLE users ADD COLUMN department TEXT',
-  'ALTER TABLE users ADD COLUMN phone TEXT',
-  'ALTER TABLE users ADD COLUMN gender TEXT',
-  'ALTER TABLE users ADD COLUMN reporting_manager_id INTEGER REFERENCES users(id)',
-  'ALTER TABLE calendar_entries ADD COLUMN country TEXT',
-  'ALTER TABLE calendar_entries ADD COLUMN state_province TEXT',
-]) {
-  try { await db.exec(sql) } catch { /* column already exists */ }
-}
+  if (projectsNeedingDefaults.length > 0) {
+    for (const { id: projectId } of projectsNeedingDefaults) {
+      await seedProjectDefaults(projectId)
+    }
+    console.info(`[db] Seeded Default Epic/Feature/Sprint for ${projectsNeedingDefaults.length} existing project(s)`)
+  }
 
-// Seed only when the database is empty (excluding the Default Project)
-const projectCountRow = await db.get<{ n: number }>('SELECT COUNT(*) as n FROM projects WHERE is_default = 0')
-if ((projectCountRow?.n ?? 0) === 0) {
-  await seed()
-}
+  // Ensure a Default Project exists globally
+  const defaultProject = await db.get<{ id: number }>('SELECT id FROM projects WHERE is_default = 1')
+  if (!defaultProject) {
+    const { lastID: dpId } = await db.run(
+      `INSERT INTO projects (name, description, color, is_default) VALUES ('Default Project', '', '#6366f1', 1)`
+    )
+    await seedProjectDefaults(dpId)
+    console.info('[db] Created Default Project with defaults')
+  }
 
-// Seed lane presets once
-const presetCountRow = await db.get<{ n: number }>('SELECT COUNT(*) as n FROM lane_presets')
-if ((presetCountRow?.n ?? 0) === 0) {
-  await db.run('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)', 'Basic Kanban',      JSON.stringify(['To Do', 'In Progress', 'Done']))
-  await db.run('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)', 'Software Dev',      JSON.stringify(['Backlog', 'Design', 'Development', 'Code Review', 'Testing', 'Done']))
-  await db.run('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)', 'Bug Tracking',      JSON.stringify(['New', 'Triaged', 'In Progress', 'Fixed', 'Closed']))
-  await db.run('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)', 'Content Pipeline',  JSON.stringify(['Ideas', 'Drafting', 'Review', 'Approved', 'Published']))
+  // Ensure every existing project has a Default Sprint
+  const projectsNeedingDefaultSprint = await db.all<{ id: number }>(`
+    SELECT p.id FROM projects p
+    WHERE NOT EXISTS (SELECT 1 FROM sprints s WHERE s.project_id = p.id AND s.is_default = 1)
+  `)
+
+  if (projectsNeedingDefaultSprint.length > 0) {
+    await db.transaction(async () => {
+      for (const { id: projectId } of projectsNeedingDefaultSprint) {
+        await db.run(
+          `INSERT INTO sprints (project_id, name, goal, start_date, end_date, status, is_default)
+           VALUES (?, 'Default Sprint', '', date('now'), date('now', '+365 days'), 'planned', 1)`,
+          projectId,
+        )
+      }
+    })()
+    console.info(`[db] Seeded Default Sprint for ${projectsNeedingDefaultSprint.length} existing project(s)`)
+  }
+
+  // Migrate legacy 'member' role to 'global_reader'
+  await db.run("UPDATE users SET role = 'global_reader' WHERE role = 'member'")
+
+  // Seed the super admin user on first run
+  const adminExists = await db.get("SELECT id FROM users WHERE email = 'admin@flow.local'")
+  if (!adminExists) {
+    const hash = bcrypt.hashSync('Admin1234!', 12)
+    await db.run(
+      "INSERT INTO users (email, display_name, password_hash, role) VALUES ('admin@flow.local', 'Administrator', ?, 'super_admin')",
+      hash,
+    )
+    console.info('[db] Seeded admin@flow.local (super_admin) — change password after first login')
+  }
+
+  // Backfill: every existing user gets a 'password' identity row so the table is
+  // consistent on legacy DBs. provider_user_id is just users.id as a placeholder —
+  // password auth still verifies against users.password_hash, not this row.
+  await db.run(`
+    INSERT OR IGNORE INTO user_identities (user_id, provider, provider_user_id)
+    SELECT id, 'password', CAST(id AS TEXT) FROM users
+  `)
+
+  await db.run(`
+    INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by,updated_at)
+    VALUES ('ai', 1,1, datetime('now'))
+  `)
+
+  // Default-on for password login so existing deployments don't lose login on upgrade.
+  // Env var FEATURE_AUTH_PASSWORD still wins (false hard-blocks).
+  await db.run(`
+    INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by,updated_at)
+    VALUES ('auth_password', 1,1, datetime('now'))
+  `)
+
+  await db.run(`
+    INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by, updated_at)
+    VALUES ('auth_google', 1,1, datetime('now'))
+  `)
+
+  await db.run(`
+    INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by, updated_at)
+    VALUES ('auth_github', 1,1, datetime('now'))
+  `)
+
+  for (const sql of [
+    'ALTER TABLE cards ADD COLUMN due_date TEXT',
+    'ALTER TABLE cards ADD COLUMN due_reminder_sent_at TEXT',
+    'ALTER TABLE tasks ADD COLUMN due_date TEXT',
+    'ALTER TABLE tasks ADD COLUMN due_reminder_sent_at TEXT',
+    'ALTER TABLE users ADD COLUMN email_notifications INTEGER NOT NULL DEFAULT 1',
+    'ALTER TABLE users ADD COLUMN skills TEXT NOT NULL DEFAULT \'[]\'',
+    'ALTER TABLE project_access ADD COLUMN skills TEXT NOT NULL DEFAULT \'[]\'',
+    'ALTER TABLE project_access ADD COLUMN capacity INTEGER',
+    'ALTER TABLE sprints ADD COLUMN velocity_completed_points INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE sprints ADD COLUMN velocity_total_points INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE sprints ADD COLUMN velocity_completed_stories INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE sprints ADD COLUMN velocity_total_stories INTEGER NOT NULL DEFAULT 0',
+    'ALTER TABLE users ADD COLUMN country TEXT',
+    'ALTER TABLE users ADD COLUMN state TEXT',
+    'ALTER TABLE users ADD COLUMN city TEXT',
+    'ALTER TABLE users ADD COLUMN home_country TEXT',
+    'ALTER TABLE users ADD COLUMN home_state TEXT',
+    'ALTER TABLE users ADD COLUMN home_city TEXT',
+    'ALTER TABLE users ADD COLUMN timezone TEXT',
+    'ALTER TABLE users ADD COLUMN job_title TEXT',
+    'ALTER TABLE users ADD COLUMN department TEXT',
+    'ALTER TABLE users ADD COLUMN phone TEXT',
+    'ALTER TABLE users ADD COLUMN gender TEXT',
+    'ALTER TABLE users ADD COLUMN reporting_manager_id INTEGER REFERENCES users(id)',
+    'ALTER TABLE calendar_entries ADD COLUMN country TEXT',
+    'ALTER TABLE calendar_entries ADD COLUMN state_province TEXT',
+  ]) {
+    try { await db.exec(sql) } catch { /* column already exists */ }
+  }
+
+  // Seed only when the database is empty (excluding the Default Project)
+  const projectCountRow = await db.get<{ n: number }>('SELECT COUNT(*) as n FROM projects WHERE is_default = 0')
+  if ((projectCountRow?.n ?? 0) === 0) {
+    await seed()
+  }
+
+  // Seed lane presets once
+  const presetCountRow = await db.get<{ n: number }>('SELECT COUNT(*) as n FROM lane_presets')
+  if ((presetCountRow?.n ?? 0) === 0) {
+    await db.run('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)', 'Basic Kanban',      JSON.stringify(['To Do', 'In Progress', 'Done']))
+    await db.run('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)', 'Software Dev',      JSON.stringify(['Backlog', 'Design', 'Development', 'Code Review', 'Testing', 'Done']))
+    await db.run('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)', 'Bug Tracking',      JSON.stringify(['New', 'Triaged', 'In Progress', 'Fixed', 'Closed']))
+    await db.run('INSERT INTO lane_presets (name, lanes) VALUES (?, ?)', 'Content Pipeline',  JSON.stringify(['Ideas', 'Drafting', 'Review', 'Approved', 'Published']))
+  }
+
+  console.info('[db] Initialization complete')
+} catch (err) {
+  console.error('[db] FATAL: Database initialization failed. Server cannot start.', err)
+  process.exit(1)
 }
 
 async function seed() {

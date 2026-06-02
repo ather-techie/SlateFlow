@@ -1,9 +1,8 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { db } from '../db/index.js'
+import { db, seedProjectDefaults } from '../db/index.js'
 import { ok, err, parseId, zodErr } from '../lib/response.js'
 import { canWrite } from '../lib/projectAccess.js'
-import { seedProjectDefaults } from '../lib/defaults.js'
 
 const projects = new Hono()
 
