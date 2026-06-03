@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom'
 import toast from 'react-hot-toast'
 import type { Card, Feature, Label, Lane, Sprint } from '../types'
 import { api } from '../api/index'
-import { LABEL_PALETTE, PRIORITIES, PRIORITY_LABELS } from '../../utils/cardModal'
-import { FeatureGate } from './FeatureGate'
+import { LABEL_PALETTE, PRIORITIES, PRIORITY_LABELS } from '../utils/cardModal'
+import { FeatureGate } from './ui/FeatureGate'
 // Tab components — each manages its own data fetching and state
 import CardDescriptionTab from './CardModal/CardDescriptionTab'
 import CardCommentsTab from './CardModal/CardCommentsTab'
@@ -62,8 +62,8 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   // Load initial data
   useEffect(() => {
     Promise.all([
-      api.getCardLabels(card.id).then(setCardLabels).catch(() => {}),
-      api.getLabels(projectId).then(setAllLabels).catch(() => {}),
+      api.labels.getCardLabels(card.id).then(setCardLabels).catch(() => {}),
+      api.labels.list(projectId).then(setAllLabels).catch(() => {}),
       api.features.list(projectId).then(setFeatures).catch(() => {}),
     ])
   }, [card.id, projectId])
@@ -79,7 +79,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
 
   async function saveField(fields: Partial<Card>) {
     try {
-      const updated = await api.updateCard(card.id, fields as any)
+      const updated = await api.cards.update(card.id, fields as any)
       onUpdate(updated)
     } catch (e) {
       toast.error('Failed to save')
@@ -99,7 +99,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
     if (!newLabelName.trim() || creatingLabel) return
     setCreatingLabel(true)
     try {
-      const label = await api.createLabel(projectId, { name: newLabelName.trim(), color: newLabelColor })
+      const label = await api.labels.create(projectId, { name: newLabelName.trim(), color: newLabelColor })
       setAllLabels(prev => [...prev, label])
       setCardLabels(prev => [...prev, label])
       setNewLabelName('')
@@ -113,11 +113,11 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   function toggleLabel(label: Label) {
     const isActive = cardLabels.some(l => l.id === label.id)
     if (isActive) {
-      api.removeCardLabel(card.id, label.id).then(() => {
+      api.labels.removeCardLabel(card.id, label.id).then(() => {
         setCardLabels(prev => prev.filter(l => l.id !== label.id))
       }).catch(() => {})
     } else {
-      api.addCardLabel(card.id, label.id).then(() => {
+      api.labels.addCardLabel(card.id, label.id).then(() => {
         setCardLabels(prev => [...prev, label])
       }).catch(() => {})
     }
@@ -136,7 +136,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   async function handleMoveLane(laneId: number) {
     setMovingLane(true)
     try {
-      const updated = await api.moveLaneCard(card.id, { lane_id: laneId, position: 0 })
+      const updated = await api.cards.move(card.id, { lane_id: laneId, position: 0 })
       setCurrentLaneId(updated.swim_lane_id)
       onUpdate(updated)
     } finally {
@@ -145,7 +145,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   }
 
   function handleDelete() {
-    api.deleteCard(card.id).then(() => onDelete(card.id)).catch(() => {})
+    api.cards.delete(card.id).then(() => onDelete(card.id)).catch(() => {})
   }
 
   const modal = (

@@ -1,5 +1,5 @@
 import type { Card, TestCaseSummary, TaskSummary } from '../types'
-import PriorityBadge from './PriorityBadge'
+import PriorityBadge from './ui/PriorityBadge'
 
 interface Props {
   card: Card

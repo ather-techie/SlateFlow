@@ -81,7 +81,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [reportingManagerName, setReportingManagerName] = useState('')
 
   useEffect(() => {
-    api.getProjects().then(setProjects).catch(() => {})
+    api.projects.list().then(setProjects).catch(() => {})
   }, [])
 
   function addAssignment() {
@@ -765,7 +765,7 @@ function HolidaysTab() {
     const params: { country?: string; state_province?: string } = {}
     if (filterCountry) params.country = filterCountry
     if (filterState) params.state_province = filterState
-    newApi.calendar.holidays.list(params)
+    api.calendar.holidays.list(params)
       .then(setHolidays)
       .catch(() => toast.error('Failed to load holidays'))
       .finally(() => setLoading(false))

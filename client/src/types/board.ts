@@ -1,6 +1,6 @@
 export interface Card {
   id: number
-  column_id: number | null
+  column_id?: number | null
   swim_lane_id: number | null
   sprint_id: number | null
   feature_id: number | null
@@ -9,9 +9,9 @@ export interface Card {
   priority: 'p0' | 'p1' | 'p2' | 'p3'
   story_points: number | null
   assignee: string | null
-  assignee_id: number | null
+  assignee_id?: number | null
   position: number
-  due_date: string | null
+  due_date?: string | null
   created_at: string
   updated_at: string
 }

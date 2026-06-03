@@ -103,7 +103,7 @@ function RecordRunForm({
     if (submitting) return
     setSubmitting(true)
     try {
-      const run = await api.addTestRun(testCaseId, {
+      const run = await api.testCases.addRun(testCaseId, {
         status,
         notes: notes.trim() || undefined,
         run_by: runBy.trim() || undefined,
@@ -182,7 +182,7 @@ function TestDetailPanel({ tc, suites, onUpdate, onClose }: DetailPanelProps) {
 
   useEffect(() => {
     setLoadingRuns(true)
-    api.getTestRuns(tc.id)
+    api.testCases.listRuns(tc.id)
       .then(r => setRuns(r))
       .catch(() => {})
       .finally(() => setLoadingRuns(false))
@@ -192,10 +192,10 @@ function TestDetailPanel({ tc, suites, onUpdate, onClose }: DetailPanelProps) {
     const tester = localStorage.getItem('lb-author') || undefined
     try {
       if (status === 'untested') {
-        const updated = await api.updateTestCase(tc.id, { status })
+        const updated = await api.testCases.update(tc.id, { status })
         onUpdate(updated)
       } else {
-        const run = await api.addTestRun(tc.id, { status, run_by: tester })
+        const run = await api.testCases.addRun(tc.id, { status, run_by: tester })
         setRuns(prev => (prev ? [run, ...prev] : [run]))
         onUpdate({ ...tc, status })
       }
@@ -206,7 +206,7 @@ function TestDetailPanel({ tc, suites, onUpdate, onClose }: DetailPanelProps) {
     setEditingTitle(false)
     const t = title.trim()
     if (t && t !== tc.title) {
-      api.updateTestCase(tc.id, { title: t }).then(onUpdate).catch(() => setTitle(tc.title))
+      api.testCases.update(tc.id, { title: t }).then(onUpdate).catch(() => setTitle(tc.title))
     } else {
       setTitle(tc.title)
     }
@@ -221,7 +221,7 @@ function TestDetailPanel({ tc, suites, onUpdate, onClose }: DetailPanelProps) {
   async function saveAllFields() {
     setSaving(true)
     try {
-      const updated = await api.updateTestCase(tc.id, {
+      const updated = await api.testCases.update(tc.id, {
         priority,
         test_type: testType,
         assigned_to: assignedTo.trim() || undefined,
@@ -560,11 +560,11 @@ export default function TestSuitePage() {
     if (!pid) return
     setLoading(true)
     Promise.all([
-      api.getProject(pid),
-      api.getSprints(pid),
-      api.getLanes(pid),
-      api.getTestSuites(pid),
-      api.getProjectTestCases(pid),
+      api.projects.get(pid),
+      api.sprints.list(pid),
+      api.lanes.list(pid),
+      api.testSuites.listByProject(pid),
+      api.testCases.listByProject(pid),
     ]).then(([proj, sps, ls, ss, tcs]) => {
       setProject(proj)
       setSprints(sps)
@@ -617,7 +617,7 @@ export default function TestSuitePage() {
     if (!newSuiteName.trim() || creatingSuite) return
     setCreatingSuite(true)
     try {
-      const suite = await api.createTestSuite(pid, { name: newSuiteName.trim() })
+      const suite = await api.testSuites.create(pid, { name: newSuiteName.trim() })
       setSuites(prev => [...prev, suite])
       setNewSuiteName('')
       setAddingSuite(false)
@@ -638,14 +638,14 @@ export default function TestSuitePage() {
     if (detailTc?.id === tc.id) setDetailTc(p => p ? { ...p, status } : null)
     try {
       const tester = localStorage.getItem('lb-author') || undefined
-      await api.addTestRun(tc.id, { status, run_by: tester })
+      await api.testCases.addRun(tc.id, { status, run_by: tester })
     } catch {
       setTestCases(prev)
     }
   }
 
   async function handleDelete(tcId: number) {
-    await api.deleteTestCase(tcId).catch(() => {})
+    await api.testCases.delete(tcId).catch(() => {})
     setTestCases(prev => prev.filter(t => t.id !== tcId))
     if (detailTc?.id === tcId) setDetailTc(null)
     setSelectedIds(prev => { const next = new Set(prev); next.delete(tcId); return next })
@@ -653,7 +653,7 @@ export default function TestSuitePage() {
 
   async function openCardModal(cardId: number) {
     try {
-      const card = await api.getCard(cardId)
+      const card = await api.cards.get(cardId)
       setModalCard(card)
     } catch {}
   }
@@ -671,17 +671,17 @@ export default function TestSuitePage() {
     setTestCases(prev => prev.map(t => selectedIds.has(t.id) ? { ...t, status } : t))
     try {
       await Promise.all([...byCard.entries()].map(([cardId, cardIds]) =>
-        api.bulkStatusTestCases(cardId, cardIds, status),
+        api.testCases.bulkStatus(cardId, cardIds, status),
       ))
     } catch {
-      api.getProjectTestCases(pid).then(setTestCases).catch(() => {})
+      api.testCases.listByProject(pid).then(setTestCases).catch(() => {})
     }
     setSelectedIds(new Set())
   }
 
   async function bulkDelete() {
     const ids = [...selectedIds]
-    await Promise.all(ids.map(id => api.deleteTestCase(id).catch(() => {})))
+    await Promise.all(ids.map(id => api.testCases.delete(id).catch(() => {})))
     setTestCases(prev => prev.filter(t => !selectedIds.has(t.id)))
     if (detailTc && selectedIds.has(detailTc.id)) setDetailTc(null)
     setSelectedIds(new Set())
@@ -690,8 +690,8 @@ export default function TestSuitePage() {
   async function handleMoveToSuite(suiteId: number | null) {
     setShowMoveModal(false)
     const ids = moveToSuiteIds
-    await Promise.all(ids.map(id => api.updateTestCase(id, { suite_id: suiteId }).catch(() => {})))
-    const refreshed = await api.getProjectTestCases(pid).catch(() => testCases)
+    await Promise.all(ids.map(id => api.testCases.update(id, { suite_id: suiteId }).catch(() => {})))
+    const refreshed = await api.testCases.listByProject(pid).catch(() => testCases)
     setTestCases(refreshed)
     setSelectedIds(new Set())
     setMoveToSuiteIds([])
@@ -1147,7 +1147,7 @@ export default function TestSuitePage() {
           onUpdate={updated => setModalCard(updated)}
           onDelete={() => {
             setModalCard(null)
-            api.getProjectTestCases(pid).then(setTestCases).catch(() => {})
+            api.testCases.listByProject(pid).then(setTestCases).catch(() => {})
           }}
         />
       )}

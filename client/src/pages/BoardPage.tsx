@@ -93,14 +93,14 @@ export default function BoardPage() {
     ;(async () => {
       try {
         const [proj, ls, sps] = await Promise.all([
-          api.getProject(pid),
-          api.getLanes(pid),
-          api.getSprints(pid),
+          api.projects.get(pid),
+          api.lanes.list(pid),
+          api.sprints.list(pid),
         ])
         setProject(proj)
         setLanes(ls)
         setSprints(sps)
-        const cardArrays = await Promise.all(ls.map(l => api.getLaneCards(l.id)))
+        const cardArrays = await Promise.all(ls.map(l => api.cards.listByLane(l.id)))
         setAllCards(cardArrays.flat())
 
         // Load epics and features for board filter
@@ -108,7 +108,7 @@ export default function BoardPage() {
         api.features.list(pid).then(setFeatures).catch(() => {})
 
         // Populate test case indicators for card tiles
-        api.getProjectTestCases(pid).then(cases => {
+        api.testCases.listByProject(pid).then(cases => {
           const byCard: Record<number, TestCaseSummary> = {}
           for (const tc of cases) {
             if (!byCard[tc.card_id]) byCard[tc.card_id] = { total: 0, passed: 0, failed: 0, untested: 0, blocked: 0, skipped: 0 }
@@ -209,7 +209,7 @@ export default function BoardPage() {
 
     if (card.swim_lane_id !== prev.swim_lane_id || card.position !== prev.position) {
       api
-        .moveLaneCard(card.id, { lane_id: card.swim_lane_id, position: card.position })
+        .cards.move(card.id, { lane_id: card.swim_lane_id, position: card.position })
         .catch(() => setAllCards(prevCardsRef.current))
     }
   }
@@ -269,7 +269,7 @@ export default function BoardPage() {
     if (!newSprintName.trim() || !newSprintStart || !newSprintEnd || creatingSprint) return
     setCreatingSprint(true)
     try {
-      const sprint = await api.createSprint(pid, {
+      const sprint = await api.sprints.create(pid, {
         name: newSprintName.trim(),
         start_date: newSprintStart,
         end_date: newSprintEnd,

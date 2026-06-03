@@ -150,7 +150,7 @@ function CardRow({
   async function handleMove(sprintId: number) {
     setMoving(true)
     try {
-      await api.updateCard(card.id, { sprint_id: sprintId })
+      await api.cards.update(card.id, { sprint_id: sprintId })
       onMoved(card.id)
     } finally {
       setMoving(false)
@@ -162,7 +162,7 @@ function CardRow({
     if (!confirm(`Delete "${card.title}"?`)) return
     setDeleting(true)
     try {
-      await api.deleteCard(card.id)
+      await api.cards.delete(card.id)
       onDelete(card.id)
     } finally {
       setDeleting(false)
@@ -246,21 +246,25 @@ export default function BacklogPage() {
     ;(async () => {
       try {
         const [proj, sps, laneList] = await Promise.all([
-          api.getProject(pid),
-          api.getSprints(pid),
-          api.getLanes(pid),
+          api.projects.get(pid),
+          api.sprints.list(pid),
+          api.lanes.list(pid),
         ])
         setProject(proj)
         setSprints(sps)
         setLanes(laneList)
 
         if (selectedSprintId === null) {
-          setCards(await api.getBacklog(pid))
+          const backlogCards = await api.backlog.get(pid)
+          setCards(backlogCards.map(card => {
+            const lane = laneList.find(l => l.id === card.swim_lane_id)
+            return { ...card, column_name: lane?.name ?? 'Uncategorized', column_color: lane?.color ?? '#94a3b8' } as BacklogCard
+          }))
         } else {
-          const sprintCards = await api.getSprintCards(selectedSprintId)
+          const sprintCards = await api.cards.listBySprint(selectedSprintId)
           setCards(sprintCards.map(card => {
             const lane = laneList.find(l => l.id === card.swim_lane_id)
-            return { ...card, column_name: lane?.name ?? 'Uncategorized', column_color: lane?.color ?? '#94a3b8' }
+            return { ...card, column_name: lane?.name ?? 'Uncategorized', column_color: lane?.color ?? '#94a3b8' } as BacklogCard
           }))
         }
 

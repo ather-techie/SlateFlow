@@ -15,7 +15,7 @@ export default function CardCommentsTab({ card }: Props) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.getComments(card.id)
+    api.comments.list(card.id)
       .then(setComments)
       .catch(() => toast.error('Failed to load comments'))
       .finally(() => setLoading(false))
@@ -25,7 +25,7 @@ export default function CardCommentsTab({ card }: Props) {
     if (!commentBody.trim() || submittingComment) return
     setSubmittingComment(true)
     try {
-      const comment = await api.createComment(card.id, { body: commentBody.trim() })
+      const comment = await api.comments.create(card.id, { body: commentBody.trim() })
       setComments(prev => [comment, ...prev])
       setCommentBody('')
       toast.success('Comment added')

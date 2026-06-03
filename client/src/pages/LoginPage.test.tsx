@@ -47,6 +47,12 @@ describe('LoginPage', () => {
         email_notifications: false,
         auto_test_case_generation_ai: false,
         auto_story_generation_ai: false,
+        card_attachments: false,
+        read_mcp: false,
+        create_mcp: false,
+        update_mcp: false,
+        delete_mcp: false,
+        report_mcp: false,
       },
     })
   })
@@ -318,7 +324,7 @@ describe('LoginPage', () => {
     })
 
     it('removes error query param after showing toast', async () => {
-      const { container } = render(
+      render(
         <MemoryRouter initialEntries={['/login?error=email_not_verified']}>
           <LoginPage />
         </MemoryRouter>

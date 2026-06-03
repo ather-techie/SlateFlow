@@ -277,7 +277,7 @@ export default function Layout() {
 
   useEffect(() => {
     if (!projectId) { setHasFailedTests(false); return }
-    api.getProjectTestCases(parseInt(projectId, 10), { status: 'failed' })
+    api.testCases.listByProject(parseInt(projectId, 10), { status: 'failed' })
       .then(cases => setHasFailedTests(cases.length > 0))
       .catch(() => setHasFailedTests(false))
   }, [projectId])

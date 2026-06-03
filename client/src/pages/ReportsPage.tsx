@@ -201,8 +201,8 @@ export default function ReportsPage() {
   useEffect(() => {
     setLoading(true)
     Promise.all([
-      api.getProject(pid),
-      api.getSprints(pid),
+      api.projects.get(pid),
+      api.sprints.list(pid),
       api.reports.velocity(pid),
       api.reports.cycleTime(pid),
     ])

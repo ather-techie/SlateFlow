@@ -252,7 +252,7 @@ describe('NLItemInput component', () => {
     await user.type(textarea, 'create story')
     await user.click(screen.getByRole('button', { name: /parse/i }))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /create/i, exact: false })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /create/i })).toBeInTheDocument()
     })
     // Click confirm/create button
     const createBtn = screen.getByRole('button', { name: /create/i })

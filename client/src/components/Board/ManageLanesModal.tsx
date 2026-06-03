@@ -204,7 +204,7 @@ export default function ManageLanesModal({ projectId, lanes, cardCountByLane, on
       const tempToReal: Record<number, number> = {}
       for (const lane of visibleLanes) {
         if (lane.isNew) {
-          const created = await api.createLane(projectId, { name: lane.name.trim(), color: lane.color })
+          const created = await api.lanes.create(projectId, { name: lane.name.trim(), color: lane.color })
           tempToReal[lane.id] = created.id
         }
       }
@@ -212,13 +212,13 @@ export default function ManageLanesModal({ projectId, lanes, cardCountByLane, on
       // 2. Delete marked lanes
       const deletedExisting = localLanes.filter(l => l.deleted && !l.isNew)
       for (const lane of deletedExisting) {
-        await api.deleteLane(lane.id)
+        await api.lanes.delete(lane.id)
       }
 
       // 3. Reorder (all existing non-deleted + newly created)
       const orderedIds = visibleLanes.map(l => (l.isNew ? tempToReal[l.id] : l.id)).filter(Boolean) as number[]
       if (orderedIds.length > 1) {
-        await api.reorderLanes(projectId, orderedIds)
+        await api.lanes.reorder(projectId, orderedIds)
       }
 
       // 4. Update changed name/color on existing lanes
@@ -227,13 +227,13 @@ export default function ManageLanesModal({ projectId, lanes, cardCountByLane, on
         if (!lane.isNew) {
           const orig = origMap.get(lane.id)
           if (orig && (orig.name !== lane.name || orig.color !== lane.color || orig.is_done_col !== lane.is_done_col)) {
-            await api.updateLane(lane.id, { name: lane.name.trim(), color: lane.color, is_done_col: lane.is_done_col === 1 })
+            await api.lanes.update(lane.id, { name: lane.name.trim(), color: lane.color, is_done_col: lane.is_done_col === 1 })
           }
         }
       }
 
       // 5. Fetch fresh lanes and propagate
-      const fresh = await api.getLanes(projectId)
+      const fresh = await api.lanes.list(projectId)
       onUpdate(fresh)
       onClose()
     } catch (e) {

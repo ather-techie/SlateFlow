@@ -12,7 +12,7 @@ export default function CardActivityTab({ card }: Props) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.getActivityLog(card.id)
+    api.activity.getCardActivity(card.id)
       .then(setActivity)
       .catch(() => {})
       .finally(() => setLoading(false))

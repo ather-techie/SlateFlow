@@ -74,7 +74,7 @@ export function ProfileSettingsModal({ isOpen, onClose, onSettingsChanged }: Pro
     if (!user) return
     setLoading(true)
     try {
-      await api.auth.updateProfile({ email_notifications: !emailNotifications })
+      await api.auth.updateMe({ email_notifications: !emailNotifications })
       setEmailNotifications(!emailNotifications)
       onSettingsChanged()
       toast.success('Email preferences updated')

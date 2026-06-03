@@ -66,7 +66,16 @@ export default function LoginPage() {
     }
   }
 
-  const noLoginMethods = !flagsLoading && !isEnabled('auth_password') && !isEnabled('auth_google') && !isEnabled('auth_github')
+  const noLoginMethods = !isEnabled('auth_password') && !isEnabled('auth_google') && !isEnabled('auth_github')
+
+  // Show loading state while flags are being fetched to avoid flicker
+  if (flagsLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+        <div className="text-slate-400 text-sm">Loading…</div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">

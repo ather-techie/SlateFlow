@@ -20,6 +20,12 @@ describe('FeatureGate', () => {
         email_notifications: false,
         auto_test_case_generation_ai: false,
         auto_story_generation_ai: false,
+        card_attachments: false,
+        read_mcp: false,
+        create_mcp: false,
+        update_mcp: false,
+        delete_mcp: false,
+        report_mcp: false,
       },
     })
   })

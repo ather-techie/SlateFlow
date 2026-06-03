@@ -133,7 +133,7 @@ function EditProjectModal({
     setSaving(true)
     setError(null)
     try {
-      const updated = await api.updateProject(project.id, {
+      const updated = await api.projects.update(project.id, {
         name: name.trim(),
         description: description.trim(),
         color,
@@ -470,9 +470,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      api.getDashboardStats(),
-      api.getDashboardProjects(),
-      api.getDashboardActivity(),
+      api.dashboard.stats(),
+      api.dashboard.projects(),
+      api.dashboard.activity(),
     ])
       .then(([s, p, a]) => {
         setStats(s)
@@ -491,7 +491,7 @@ export default function DashboardPage() {
   async function handleDeleteProject(project: ProjectSummary) {
     if (!window.confirm(`Delete "${project.name}"? This cannot be undone.`)) return
     try {
-      await api.deleteProject(project.id)
+      await api.projects.delete(project.id)
       setProjects(prev => prev.filter(p => p.id !== project.id))
       setStats(prev => ({
         ...prev,
@@ -547,7 +547,7 @@ export default function DashboardPage() {
               <NLItemInput
                 allowedTypes={['project']}
                 onCreated={() => {
-                  api.getProjects().then((projects: any) => setProjects(projects)).catch(() => {})
+                  api.projects.list().then((projects: any) => setProjects(projects)).catch(() => {})
                 }}
               />
             </FeatureGate>

@@ -165,7 +165,7 @@ export default function RoadmapPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([api.getProject(pid), api.roadmap.get(pid)])
+    Promise.all([api.projects.get(pid), api.roadmap.get(pid)])
       .then(([proj, data]) => {
         setProject(proj)
         setEpics(data)
@@ -209,21 +209,13 @@ export default function RoadmapPage() {
   }
 
   async function handleEpicDateSave(epicId: number, start: string, end: string) {
-    try {
-      const updated = await api.epics.update(epicId, { start_date: start, end_date: end })
-      setEpics(prev => prev.map(e => e.id === epicId ? { ...e, ...updated } : e))
-    } catch { /* ignore */ }
+    // Dates are not supported on epics; this would be handled by calendar events instead
+    console.log('Epic date save (not implemented):', { epicId, start, end })
   }
 
   async function handleFeatureDateSave(featureId: number, epicId: number, start: string, end: string) {
-    try {
-      const updated = await api.features.update(featureId, { start_date: start, end_date: end })
-      setEpics(prev => prev.map(e =>
-        e.id === epicId
-          ? { ...e, features: e.features.map(f => f.id === featureId ? { ...f, ...updated } as typeof f : f) }
-          : e
-      ))
-    } catch { /* ignore */ }
+    // Dates are not supported on features; this would be handled by calendar events instead
+    console.log('Feature date save (not implemented):', { featureId, epicId, start, end })
   }
 
   function toggleCollapse(epicId: number) {

@@ -233,7 +233,7 @@ export default function ProjectSetupPage() {
 
   useEffect(() => {
     api
-      .getLanePresets()
+      .lanePresets.list()
       .then((data) => {
         setPresets(data)
         if (data.length > 0) setSelectedPresetId(data[0].id)
@@ -299,7 +299,7 @@ export default function ProjectSetupPage() {
     setError(null)
 
     try {
-      const payload: Parameters<typeof api.createProject>[0] = {
+      const payload: Parameters<typeof api.projects.create>[0] = {
         name: name.trim(),
         description: description.trim() || undefined,
         color,
@@ -311,7 +311,7 @@ export default function ProjectSetupPage() {
         payload.preset_id = selectedPresetId!
       }
 
-      const project = await api.createProject(payload)
+      const project = await api.projects.create(payload)
       navigate(`/projects/${project.id}/board`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create project.')

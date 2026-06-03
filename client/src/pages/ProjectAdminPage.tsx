@@ -512,7 +512,7 @@ function SettingsTab({ projectId, project, onUpdated }: {
 
     setSaving(true)
     try {
-      const updated = await api.updateProject(projectId, { name, description, color })
+      const updated = await api.projects.update(projectId, { name, description, color })
       onUpdated(updated)
       toast.success('Project updated')
     } catch (err) {
@@ -596,7 +596,7 @@ function LanesTab({ projectId }: { projectId: number }) {
   const loadLanes = async () => {
     setLoading(true)
     try {
-      const data = await api.getLanes(projectId)
+      const data = await api.lanes.list(projectId)
       setLanes(data)
     } catch (err) {
       toast.error('Failed to load lanes')
@@ -611,7 +611,7 @@ function LanesTab({ projectId }: { projectId: number }) {
       return
     }
     try {
-      await api.updateLane(laneId, { name: editingName })
+      await api.lanes.update(laneId, { name: editingName })
       setLanes(lanes.map(l => l.id === laneId ? { ...l, name: editingName } : l))
       setEditingId(null)
       toast.success('Lane renamed')
@@ -623,7 +623,7 @@ function LanesTab({ projectId }: { projectId: number }) {
   const handleToggleDone = async (lane: Lane) => {
     try {
       const newValue = lane.is_done_col === 1 ? 0 : 1
-      await api.updateLane(lane.id, { is_done_col: newValue as any })
+      await api.lanes.update(lane.id, { is_done_col: newValue as any })
       setLanes(lanes.map(l => l.id === lane.id ? { ...l, is_done_col: newValue } : l))
       toast.success(`Lane ${lane.is_done_col === 1 ? 'unmarked' : 'marked'} as done column`)
     } catch (err) {
@@ -638,7 +638,7 @@ function LanesTab({ projectId }: { projectId: number }) {
     setLanes(newLanes)
 
     try {
-      await api.reorderLanes(projectId, newLanes.map(l => l.id))
+      await api.lanes.reorder(projectId, newLanes.map(l => l.id))
       toast.success('Lanes reordered')
     } catch (err) {
       toast.error('Failed to reorder lanes')
@@ -648,7 +648,7 @@ function LanesTab({ projectId }: { projectId: number }) {
 
   const handleDelete = async (laneId: number) => {
     try {
-      await api.deleteLane(laneId)
+      await api.lanes.delete(laneId)
       setLanes(lanes.filter(l => l.id !== laneId))
       setConfirmDeleteId(null)
       toast.success('Lane deleted')
@@ -667,7 +667,7 @@ function LanesTab({ projectId }: { projectId: number }) {
       return
     }
     try {
-      const newLane = await api.createLane(projectId, { name: newLaneName })
+      const newLane = await api.lanes.create(projectId, { name: newLaneName })
       setLanes([...lanes, newLane])
       setNewLaneName('')
       setShowAddForm(false)
@@ -831,7 +831,7 @@ export default function ProjectAdminPage() {
   }, [user, projectId, canManageProject, navigate])
 
   useEffect(() => {
-    api.getProject(projectId).then(setProject).catch(() => {})
+    api.projects.get(projectId).then(setProject).catch(() => {})
   }, [projectId])
 
   if (!user || !canManageProject(projectId)) return null

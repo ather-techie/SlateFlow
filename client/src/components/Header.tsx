@@ -20,7 +20,7 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
   const [projects, setProjects] = useState<Project[]>([])
 
   useEffect(() => {
-    api.getProjects().then(setProjects).catch(() => {})
+    api.projects.list().then(setProjects).catch(() => {})
   }, [])
 
   function getPageSlug() {

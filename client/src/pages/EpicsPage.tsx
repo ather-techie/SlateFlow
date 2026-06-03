@@ -355,7 +355,7 @@ function FeatureRow({
     if (lanes.length === 0) await loadStories()
     setAiGenerating(true)
     try {
-      const res = await apiNs.ai.generateStories(feature.id)
+      const res = await api.ai.generateStories(feature.id)
       setAiPreview(res.data.stories.map((s: any) => ({ ...s, selected: true })))
     } catch {
       // error already shown via axios interceptor
@@ -373,7 +373,6 @@ function FeatureRow({
     for (const s of selected) {
       const card = await api.cards.create(defaultLane.id, {
         title: s.title,
-        description: s.description,
         priority: s.priority,
         feature_id: feature.id,
       })

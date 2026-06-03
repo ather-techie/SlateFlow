@@ -61,7 +61,7 @@ http.interceptors.response.use(
       // Defer import to avoid circular dep at module load time
       import('../store/authStore').then(({ useAuthStore }) => {
         useAuthStore.getState().logout()
-        window.location.href = '/login'
+        // Don't redirect here — ProtectedRoute handles the redirect when user is null
       })
       return Promise.reject(err)
     }

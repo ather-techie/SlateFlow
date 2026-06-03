@@ -148,7 +148,7 @@ function CreateSprintForm({ projectId, onCreated }: CreateFormProps) {
     setSaving(true)
     setErr(null)
     try {
-      const sprint = await api.createSprint(projectId, {
+      const sprint = await api.sprints.create(projectId, {
         name: name.trim(),
         goal: goal.trim(),
         start_date: start,
@@ -254,7 +254,7 @@ function EditSprintModal({ sprint, onSave, onClose }: EditSprintModalProps) {
     setSaving(true)
     setErr(null)
     try {
-      const updated = await api.updateSprint(sprint.id, {
+      const updated = await api.sprints.update(sprint.id, {
         name: name.trim(),
         goal: goal.trim(),
         start_date: start,
@@ -383,7 +383,7 @@ function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit
 
   useEffect(() => {
     api
-      .getSprintCards(sprint.id)
+      .cards.listBySprint(sprint.id)
       .then(setCards)
       .finally(() => setLoadingCards(false))
   }, [sprint.id])
@@ -402,7 +402,7 @@ function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit
   async function handleComplete() {
     setCompleting(true)
     try {
-      await api.completeSprint(sprint.id)
+      await api.sprints.complete(sprint.id)
       onComplete(sprint.id)
     } finally {
       setCompleting(false)
@@ -412,7 +412,7 @@ function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit
   async function handleActivate() {
     setActivating(true)
     try {
-      await api.updateSprint(sprint.id, { status: 'active' })
+      await api.sprints.update(sprint.id, { status: 'active' })
       onActivate(sprint.id)
     } finally {
       setActivating(false)
@@ -649,9 +649,9 @@ export default function SprintsPage() {
     ;(async () => {
       try {
         const [proj, sps, cols] = await Promise.all([
-          api.getProject(pid),
-          api.getSprints(pid),
-          api.getColumns(pid),
+          api.projects.get(pid),
+          api.sprints.list(pid),
+          api.lanes.list(pid),
         ])
         setProject(proj)
         setSprints(sps)
@@ -684,7 +684,7 @@ export default function SprintsPage() {
 
   async function handleDelete(id: number) {
     try {
-      await api.deleteSprint(id)
+      await api.sprints.delete(id)
       setSprints(prev => prev.filter(s => s.id !== id))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete sprint')
@@ -724,7 +724,7 @@ export default function SprintsPage() {
                   context={{ projectId: pid }}
                   onCreated={() => {
                     ;(async () => {
-                      const sps = await api.getSprints(pid)
+                      const sps = await api.sprints.list(pid)
                       setSprints(sps)
                     })()
                   }}

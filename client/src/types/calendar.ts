@@ -1,4 +1,3 @@
-import type { Sprint } from './planning'
 import type { Epic, Feature } from './planning'
 
 export type CalendarEntryKind = 'holiday' | 'event' | 'vacation'
