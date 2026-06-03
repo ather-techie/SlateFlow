@@ -79,20 +79,11 @@ cards.get('/lanes/:id/cards', async (c) => {
   const lane = await db.get('SELECT id FROM swim_lanes WHERE id = ?', laneId)
   if (!lane) return err(c, 'lane not found', 404)
 
-  const limit = Math.min(parseInt(c.req.query('limit') || '100', 10), 500) || 100
-  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0) || 0
-
-  const countRow = await db.get<{ total: number }>(
-    'SELECT COUNT(*) as total FROM cards WHERE swim_lane_id = ?',
+  const rows = await db.all(
+    'SELECT * FROM cards WHERE swim_lane_id = ? ORDER BY position, id',
     laneId
   )
-  const total = countRow?.total ?? 0
-
-  const rows = await db.all(
-    'SELECT * FROM cards WHERE swim_lane_id = ? ORDER BY position, id LIMIT ? OFFSET ?',
-    laneId, limit, offset
-  )
-  return ok(c, { items: rows, total, limit, offset })
+  return ok(c, rows)
 })
 
 cards.post('/lanes/:id/cards', async (c) => {
