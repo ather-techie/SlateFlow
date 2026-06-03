@@ -93,53 +93,6 @@ try {
   const schema = readFileSync(SCHEMA_PATH, 'utf8')
   await db.exec(schema)
 
-  // Migrate card_links.type CHECK to include 'issue'
-  const clSchema = await db.get<{ sql: string }>(
-    "SELECT sql FROM sqlite_master WHERE type='table' AND name='card_links'"
-  )
-  if (clSchema?.sql && !clSchema.sql.includes("'issue'")) {
-    // Clean up stale _card_links_old from any previous partial run
-    const oldTableExists = await db.get(
-      "SELECT 1 FROM sqlite_master WHERE type='table' AND name='_card_links_old'"
-    )
-    if (oldTableExists) {
-      console.warn('[db] Cleaning up stale _card_links_old from previous partial migration')
-      await db.exec('DROP TABLE _card_links_old')
-    }
-
-    try {
-      await db.run('PRAGMA foreign_keys = OFF')
-      await db.exec(`
-        ALTER TABLE card_links RENAME TO _card_links_old;
-        CREATE TABLE card_links (
-          id          INTEGER PRIMARY KEY AUTOINCREMENT,
-          card_id     INTEGER NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
-          provider    TEXT    NOT NULL CHECK (provider IN ('github', 'gitlab')),
-          type        TEXT    NOT NULL CHECK (type IN ('pr', 'mr', 'commit', 'issue')),
-          repo_url    TEXT    NOT NULL,
-          number      INTEGER,
-          sha         TEXT,
-          title       TEXT    NOT NULL DEFAULT '',
-          url         TEXT    NOT NULL,
-          state       TEXT    NOT NULL DEFAULT 'open' CHECK (state IN ('open', 'closed', 'merged')),
-          merged_at   TEXT,
-          created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-        );
-        INSERT INTO card_links SELECT * FROM _card_links_old;
-        DROP TABLE _card_links_old;
-        CREATE INDEX IF NOT EXISTS idx_card_links_card ON card_links(card_id);
-        CREATE INDEX IF NOT EXISTS idx_card_links_provider ON card_links(provider, repo_url, number);
-      `)
-      await db.run('PRAGMA foreign_keys = ON')
-      console.info('[db] Migrated card_links.type CHECK to include \'issue\'')
-    } catch (migErr) {
-      console.error('[db] card_links migration failed — this is likely a database inconsistency:', migErr)
-      await db.run('PRAGMA foreign_keys = ON').catch(() => {})
-      throw migErr
-    }
-  }
-
   // Ensure every existing project has a Default Epic and Default Feature
   const projectsNeedingDefaults = await db.all<{ id: number }>(`
     SELECT p.id FROM projects p
@@ -225,37 +178,6 @@ try {
     INSERT OR IGNORE INTO feature_overrides (flag, enabled, updated_by, updated_at)
     VALUES ('auth_github', 1,1, datetime('now'))
   `)
-
-  for (const sql of [
-    'ALTER TABLE cards ADD COLUMN due_date TEXT',
-    'ALTER TABLE cards ADD COLUMN due_reminder_sent_at TEXT',
-    'ALTER TABLE tasks ADD COLUMN due_date TEXT',
-    'ALTER TABLE tasks ADD COLUMN due_reminder_sent_at TEXT',
-    'ALTER TABLE users ADD COLUMN email_notifications INTEGER NOT NULL DEFAULT 1',
-    'ALTER TABLE users ADD COLUMN skills TEXT NOT NULL DEFAULT \'[]\'',
-    'ALTER TABLE project_access ADD COLUMN skills TEXT NOT NULL DEFAULT \'[]\'',
-    'ALTER TABLE project_access ADD COLUMN capacity INTEGER',
-    'ALTER TABLE sprints ADD COLUMN velocity_completed_points INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE sprints ADD COLUMN velocity_total_points INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE sprints ADD COLUMN velocity_completed_stories INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE sprints ADD COLUMN velocity_total_stories INTEGER NOT NULL DEFAULT 0',
-    'ALTER TABLE users ADD COLUMN country TEXT',
-    'ALTER TABLE users ADD COLUMN state TEXT',
-    'ALTER TABLE users ADD COLUMN city TEXT',
-    'ALTER TABLE users ADD COLUMN home_country TEXT',
-    'ALTER TABLE users ADD COLUMN home_state TEXT',
-    'ALTER TABLE users ADD COLUMN home_city TEXT',
-    'ALTER TABLE users ADD COLUMN timezone TEXT',
-    'ALTER TABLE users ADD COLUMN job_title TEXT',
-    'ALTER TABLE users ADD COLUMN department TEXT',
-    'ALTER TABLE users ADD COLUMN phone TEXT',
-    'ALTER TABLE users ADD COLUMN gender TEXT',
-    'ALTER TABLE users ADD COLUMN reporting_manager_id INTEGER REFERENCES users(id)',
-    'ALTER TABLE calendar_entries ADD COLUMN country TEXT',
-    'ALTER TABLE calendar_entries ADD COLUMN state_province TEXT',
-  ]) {
-    try { await db.exec(sql) } catch { /* column already exists */ }
-  }
 
   // Seed only when the database is empty (excluding the Default Project)
   const projectCountRow = await db.get<{ n: number }>('SELECT COUNT(*) as n FROM projects WHERE is_default = 0')
