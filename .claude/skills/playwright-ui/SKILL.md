@@ -33,7 +33,18 @@ Determine which flows to run from the command arguments. Default: all (`login`, 
 
 ## Step 2 — Pre-flight Health Check
 
-Run the health check script to confirm both servers are up and detect the frontend port:
+First, create a unique run folder for this invocation to isolate all artifacts:
+
+```bash
+RUN_ID=$(node -e "process.stdout.write(new Date().toISOString().replace(/[:.]/g,'-').slice(0,16))")
+RUN_DIR=".playwright-mcp/run-$RUN_ID"
+mkdir -p "$RUN_DIR"
+echo "Run folder: $RUN_DIR"
+```
+
+Store `$RUN_DIR` as a variable for cleanup at the end.
+
+Now run the health check script to confirm both servers are up and detect the frontend port:
 
 ```bash
 node .claude/skills/playwright-ui/check-servers.mjs
@@ -154,6 +165,21 @@ Embed a representative screenshot from each flow. Use `browser_screenshot` to ca
 
 ---
 
+## Artifact Cleanup
+
+After the report is complete, move all generated files into the run folder:
+
+```bash
+mv .playwright-mcp/*.log "$RUN_DIR/" 2>/dev/null || true
+mv .playwright-mcp/*.yml "$RUN_DIR/" 2>/dev/null || true
+mv .playwright-mcp/*.png "$RUN_DIR/" 2>/dev/null || true
+echo "All artifacts saved to $RUN_DIR"
+```
+
+This keeps each run's screenshots, logs, and snapshots isolated in its own timestamped subfolder, preventing conflicts between concurrent or sequential runs.
+
+---
+
 ## Troubleshooting
 
 | Issue | Cause | Fix |
@@ -174,3 +200,4 @@ Embed a representative screenshot from each flow. Use `browser_screenshot` to ca
 - Mutations (cards created, flags toggled) persist in the dev database (`server/slateflow.db`) — reset anytime with `/seed-db`
 - Screenshots are embedded as base64; in the report, call out any visual anomalies (blank tabs, missing elements, layout breaks)
 - If any flow fails, report the failure clearly and suggest next debugging steps
+- **Artifacts:** All screenshots (`*.png`), console logs (`*.log`), and page snapshots (`*.yml`) from this run are automatically moved into `.playwright-mcp/run-<timestamp>/` at the end — concurrent and sequential runs stay isolated
