@@ -21,7 +21,38 @@ docker-compose up -d      # self-hosted single container on :3000
 
 ## Testing
 
+### Unit & Component Tests
+
 Client-side tests run with **Vitest** + **jsdom** + **@testing-library/react**. Test files live alongside source (e.g. `components/Board/Card.test.tsx`). Coverage includes components, hooks, and stores; run tests with `npm run test -w client` (once) or `npm run test:watch -w client` (watch mode).
+
+Server-side tests use Vitest in Node environment; run with `npm run test -w server`.
+
+### Browser-Level UI Verification with MCP Playwright
+
+For testing real browser behavior (Kanban DnD, modals, SSE real-time updates, routing), use **MCP Playwright** via Claude Code's browser-control tools. The `.mcp.json` at the repo root configures the MCP Playwright server with `--allowed-origins http://localhost:5173;http://localhost:3000` (localhost-only safety boundary).
+
+**Usage flow:**
+
+1. Run `npm run dev` to start both dev servers.
+2. Ask Claude Code to run a verification task, e.g.: "Test the login flow, then create a card on the Kanban board and drag it to the Done lane. Screenshot the result."
+3. Claude will use `browser_navigate`, `browser_type`, `browser_click`, `browser_drag_and_drop`, and `browser_screenshot` tools to verify the UI.
+4. All cookies (httpOnly `sf_token`) are handled automatically by the browser context.
+
+**Key flows to verify with MCP Playwright:**
+- Login and session establishment (prerequisite for all others)
+- Kanban board card creation and DnD lane transitions
+- Card modal: all 6 tabs, `@mention` in comments
+- Sprint lifecycle: create → activate → complete, burndown chart rendering
+- Admin panel: feature flag toggling and sidebar nav updates
+- Auth guard: unauthenticated redirect to `/login`
+- Roadmap Gantt: epic/feature date bars and date editor popover
+
+**Running MCP Playwright manually** (e.g., to test that it starts cleanly):
+```bash
+npm run mcp:playwright
+```
+
+MCP Playwright is safe for local dev: the `--allowed-origins` flag prevents navigation outside localhost, and mutations happen only to the seeded dev database (reset anytime with `/seed-db`).
 
 ## Environment Variables
 

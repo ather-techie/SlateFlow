@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "node scripts/dev.js",
     "build": "npm run build -w client && npm run build -w server",
-    "lint": "npm run lint -w client"
+    "lint": "npm run lint -w client",
+    "mcp:playwright": "npx @playwright/mcp@latest --allowed-origins \"http://localhost:5173;http://localhost:3000\" --headless"
   },
   "dependencies": {
     "file-type": "^21.3.4"

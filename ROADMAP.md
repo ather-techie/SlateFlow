@@ -62,6 +62,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [x] OpenAPI / Swagger documentation for the REST API
 - [x] Health check endpoint (`/health`) for container orchestration
 - [x] Unit test suite — comprehensive tests for client components, hooks, and stores (Vitest + jsdom + React Testing Library)
+- [x] Browser-level UI verification with MCP Playwright — test real browser behaviors (Kanban DnD, modals, SSE updates, auth flows) via Claude Code's interactive browser-control tools
 - [ ] Backup and restore CLI for SQLite database
 
 ---
