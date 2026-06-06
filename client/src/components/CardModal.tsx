@@ -5,6 +5,7 @@ import type { Card, Feature, Label, Lane, Sprint } from '../types'
 import { api } from '../api/index'
 import { LABEL_PALETTE, PRIORITIES, PRIORITY_LABELS } from '../utils/cardModal'
 import { FeatureGate } from './ui/FeatureGate'
+import { useFeatureFlagStore } from '../store/featureFlagStore'
 // Tab components — each manages its own data fetching and state
 import CardDescriptionTab from './CardModal/CardDescriptionTab'
 import CardCommentsTab from './CardModal/CardCommentsTab'
@@ -39,6 +40,7 @@ const TAB_LABELS: Record<Tab, string> = {
 const inputCls = 'w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500'
 
 export default function CardModal({ card, projectId, lanes, sprints, onClose, onUpdate, onDelete }: Props) {
+  const { isEnabled } = useFeatureFlagStore()
   const [activeTab, setActiveTab] = useState<Tab>('description')
   const [editingTitle, setEditingTitle] = useState(false)
   const [title, setTitle] = useState(card.title)
@@ -58,6 +60,12 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [movingLane, setMovingLane] = useState(false)
   const labelPickerRef = useRef<HTMLDivElement>(null)
+
+  const visibleTabs = (Object.keys(TAB_LABELS) as Tab[]).filter(tab => {
+    if (tab === 'integrations') return isEnabled('github_integration')
+    if (tab === 'attachments') return isEnabled('card_attachments')
+    return true
+  })
 
   // Load initial data
   useEffect(() => {
@@ -177,7 +185,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
 
         {/* Tab bar */}
         <div className="flex gap-1 border-b border-slate-200 px-6 overflow-x-auto flex-shrink-0 bg-slate-50">
-          {(Object.keys(TAB_LABELS) as Tab[]).map(tab => (
+          {visibleTabs.map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -201,12 +209,8 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
             {activeTab === 'activity' && <CardActivityTab card={card} />}
             {activeTab === 'tests' && <CardTestsTab card={card} projectId={projectId} />}
             {activeTab === 'dependencies' && <CardDependenciesTab card={card} projectId={projectId} />}
-            <FeatureGate flag="github_integration">
-              {activeTab === 'integrations' && <CardIntegrationsTab card={card} projectId={projectId} />}
-            </FeatureGate>
-            <FeatureGate flag="card_attachments">
-              {activeTab === 'attachments' && <CardAttachmentsTab card={card} />}
-            </FeatureGate>
+            {activeTab === 'integrations' && <CardIntegrationsTab card={card} projectId={projectId} />}
+            {activeTab === 'attachments' && <CardAttachmentsTab card={card} />}
           </div>
 
           {/* Right: Metadata sidebar */}

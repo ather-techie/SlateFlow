@@ -886,7 +886,12 @@ export default function AdminPage() {
     }
   }, [user, isSuperAdmin, navigate])
 
-  if (!user || !isSuperAdmin()) return null
+  if (!user) return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <p className="text-slate-400 text-sm">Loading…</p>
+    </div>
+  )
+  if (!isSuperAdmin()) return null
 
   return (
     <div className="min-h-screen bg-slate-950">

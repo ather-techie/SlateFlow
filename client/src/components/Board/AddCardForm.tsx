@@ -10,18 +10,20 @@ export default function AddCardForm({ onAdd }: Props) {
   const [title, setTitle] = useState('')
   const [priority, setPriority] = useState<Card['priority']>('p2')
   const [assignee, setAssignee] = useState('')
+  const [error, setError] = useState('')
 
   function close() {
     setOpen(false)
     setTitle('')
     setPriority('p2')
     setAssignee('')
+    setError('')
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     const t = title.trim()
-    if (!t) return
+    if (!t) { setError('Title is required'); return }
     onAdd(t, priority, assignee.trim() || undefined)
     close()
   }
@@ -45,13 +47,14 @@ export default function AddCardForm({ onAdd }: Props) {
         value={title}
         rows={2}
         placeholder="Card title…"
-        onChange={e => setTitle(e.target.value)}
+        onChange={e => { setTitle(e.target.value); if (error) setError('') }}
         onKeyDown={e => {
           if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(e as unknown as React.FormEvent) }
           if (e.key === 'Escape') close()
         }}
         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
       />
+      {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex gap-2">
         <select
           value={priority}
