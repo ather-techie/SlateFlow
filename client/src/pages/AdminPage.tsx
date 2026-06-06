@@ -392,7 +392,7 @@ function UsersTab() {
 
   useEffect(() => {
     api.users.list()
-      .then(setUsers)
+      .then(res => setUsers(Array.isArray(res) ? res : (res as { items: User[] }).items))
       .catch(() => toast.error('Failed to load users'))
       .finally(() => setLoading(false))
   }, [])
