@@ -2,6 +2,14 @@
 
 # SlateFlow
 
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)
+![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Docker ready](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![AI Multi-provider](https://img.shields.io/badge/AI-Claude%20%7C%20Gemini%20%7C%20OpenAI%20%7C%20Ollama-8B5CF6?logo=anthropic&logoColor=white)
+![MCP](https://img.shields.io/badge/MCP-Model%20Context%20Protocol-0EA5E9?logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-MCP%20testing-2EAD33?logo=playwright&logoColor=white)
+
 SlateFlow is a self-hosted, AI-powered agile project management platform built for modern engineering teams. Delivered as a single-container solution, it combines a drag-and-drop Kanban board with a complete agile hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown tracking, retrospective boards, roadmap planning, velocity/cycle-time/capacity reports, test case management, and real-time collaboration using Server-Sent Events.
 
 SlateFlow also supports enterprise-grade RBAC at global, project, and epic levels, while integrating with leading AI platforms and models including Anthropic Claude, Google Gemini, OpenAI OpenAI, Microsoft Azure OpenAI, and Ollama Ollama for features like AI-powered card summarization and workflow enhancement. Built with SQLite, Hono, and React inside a single Docker image, it requires no external services, making it a lightweight yet powerful alternative to tools like Jira and Azure DevOps.
