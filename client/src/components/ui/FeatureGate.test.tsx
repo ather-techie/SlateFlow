@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { FeatureGate } from './FeatureGate'
@@ -50,7 +49,7 @@ describe('FeatureGate', () => {
     }))
     const { container } = render(<FeatureGate flag="ai">AI content</FeatureGate>)
     expect(screen.queryByText('AI content')).not.toBeInTheDocument()
-    expect(container.firstChild?.textContent).toBe('')
+    expect(container.firstChild).toBeNull()
   })
 
   it('renders fallback when flag is disabled and fallback is provided', () => {

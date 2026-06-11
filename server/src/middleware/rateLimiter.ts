@@ -1,3 +1,4 @@
+import type { Context, Next } from 'hono'
 import { err } from '../lib/response.js'
 
 interface RateLimitEntry {
@@ -8,7 +9,7 @@ interface RateLimitEntry {
 const rateLimitStore = new Map<string, RateLimitEntry>()
 
 export function createRateLimiter(maxRequests: number, windowMs: number) {
-  return async (c: any, next: any) => {
+  return async (c: Context, next: Next) => {
     const ip = c.req.header('x-forwarded-for') || c.env?.remoteAddr || '127.0.0.1'
     const now = Date.now()
     const entry = rateLimitStore.get(ip)

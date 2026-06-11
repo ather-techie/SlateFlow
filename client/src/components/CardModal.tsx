@@ -4,7 +4,6 @@ import toast from 'react-hot-toast'
 import type { Card, Feature, Label, Lane, Sprint } from '../types'
 import { api } from '../api/index'
 import { LABEL_PALETTE, PRIORITIES, PRIORITY_LABELS } from '../utils/cardModal'
-import { FeatureGate } from './ui/FeatureGate'
 import { useFeatureFlagStore } from '../store/featureFlagStore'
 // Tab components — each manages its own data fetching and state
 import CardDescriptionTab from './CardModal/CardDescriptionTab'

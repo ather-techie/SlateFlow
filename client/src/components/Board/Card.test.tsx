@@ -1,8 +1,9 @@
-// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Card from './Card'
+// mocked below via vi.mock — this import resolves to the mock factory's vi.fn
+import { useSortable } from '@dnd-kit/sortable'
 import { useBoardStore } from '../../store/boardStore'
 import type { Card as CardType, TaskSummary } from '../../types/board'
 import type { TestCaseSummary } from '../../types/testing'
@@ -120,23 +121,21 @@ describe('Board Card', () => {
   })
 
   it('sets ref from useSortable', () => {
-    const { useSortable } = require('@dnd-kit/sortable')
     const mockSetNodeRef = vi.fn()
-    useSortable.mockReturnValue({
+    vi.mocked(useSortable).mockReturnValue({
       attributes: {},
       listeners: {},
       setNodeRef: mockSetNodeRef,
       transform: null,
       transition: undefined,
       isDragging: false,
-    })
+    } as unknown as ReturnType<typeof useSortable>)
     const card = makeCard({ title: 'Draggable card' })
     render(<Card card={card} onClick={vi.fn()} />)
     expect(mockSetNodeRef).toHaveBeenCalled()
   })
 
   it('passes card id to useSortable', () => {
-    const { useSortable } = require('@dnd-kit/sortable')
     const card = makeCard({ id: 999, title: 'Card with id' })
     render(<Card card={card} onClick={vi.fn()} />)
     expect(useSortable).toHaveBeenCalledWith(expect.objectContaining({ id: 999 }))

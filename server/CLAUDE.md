@@ -6,7 +6,7 @@ Scoped guidance for Claude Code when editing under `server/`. For repo-wide cont
 
 - **Hono 4.5** on Node.js via `@hono/node-server`, listening on `:3000`
 - **TypeScript** compiled with `tsc` into `server/dist/` for production
-- **better-sqlite3** with WAL mode + foreign keys ON; SQLite file at `DATABASE_PATH`
+- **sqlite3** (callback API, promisified in [src/db/index.ts](src/db/index.ts)) with WAL mode + foreign keys ON; SQLite file at `DATABASE_PATH`
 - **Zod** for every request body / query validation
 - **JWT** in httpOnly `sf_token` cookie (7-day expiry, `Lax`, `Secure` in production)
 - **bcrypt** for password hashes

@@ -4,6 +4,7 @@ export type ActivityAction = 'create' | 'field_changed' | 'move' | 'comment_adde
 
 export type ActivityMeta =
   | { swim_lane_id: number }
+  | { column_id: number } // legacy column-based create
   | { field: string; from: unknown; to: unknown }
   | { from_lane_id: number | null; to_lane_id: number; position?: number; reason?: string }
   | { author: string }

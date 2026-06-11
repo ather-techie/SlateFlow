@@ -68,8 +68,9 @@ describe('ai routes', () => {
     })
 
     it('returns 404 when card not found', async () => {
-      vi.mocked(db.get).mockResolvedValueOnce(null)
-
+      vi.mocked(db.get)
+        .mockResolvedValueOnce({ enabled: 1 }) // feature_overrides lookup for requireFeature('ai')
+        .mockResolvedValueOnce(null) // card lookup
       const res = await makeApp().request('/ai/cards/999/summarize', {
         method: 'POST',
       })
@@ -133,11 +134,13 @@ describe('ai routes', () => {
     })
 
     it('handles card with empty description', async () => {
-      vi.mocked(db.get).mockResolvedValueOnce({
-        id: 1,
-        title: 'Card',
-        description: '',
-      })
+      vi.mocked(db.get)
+        .mockResolvedValueOnce({ enabled: 1 }) // feature_overrides lookup for requireFeature('ai')
+        .mockResolvedValueOnce({
+          id: 1,
+          title: 'Card',
+          description: '',
+        })
       vi.mocked(getProvider).mockResolvedValueOnce({
         complete: vi.fn().mockResolvedValueOnce('Summary'),
         stream: vi.fn(),
@@ -150,11 +153,13 @@ describe('ai routes', () => {
     })
 
     it('handles card with null description', async () => {
-      vi.mocked(db.get).mockResolvedValueOnce({
-        id: 1,
-        title: 'Card',
-        description: null,
-      })
+      vi.mocked(db.get)
+        .mockResolvedValueOnce({ enabled: 1 }) // feature_overrides lookup for requireFeature('ai')
+        .mockResolvedValueOnce({
+          id: 1,
+          title: 'Card',
+          description: null,
+        })
       vi.mocked(getProvider).mockResolvedValueOnce({
         complete: vi.fn().mockResolvedValueOnce('Summary'),
         stream: vi.fn(),
@@ -345,11 +350,13 @@ describe('ai routes', () => {
   describe('AI provider interaction', () => {
     it('calls complete() method for summarization', async () => {
       const completeMock = vi.fn().mockResolvedValueOnce('Summary')
-      vi.mocked(db.get).mockResolvedValueOnce({
-        id: 1,
-        title: 'Test',
-        description: 'Desc',
-      })
+      vi.mocked(db.get)
+        .mockResolvedValueOnce({ enabled: 1 }) // feature_overrides lookup for requireFeature('ai')
+        .mockResolvedValueOnce({
+          id: 1,
+          title: 'Test',
+          description: 'Desc',
+        })
       vi.mocked(getProvider).mockResolvedValueOnce({
         complete: completeMock,
         stream: vi.fn(),
@@ -361,11 +368,13 @@ describe('ai routes', () => {
 
     it('passes maxTokens option to provider', async () => {
       const completeMock = vi.fn().mockResolvedValueOnce('Summary')
-      vi.mocked(db.get).mockResolvedValueOnce({
-        id: 1,
-        title: 'Test',
-        description: 'Desc',
-      })
+      vi.mocked(db.get)
+        .mockResolvedValueOnce({ enabled: 1 }) // feature_overrides lookup for requireFeature('ai')
+        .mockResolvedValueOnce({
+          id: 1,
+          title: 'Test',
+          description: 'Desc',
+        })
       vi.mocked(getProvider).mockResolvedValueOnce({
         complete: completeMock,
         stream: vi.fn(),

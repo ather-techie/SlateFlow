@@ -166,7 +166,7 @@ projectAccess.delete('/projects/:id/access/:userId', async (c) => {
     return err(c, 'cannot remove yourself from the project', 403)
   }
 
-  const existing = await db.get(
+  const existing = await db.get<{ role: string }>(
     'SELECT role FROM project_access WHERE user_id = ? AND project_id = ?',
     userId, projectId,
   )

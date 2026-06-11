@@ -1,3 +1,8 @@
+// The import makes this file a module, so `declare module` AUGMENTS hono's
+// types instead of replacing them (an ambient declaration would hide every
+// real export — `Module '"hono"' has no exported member 'Hono'`).
+import 'hono'
+
 declare module 'hono' {
   interface ContextVariableMap {
     user: {

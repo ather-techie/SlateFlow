@@ -28,7 +28,7 @@ function makeApp() {
 }
 
 beforeEach(() => {
-  vi.resetAllMocks()
+  vi.clearAllMocks()
 })
 
 describe('config routes', () => {

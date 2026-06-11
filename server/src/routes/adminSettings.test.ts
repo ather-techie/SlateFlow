@@ -29,6 +29,8 @@ vi.mock('../lib/oauth/github.js', () => ({
 
 import { db } from '../db/index.js'
 import { getAllFlags, setFlag, isEnabled } from '../lib/featureFlags.js'
+import { google } from '../lib/oauth/google.js'
+import { github } from '../lib/oauth/github.js'
 import adminSettings from './adminSettings'
 
 const ADMIN = { id: 1, role: 'super_admin', email: 'admin@test.com', display_name: 'Admin' }
@@ -69,7 +71,7 @@ describe('adminSettings routes', () => {
       const res = await makeApp().request('/admin/feature-overrides')
       expect(res.status).toBe(200)
       const json = await res.json()
-      expect(json.data).toHaveLength(12)
+      expect(json.data).toHaveLength(17)
     })
 
     it('includes env_enabled status', async () => {
@@ -120,14 +122,16 @@ describe('adminSettings routes', () => {
       vi.mocked(db.all).mockResolvedValueOnce([])
       vi.mocked(isEnabled).mockResolvedValue(true)
       vi.mocked(getAllFlags).mockResolvedValue({})
+      vi.mocked(google.isConfigured).mockReturnValue(true)
+      vi.mocked(github.isConfigured).mockReturnValue(true)
 
       const res = await makeApp().request('/admin/feature-overrides')
       expect(res.status).toBe(200)
       const json = await res.json()
       const googleFlag = json.data.find((f: any) => f.flag === 'auth_google')
-      if (googleFlag && googleFlag.flag === 'auth_google' || googleFlag.flag === 'auth_github') {
-        expect(googleFlag).toHaveProperty('configured')
-      }
+      expect(googleFlag).toHaveProperty('configured', true)
+      const githubFlag = json.data.find((f: any) => f.flag === 'auth_github')
+      expect(githubFlag).toHaveProperty('configured', true)
     })
   })
 
@@ -265,9 +269,9 @@ describe('adminSettings routes', () => {
   })
 
   describe('validation: known flags', () => {
-    it('lists all 12 known feature flags', () => {
-      const flags = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications', 'card_attachments']
-      expect(flags).toHaveLength(12)
+    it('lists all 17 known feature flags', () => {
+      const flags = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications', 'card_attachments', 'read_mcp', 'create_mcp', 'update_mcp', 'delete_mcp', 'report_mcp']
+      expect(flags).toHaveLength(17)
     })
   })
 })

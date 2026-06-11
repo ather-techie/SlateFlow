@@ -158,7 +158,7 @@ describe('calendar routes', () => {
       const hexRx = /^#[0-9a-fA-F]{3,8}$/
       expect(hexRx.test('#gg0000')).toBe(false)
       expect(hexRx.test('ffffff')).toBe(false)
-      expect(hexRx.test('#fff0000')).toBe(false)
+      expect(hexRx.test('#fff000000')).toBe(false)
       expect(hexRx.test('#12')).toBe(false)
     })
   })

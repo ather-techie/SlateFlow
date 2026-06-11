@@ -251,7 +251,7 @@ describe('projectAccess routes', () => {
         body: JSON.stringify({ user_id: 2, role: 'contributor' }),
       })
       expect(res.status).toBe(201)
-      expect(vi.mocked(db.run).mock.calls[0][2]).toBe('[]')
+      expect(vi.mocked(db.run).mock.calls[0][5]).toBe('[]')
     })
   })
 

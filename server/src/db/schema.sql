@@ -391,3 +391,21 @@ CREATE TABLE IF NOT EXISTS mcp_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_mcp_tokens_user  ON mcp_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_mcp_tokens_hash  ON mcp_tokens(token_hash);
+
+-- ── FK indexes for hot query paths (board, hierarchy, card modal) ─────────────
+-- schema.sql runs on every boot, so existing databases pick these up automatically.
+
+CREATE INDEX IF NOT EXISTS idx_cards_swim_lane   ON cards(swim_lane_id);
+CREATE INDEX IF NOT EXISTS idx_cards_sprint      ON cards(sprint_id);
+CREATE INDEX IF NOT EXISTS idx_cards_feature     ON cards(feature_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_story       ON tasks(story_id);
+CREATE INDEX IF NOT EXISTS idx_comments_card     ON comments(card_id);
+CREATE INDEX IF NOT EXISTS idx_activity_log_card ON activity_log(card_id);
+CREATE INDEX IF NOT EXISTS idx_features_epic     ON features(epic_id);
+CREATE INDEX IF NOT EXISTS idx_features_project  ON features(project_id);
+CREATE INDEX IF NOT EXISTS idx_epics_project     ON epics(project_id);
+CREATE INDEX IF NOT EXISTS idx_sprints_project   ON sprints(project_id);
+CREATE INDEX IF NOT EXISTS idx_swim_lanes_project ON swim_lanes(project_id);
+CREATE INDEX IF NOT EXISTS idx_test_cases_suite  ON test_cases(suite_id);
+CREATE INDEX IF NOT EXISTS idx_test_cases_card   ON test_cases(card_id);
+CREATE INDEX IF NOT EXISTS idx_test_runs_case    ON test_runs(test_case_id);

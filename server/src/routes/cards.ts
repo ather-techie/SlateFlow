@@ -180,7 +180,7 @@ cards.post('/columns/:id/cards', async (c) => {
     story_points ?? null, assignee ?? null, (maxPosRow?.m ?? -1) + 1,
   )
 
-  await logActivity(lastID as number, 'create', { column_id: columnId })
+  await logActivity(lastID, 'create', { column_id: columnId })
 
   return ok(c, await db.get('SELECT * FROM cards WHERE id = ?', lastID), 201)
 })
@@ -323,7 +323,8 @@ cards.patch('/cards/:id/move', async (c) => {
   if (movedLane) emitBoardEvent({ type: 'card:moved', projectId: movedLane.project_id, data: movedCard })
 
   if (movedLane?.is_done_col) {
-    closeGitHubIssues(id) // fire-and-forget; non-blocking
+    // fire-and-forget; non-blocking
+    Promise.resolve(closeGitHubIssues(id)).catch((e) => console.error('[cards] closeGitHubIssues failed:', e))
   }
 
   return ok(c, movedCard)

@@ -1,8 +1,8 @@
-// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NLItemInput, normalizePriority } from './NLItemInput'
+import { api as apiImport } from '../api/index'
 import toast from 'react-hot-toast'
 
 vi.mock('../api/index', () => ({
@@ -56,7 +56,9 @@ describe('normalizePriority', () => {
 
 describe('NLItemInput component', () => {
   const mockOnCreated = vi.fn()
-  const { api } = require('../api/index')
+  // the vi.mock factory above replaces the module, so this import is the mock
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const api = apiImport as any
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -156,8 +158,7 @@ describe('NLItemInput component', () => {
     await waitFor(() => {
       expect(api.ai.parseItem).toHaveBeenCalledWith({
         input: 'create a task',
-        context: { projectId: 1 },
-        allowedTypes: ['epic', 'feature', 'story'],
+        context: { projectId: 1, allowedTypes: ['epic', 'feature', 'story'] },
       })
     })
   })
@@ -189,7 +190,8 @@ describe('NLItemInput component', () => {
     await user.click(screen.getByRole('button', { name: /parse/i }))
     await waitFor(() => {
       expect(screen.getByText('Epic')).toBeInTheDocument()
-      expect(screen.getByText('New Epic')).toBeInTheDocument()
+      // the preview renders the title in an editable input
+      expect(screen.getByDisplayValue('New Epic')).toBeInTheDocument()
     })
   })
 
@@ -235,7 +237,8 @@ describe('NLItemInput component', () => {
     await waitFor(() => {
       const newTextarea = document.querySelector('textarea')
       expect(newTextarea).toBeInTheDocument()
-      expect(newTextarea?.value).toBe('')
+      // the original input is preserved so the user can rephrase it
+      expect(newTextarea?.value).toBe('unclear')
     })
   })
 
@@ -246,7 +249,16 @@ describe('NLItemInput component', () => {
       payload: { title: 'New Story', priority: 'p2', assignee: undefined },
     })
     api.cards.create.mockResolvedValue({ id: 1, title: 'New Story' })
-    renderComponent()
+    // story creation needs a lane to target — pass one so selectedLaneId is set
+    render(
+      <NLItemInput
+        allowedTypes={['epic', 'feature', 'story']}
+        context={{ projectId: 1 }}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        lanes={[{ id: 5, project_id: 1, name: 'To Do', position: 0, is_done_col: 0 } as any]}
+        onCreated={mockOnCreated}
+      />
+    )
     await user.click(screen.getByRole('button', { name: /create with ai/i }))
     const textarea = await waitFor(() => document.querySelector('textarea')!)
     await user.type(textarea, 'create story')

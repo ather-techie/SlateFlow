@@ -1,6 +1,6 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema, Tool } from '@modelcontextprotocol/sdk/types.js'
+import { CallToolRequestSchema, ListToolsRequestSchema, Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { db } from '../db/index.js'
 import { isEnabled } from './featureFlags.js'
 import { canRead, canWrite } from './projectAccess.js'
@@ -394,11 +394,11 @@ export function createMcpServer() {
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }))
 
-  server.setRequestHandler(CallToolRequestSchema, async (request: any) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const toolName = request.params.name
-    const toolInput = request.params.arguments as Record<string, unknown>
+    const toolInput = (request.params.arguments ?? {}) as Record<string, unknown>
     // TODO: extract user from context and pass to callTool
-    return await callTool({ id: 0, email: '', role: 'global_reader' }, toolName, toolInput)
+    return (await callTool({ id: 0, email: '', role: 'global_reader' }, toolName, toolInput)) as CallToolResult
   })
 
   return server

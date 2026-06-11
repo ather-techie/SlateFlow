@@ -1,9 +1,9 @@
-// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import LoginPage from './LoginPage'
+import { api as apiImport } from '../api/index'
 import { useAuthStore } from '../store/authStore'
 import { useFeatureFlagStore } from '../store/featureFlagStore'
 import toast from 'react-hot-toast'
@@ -20,7 +20,9 @@ vi.mock('../api/index', () => ({
 vi.mock('react-hot-toast')
 
 describe('LoginPage', () => {
-  const { api } = require('../api/index')
+  // the vi.mock factory above replaces the module, so this import is the mock
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const api = apiImport as any
   const mockUser = {
     id: 1,
     email: 'test@example.com',
@@ -68,8 +70,8 @@ describe('LoginPage', () => {
   describe('auth method rendering', () => {
     it('renders email/password form when auth_password is enabled', () => {
       renderLoginPage()
-      expect(screen.getByPlaceholderText('Email')).toBeInTheDocument()
-      expect(screen.getByPlaceholderText('Password')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('admin@flow.local')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument()
     })
 
     it('does not render email/password form when auth_password is disabled', () => {
@@ -77,8 +79,8 @@ describe('LoginPage', () => {
         features: { ...state.features, auth_password: false },
       }))
       renderLoginPage()
-      expect(screen.queryByPlaceholderText('Email')).not.toBeInTheDocument()
-      expect(screen.queryByPlaceholderText('Password')).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('admin@flow.local')).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('••••••••')).not.toBeInTheDocument()
     })
 
     it('renders Google OAuth button when auth_google is enabled', () => {
@@ -166,8 +168,8 @@ describe('LoginPage', () => {
       api.auth.me.mockResolvedValue(mockUser)
       renderLoginPage()
 
-      await user.type(screen.getByPlaceholderText('Email'), 'test@example.com')
-      await user.type(screen.getByPlaceholderText('Password'), 'password123')
+      await user.type(screen.getByPlaceholderText('admin@flow.local'), 'test@example.com')
+      await user.type(screen.getByPlaceholderText('••••••••'), 'password123')
       await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
@@ -184,8 +186,8 @@ describe('LoginPage', () => {
       api.auth.me.mockResolvedValue(mockUser)
       renderLoginPage()
 
-      await user.type(screen.getByPlaceholderText('Email'), 'test@example.com')
-      await user.type(screen.getByPlaceholderText('Password'), 'password123')
+      await user.type(screen.getByPlaceholderText('admin@flow.local'), 'test@example.com')
+      await user.type(screen.getByPlaceholderText('••••••••'), 'password123')
       await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
@@ -200,8 +202,8 @@ describe('LoginPage', () => {
       api.auth.me.mockResolvedValue(mockUser)
       renderLoginPage()
 
-      await user.type(screen.getByPlaceholderText('Email'), 'test@example.com')
-      await user.type(screen.getByPlaceholderText('Password'), 'password123')
+      await user.type(screen.getByPlaceholderText('admin@flow.local'), 'test@example.com')
+      await user.type(screen.getByPlaceholderText('••••••••'), 'password123')
       await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
@@ -215,8 +217,8 @@ describe('LoginPage', () => {
       api.auth.login.mockRejectedValue(new Error('Invalid credentials'))
       renderLoginPage()
 
-      await user.type(screen.getByPlaceholderText('Email'), 'test@example.com')
-      await user.type(screen.getByPlaceholderText('Password'), 'wrong')
+      await user.type(screen.getByPlaceholderText('admin@flow.local'), 'test@example.com')
+      await user.type(screen.getByPlaceholderText('••••••••'), 'wrong')
       await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
@@ -230,8 +232,8 @@ describe('LoginPage', () => {
       api.auth.me.mockRejectedValue(new Error('Network error'))
       renderLoginPage()
 
-      await user.type(screen.getByPlaceholderText('Email'), 'test@example.com')
-      await user.type(screen.getByPlaceholderText('Password'), 'password123')
+      await user.type(screen.getByPlaceholderText('admin@flow.local'), 'test@example.com')
+      await user.type(screen.getByPlaceholderText('••••••••'), 'password123')
       await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
@@ -243,14 +245,14 @@ describe('LoginPage', () => {
   describe('password visibility toggle', () => {
     it('renders password input as type="password" initially', () => {
       renderLoginPage()
-      const passwordInput = screen.getByPlaceholderText('Password') as HTMLInputElement
+      const passwordInput = screen.getByPlaceholderText('••••••••') as HTMLInputElement
       expect(passwordInput.type).toBe('password')
     })
 
     it('toggles password input type when show password button is clicked', async () => {
       const user = userEvent.setup()
       renderLoginPage()
-      const passwordInput = screen.getByPlaceholderText('Password') as HTMLInputElement
+      const passwordInput = screen.getByPlaceholderText('••••••••') as HTMLInputElement
       const toggleBtn = screen.getByRole('button', { name: /show|hide/i })
 
       expect(passwordInput.type).toBe('password')
@@ -263,7 +265,7 @@ describe('LoginPage', () => {
     it('switches input type back to password after clicking toggle', async () => {
       const user = userEvent.setup()
       renderLoginPage()
-      const passwordInput = screen.getByPlaceholderText('Password') as HTMLInputElement
+      const passwordInput = screen.getByPlaceholderText('••••••••') as HTMLInputElement
       const toggleBtn = screen.getByRole('button', { name: /show|hide/i })
 
       await user.click(toggleBtn)
@@ -281,8 +283,8 @@ describe('LoginPage', () => {
       api.auth.login.mockReturnValue(loginPromise)
       renderLoginPage()
 
-      await user.type(screen.getByPlaceholderText('Email'), 'test@example.com')
-      await user.type(screen.getByPlaceholderText('Password'), 'password123')
+      await user.type(screen.getByPlaceholderText('admin@flow.local'), 'test@example.com')
+      await user.type(screen.getByPlaceholderText('••••••••'), 'password123')
       const submitBtn = screen.getByRole('button', { name: /sign in/i })
       await user.click(submitBtn)
 
@@ -297,8 +299,8 @@ describe('LoginPage', () => {
       api.auth.login.mockReturnValue(loginPromise)
       renderLoginPage()
 
-      await user.type(screen.getByPlaceholderText('Email'), 'test@example.com')
-      await user.type(screen.getByPlaceholderText('Password'), 'password123')
+      await user.type(screen.getByPlaceholderText('admin@flow.local'), 'test@example.com')
+      await user.type(screen.getByPlaceholderText('••••••••'), 'password123')
       const submitBtn = screen.getByRole('button', { name: /sign in/i })
       await user.click(submitBtn)
 
@@ -368,7 +370,7 @@ describe('LoginPage', () => {
       useFeatureFlagStore.setState({ loading: true })
       renderLoginPage()
       // When loading, no login method should be shown (including the "no methods" warning)
-      expect(screen.queryByPlaceholderText('Email')).not.toBeInTheDocument()
+      expect(screen.queryByPlaceholderText('admin@flow.local')).not.toBeInTheDocument()
       expect(screen.queryByText(/no login methods/i)).not.toBeInTheDocument()
     })
 
@@ -388,7 +390,7 @@ describe('LoginPage', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('Email')).toBeInTheDocument()
+        expect(screen.getByPlaceholderText('admin@flow.local')).toBeInTheDocument()
       })
     })
   })

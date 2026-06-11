@@ -214,7 +214,7 @@ describe('isEnabled', () => {
 })
 
 describe('getAllFlags', () => {
-  it('returns an object with all 12 known flags', async () => {
+  it('returns an object with all 17 known flags', async () => {
     const allFlags = [
       'ai',
       'auto_test_case_generation_ai',
@@ -228,6 +228,11 @@ describe('getAllFlags', () => {
       'gitlab_integration',
       'email_notifications',
       'card_attachments',
+      'read_mcp',
+      'create_mcp',
+      'update_mcp',
+      'delete_mcp',
+      'report_mcp',
     ]
 
     vi.mocked(db.get).mockResolvedValue(undefined)
@@ -253,6 +258,11 @@ describe('getAllFlags', () => {
       'gitlab_integration',
       'email_notifications',
       'card_attachments',
+      'read_mcp',
+      'create_mcp',
+      'update_mcp',
+      'delete_mcp',
+      'report_mcp',
     ]
 
     vi.mocked(db.get).mockResolvedValue(undefined)
@@ -273,9 +283,9 @@ describe('getAllFlags', () => {
 
     await getAllFlags()
 
-    // DB.get should be called once per flag (12 times)
-    // Each call checks the DB, so we expect 12 calls total
-    expect(vi.mocked(db.get).mock.calls.length).toBe(12)
+    // DB.get should be called once per flag (17 times)
+    // Each call checks the DB, so we expect 17 calls total
+    expect(vi.mocked(db.get).mock.calls.length).toBe(17)
   })
 
   it('returns record with correct flag values mixed true and false', async () => {
@@ -376,6 +386,11 @@ describe('setFlag', () => {
       'gitlab_integration',
       'email_notifications',
       'card_attachments',
+      'read_mcp',
+      'create_mcp',
+      'update_mcp',
+      'delete_mcp',
+      'report_mcp',
     ]
 
     for (const flag of flags) {

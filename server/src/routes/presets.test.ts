@@ -209,8 +209,7 @@ describe('presets routes', () => {
 
       await makeApp().request('/lane-presets')
       expect(vi.mocked(db.all)).toHaveBeenCalledWith(
-        'SELECT * FROM lane_presets ORDER BY id',
-        expect.anything()
+        'SELECT * FROM lane_presets ORDER BY id'
       )
     })
   })

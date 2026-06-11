@@ -1,4 +1,4 @@
-# ── Stage 1: full install (build tools needed for better-sqlite3 native addon) ─
+# ── Stage 1: full install (build tools needed for sqlite3 native addon) ───────
 FROM node:20-alpine AS all-deps
 WORKDIR /build
 RUN apk add --no-cache python3 make g++
@@ -40,11 +40,17 @@ RUN cp -r server/src/prompts server/dist/prompts
 # ── Stage 5: production image ──────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
-# Pre-compiled node_modules (includes the better-sqlite3 native binary)
+# Pre-compiled node_modules (includes the sqlite3 native binary)
 COPY --from=prod-deps /build/node_modules ./node_modules
 # Compiled server and built client
 COPY --from=server-build /build/server/dist ./server/dist/
 COPY --from=client-build /build/client/dist ./client/dist/
+
+# Run as the unprivileged node user. /data holds the SQLite DB + uploads volume;
+# chown here covers fresh volumes — volumes created by an older (root) image need
+# a one-time `docker exec -u root <container> chown -R node:node /data`.
+RUN mkdir -p /data && chown -R node:node /data /app
+USER node
 
 EXPOSE 3000
 ENV NODE_ENV=production

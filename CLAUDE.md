@@ -60,7 +60,7 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 
 | Variable | Default | Notes |
 |---|---|---|
-| `JWT_SECRET` | `dev-secret-change-in-production` | Signs auth tokens. **Must be changed in production.** |
+| `JWT_SECRET` | `dev-secret-change-in-production` (dev only) | Signs auth tokens. **Required in production** — the server refuses to start without it when `NODE_ENV=production`. |
 | `DATABASE_PATH` | `server/slateflow.db` | SQLite file path; Docker sets to `/data/slateflow.db` |
 | `PORT` | `3000` | Server listen port |
 | `FEATURE_AI` | `false` | Enterprise gate — `true` enables all AI endpoints and UI surfaces |
@@ -239,7 +239,7 @@ DELETE on any default item returns `409`. Backfill on startup fills any missing 
 |---|---|
 | `Dockerfile.server` | 5-stage multi-stage build: deps → prod-deps → client-build → server-build → production |
 | `docker-compose.yml` | Single `slateflow` service; named volume `slateflow-data` mounted at `/data` |
-| `.env.example` | Documents `PORT`, `DATABASE_PATH`, `SECRET` |
+| `.env.example` | Documents `PORT`, `DATABASE_PATH`, `JWT_SECRET`, feature flags, OAuth/AI/SMTP settings |
 | `.dockerignore` | Excludes `node_modules`, `dist`, `*.db` from build context |
 
 In production the server compiles to `server/dist/` and serves `client/dist/` as static files. `schema.sql` is copied alongside `index.js` in `server/dist/db/` (the `tsc` step doesn't move non-TS assets).

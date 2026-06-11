@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc || echo TypeScript type errors (pre-existing hono/TS5.9 incompatibility, JS output unaffected)",
+    "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -14,7 +14,6 @@
     "@hono/node-server": "^2.0.0",
     "@hono/swagger-ui": "^0.6.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@types/sqlite3": "^3.1.11",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.6.1",
     "hono": "^4.5.3",
@@ -24,10 +23,11 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/sqlite3": "^3.1.11",
     "@types/node": "^22.5.0",
     "@types/nodemailer": "^6.4.14",
     "tsx": "^4.17.0",
-    "typescript": "5.5.4",
+    "typescript": "^5.9.3",
     "vitest": "^2.0.0"
   }
 }

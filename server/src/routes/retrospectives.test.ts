@@ -41,12 +41,16 @@ beforeEach(() => {
 describe('retrospectives routes', () => {
   describe('GET /sprints/:sprintId/retrospective', () => {
     it('returns 400 for invalid sprint id', async () => {
+      vi.mocked(db.get).mockResolvedValueOnce({ enabled: 1 }) // feature_overrides lookup for requireFeature('retrospective')
+
       const res = await makeApp().request('/sprints/invalid/retrospective')
       expect(res.status).toBe(400)
     })
 
     it('returns 404 when sprint not found', async () => {
-      vi.mocked(db.get).mockResolvedValueOnce(null)
+      vi.mocked(db.get)
+        .mockResolvedValueOnce({ enabled: 1 }) // feature_overrides lookup for requireFeature('retrospective')
+        .mockResolvedValueOnce(null) // sprint lookup
 
       const res = await makeApp().request('/sprints/999/retrospective')
       expect([404]).toContain(res.status)

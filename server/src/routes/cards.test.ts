@@ -103,16 +103,13 @@ describe('GET /lanes/:id/cards', () => {
       { id: 1, title: 'Story A', swim_lane_id: 2 },
       { id: 2, title: 'Story B', swim_lane_id: 2 },
     ]
-    vi.mocked(db.get)
-      .mockResolvedValueOnce({ id: 2 })
-      .mockResolvedValueOnce({ total: 2 })
+    vi.mocked(db.get).mockResolvedValueOnce({ id: 2 })
     vi.mocked(db.all).mockResolvedValueOnce(mockCards)
 
     const res = await makeApp().request('/lanes/2/cards')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.items).toEqual(mockCards)
-    expect(body.data.total).toBe(2)
+    expect(body.data).toEqual(mockCards)
     expect(body.error).toBeNull()
   })
 })

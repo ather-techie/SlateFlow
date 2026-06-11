@@ -8,6 +8,7 @@ vi.mock('../db/index.js', () => ({
     run: vi.fn(),
     transaction: vi.fn((fn: () => Promise<unknown>) => async () => fn()),
   },
+  seedProjectDefaults: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('../lib/projectAccess.js', () => ({

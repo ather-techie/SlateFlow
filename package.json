@@ -14,5 +14,8 @@
   },
   "dependencies": {
     "file-type": "^21.3.4"
+  },
+  "overrides": {
+    "jsdom": "^25.0.1"
   }
 }

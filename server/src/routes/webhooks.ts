@@ -5,8 +5,12 @@ import { ok, err } from '../lib/response.js'
 import { emitBoardEvent } from '../lib/eventBus.js'
 import { isEnabled } from '../lib/featureFlags.js'
 import { logActivity } from '../lib/activityLog.js'
+import { createRateLimiter } from '../middleware/rateLimiter.js'
 
 const webhooks = new Hono()
+
+// Public, unauthenticated endpoints — cap per-IP request rate
+webhooks.use('/webhooks/*', createRateLimiter(60, 60 * 1000))
 
 // ── Shared: move card to done lane ────────────────────────────────────────────
 

@@ -11,7 +11,13 @@ export const requireAuth: MiddlewareHandler = async (c, next) => {
   const payload = await verifyToken(token)
   if (!payload) return err(c, 'invalid or expired token', 401)
 
-  const user = await db.get<{ id: number; email: string; display_name: string; role: string; is_active: number }>(
+  const user = await db.get<{
+    id: number
+    email: string
+    display_name: string
+    role: 'super_admin' | 'global_reader'
+    is_active: number
+  }>(
     'SELECT id, email, display_name, role, is_active FROM users WHERE id = ? AND deleted_at IS NULL AND is_active = 1',
     payload.sub,
   )

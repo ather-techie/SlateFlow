@@ -193,6 +193,8 @@ attachments.post('/cards/:id/attachments', async (c) => {
     lastID
   )
 
+  if (!attachment) return err(c, 'attachment not found after upload', 500)
+
   return ok(c, {
     ...attachment,
     url: `/uploads/${attachment.filename}`,
