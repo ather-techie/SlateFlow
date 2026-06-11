@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import type { Card, Comment } from '../../types'
-import { api } from '../../api/index'
+import { api, type CommentThreadSummary } from '../../api/index'
 import { fmtRelative } from '../../utils/cardModal'
+import { FeatureGate } from '../ui/FeatureGate'
+import CommentSummaryCard from './CommentSummaryCard'
 
 interface Props {
   card: Card
@@ -13,6 +15,8 @@ export default function CardCommentsTab({ card }: Props) {
   const [commentBody, setCommentBody] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [summary, setSummary] = useState<CommentThreadSummary | null>(null)
+  const [summarizing, setSummarizing] = useState(false)
 
   useEffect(() => {
     api.comments.list(card.id)
@@ -34,10 +38,38 @@ export default function CardCommentsTab({ card }: Props) {
     }
   }
 
+  async function handleSummarize() {
+    if (summarizing) return
+    setSummarizing(true)
+    try {
+      setSummary(await api.ai.summarizeComments(card.id))
+    } catch {
+      // axios interceptor already toasts API errors
+    } finally {
+      setSummarizing(false)
+    }
+  }
+
   if (loading) return <div className="text-sm text-slate-400">Loading comments…</div>
 
   return (
     <div className="space-y-4">
+      {/* AI thread summary (only offered for threads with 5+ comments) */}
+      <FeatureGate flag="ai">
+        <FeatureGate flag="ai_writing_assist">
+          {comments.length >= 5 && (
+            <button
+              onClick={handleSummarize}
+              disabled={summarizing}
+              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg px-3 py-1.5 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              ✨ {summarizing ? 'Summarizing…' : 'Summarize thread'}
+            </button>
+          )}
+          {summary && <CommentSummaryCard summary={summary} onDismiss={() => setSummary(null)} />}
+        </FeatureGate>
+      </FeatureGate>
+
       {/* Comment form */}
       <div className="space-y-2">
         <textarea

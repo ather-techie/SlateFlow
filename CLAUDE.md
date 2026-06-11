@@ -66,6 +66,10 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 | `FEATURE_AI` | `false` | Enterprise gate — `true` enables all AI endpoints and UI surfaces |
 | `FEATURE_AUTO_TEST_CASE_GENERATION_AI` | `false` | Enables test case generation from user stories (`POST /api/ai/cards/:id/generate-test-cases`) |
 | `FEATURE_AUTO_STORY_GENERATION_AI` | `false` | Enables story generation from feature title/description (`POST /api/ai/features/:id/generate-stories`) |
+| `FEATURE_AI_CEREMONY_DIGESTS` | `false` | Enables Sprint Health Digest, Daily Standup Digest, and Retrospective Synthesizer (`/api/ai/sprints/:id/digest`, `/api/ai/projects/:id/standup-digest`, `/api/ai/retrospectives/:id/synthesize`) |
+| `FEATURE_AI_WRITING_ASSIST` | `false` | Enables Acceptance Criteria generation and comment-thread summarization (`/api/ai/cards/:id/generate-acceptance-criteria`, `/api/ai/cards/:id/summarize-comments`) |
+| `FEATURE_AI_PLANNING_ASSIST` | `false` | Enables assignee/estimate suggestions, sprint planning, and backlog grooming (`/api/ai/cards/:id/suggest-assignee`, `/suggest-estimate`, `/api/ai/projects/:id/plan-sprint`, `/groom-backlog`) |
+| `FEATURE_AI_PROJECT_CHAT` | `false` | Enables the streaming "Ask Your Project" chat (`POST /api/ai/projects/:id/chat`, SSE response) |
 | `FEATURE_RETROSPECTIVE` | `false` | Enables the per-sprint Retrospective Board (sidebar nav + `/api/sprints/:id/retrospective` and item endpoints) |
 | `FEATURE_CALENDAR` | `false` | Enables the Calendar surface (sidebar nav + `/api/projects/:id/calendar` plus event/vacation/holiday CRUD) |
 | `FEATURE_AUTH_PASSWORD` | `true` (seeded on first boot) | Email/password login (`POST /api/auth/login`). Set to `false` to require all users to authenticate via OAuth/SSO |
@@ -179,7 +183,7 @@ resolved flag               → server: requireFeature('ai') middleware
 
 `GET /api/config` (public) exposes the resolved flags so the client can gate UI without hard-coding. `PATCH /api/admin/feature-overrides/:flag` (super_admin) toggles the runtime override. The env var is the authoritative ceiling for self-hosted deployments.
 
-Eleven flags are currently registered: `ai`, `auto_test_case_generation_ai`, `auto_story_generation_ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`. When adding a new flag, update **all four** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + `KNOWN_FLAGS`), [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) (two hard-coded lists), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
+Twenty-one flags are currently registered: `ai`, `auto_test_case_generation_ai`, `auto_story_generation_ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`, `card_attachments`, `read_mcp`, `create_mcp`, `update_mcp`, `delete_mcp`, `report_mcp`, `ai_ceremony_digests`, `ai_writing_assist`, `ai_planning_assist`, `ai_project_chat`. When adding a new flag, update **all three** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + exported `KNOWN_FLAGS` — [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) imports it, no separate list there), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state — note several client test files build full `Features` literals and must gain the new key too), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
 
 ## AI Providers
 
@@ -193,11 +197,33 @@ All providers talk directly to their APIs over native `fetch` (no vendor SDKs). 
 | `azure` | `gpt-4o` | `api-key` header — set `AI_BASE_URL` to the full deployment endpoint incl. `?api-version=…` |
 | `ollama` | `llama3` | `Authorization: Bearer ollama`; default base `http://localhost:11434` |
 
-`lib/sseLines.ts` is the shared SSE line reader used by every streaming provider. Four AI endpoints are currently implemented:
-- `POST /api/ai/cards/:id/summarize` — generates a 2–3 sentence summary of a story card
-- `POST /api/ai/cards/:id/generate-test-cases` — generates 3–5 test cases from a story's title and description
-- `POST /api/ai/features/:id/generate-stories` — generates 3–7 user story outlines from a feature's title and description
-- `POST /api/ai/parse-item` — parses natural-language work item requests and returns a discriminated union with type + payload (used for universal NL input across the board, epics, sprints, calendar, and project creation)
+`lib/sseLines.ts` is the shared SSE line reader used by every streaming provider. All provider fetches carry hard timeouts (`AbortSignal.timeout`), and token usage is logged per call. Sixteen AI endpoints are implemented, all under the master `ai` flag plus a per-group sub-flag, rate-limited per user:
+
+Base (`ai` only):
+- `POST /api/ai/cards/:id/summarize` — 2–3 sentence story summary
+- `POST /api/ai/parse-item` — natural-language work item parse (discriminated union), used by the universal NL input
+- `POST /api/ai/cards/:id/generate-test-cases` (`auto_test_case_generation_ai`) — 3–5 test cases from a story
+- `POST /api/ai/features/:id/generate-stories` (`auto_story_generation_ai`) — 3–7 story outlines from a feature
+
+Ceremony digests (`ai_ceremony_digests`):
+- `GET|POST /api/ai/sprints/:id/digest` — sprint health digest (markdown, persisted in `ai_digests`)
+- `GET|POST /api/ai/projects/:id/standup-digest` — daily standup digest (persisted)
+- `POST /api/ai/retrospectives/:id/synthesize` — retro themes + suggested actions + previous-retro follow-through (also requires `retrospective`)
+
+Writing assist (`ai_writing_assist`):
+- `POST /api/ai/cards/:id/generate-acceptance-criteria` — Given/When/Then criteria (client appends to description on confirm)
+- `POST /api/ai/cards/:id/summarize-comments` — thread summary + decisions + open questions (≥5 comments)
+
+Planning assist (`ai_planning_assist`):
+- `POST /api/ai/cards/:id/suggest-assignee` — skills/load/vacation-aware assignee suggestions
+- `POST /api/ai/cards/:id/suggest-estimate` — story points from comparable completed stories
+- `POST /api/ai/projects/:id/plan-sprint` — proposed sprint scope (planned sprints only)
+- `POST /api/ai/projects/:id/groom-backlog` — duplicates, vague stories, stale items (deterministic), priority order
+
+Project chat (`ai_project_chat`):
+- `POST /api/ai/projects/:id/chat` — **streaming SSE** project Q&A grounded in an RBAC-filtered context bundle ([server/src/lib/projectChatContext.ts](server/src/lib/projectChatContext.ts)); the only AI route that does not return the `{data,error}` envelope
+
+Every JSON-returning endpoint validates model output with zod and filters hallucinated ids/names against the DB before responding.
 
 ## Real-time (SSE)
 

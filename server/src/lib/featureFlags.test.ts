@@ -214,7 +214,7 @@ describe('isEnabled', () => {
 })
 
 describe('getAllFlags', () => {
-  it('returns an object with all 17 known flags', async () => {
+  it('returns an object with all 21 known flags', async () => {
     const allFlags = [
       'ai',
       'auto_test_case_generation_ai',
@@ -233,6 +233,10 @@ describe('getAllFlags', () => {
       'update_mcp',
       'delete_mcp',
       'report_mcp',
+      'ai_ceremony_digests',
+      'ai_writing_assist',
+      'ai_planning_assist',
+      'ai_project_chat',
     ]
 
     vi.mocked(db.get).mockResolvedValue(undefined)
@@ -263,6 +267,10 @@ describe('getAllFlags', () => {
       'update_mcp',
       'delete_mcp',
       'report_mcp',
+      'ai_ceremony_digests',
+      'ai_writing_assist',
+      'ai_planning_assist',
+      'ai_project_chat',
     ]
 
     vi.mocked(db.get).mockResolvedValue(undefined)
@@ -283,9 +291,9 @@ describe('getAllFlags', () => {
 
     await getAllFlags()
 
-    // DB.get should be called once per flag (17 times)
-    // Each call checks the DB, so we expect 17 calls total
-    expect(vi.mocked(db.get).mock.calls.length).toBe(17)
+    // DB.get should be called once per flag (21 times)
+    // Each call checks the DB, so we expect 21 calls total
+    expect(vi.mocked(db.get).mock.calls.length).toBe(21)
   })
 
   it('returns record with correct flag values mixed true and false', async () => {
@@ -391,6 +399,10 @@ describe('setFlag', () => {
       'update_mcp',
       'delete_mcp',
       'report_mcp',
+      'ai_ceremony_digests',
+      'ai_writing_assist',
+      'ai_planning_assist',
+      'ai_project_chat',
     ]
 
     for (const flag of flags) {

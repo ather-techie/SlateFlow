@@ -12,13 +12,15 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { api } from '../api/index'
+import { api, type RetroSynthesis } from '../api/index'
 import { useAuthStore } from '../store/authStore'
 import { useRetroStore } from '../store/retroStore'
 import { useRetrospectiveEvents } from '../hooks/useBoardEvents'
 import type { Project, RetroCategory, RetroItem, Sprint } from '../types'
 import Header from '../components/Header'
 import RetroColumn from '../components/Retro/RetroColumn'
+import RetroSynthesisPanel from '../components/Retro/RetroSynthesisPanel'
+import { FeatureGate } from '../components/ui/FeatureGate'
 
 const COLUMNS: { category: RetroCategory; title: string; accent: string }[] = [
   { category: 'went_well',  title: 'Went well',   accent: '#22c55e' },
@@ -41,6 +43,8 @@ export default function RetrospectivePage() {
   )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [synthesis, setSynthesis] = useState<RetroSynthesis | null>(null)
+  const [synthesizing, setSynthesizing] = useState(false)
 
   const { items, retroId, setRetro, addItem, updateItem, removeItem, setItems } = useRetroStore()
   const itemsRef = useRef<RetroItem[]>([])
@@ -79,6 +83,7 @@ export default function RetrospectivePage() {
   // Load retrospective for selected sprint
   useEffect(() => {
     if (!selectedSprintId) return
+    setSynthesis(null)
     api.retrospectives.getBySprint(selectedSprintId)
       .then(({ retrospective, items: rows }) => setRetro(retrospective.id, rows))
       .catch(() => toast.error('Failed to load retrospective'))
@@ -213,6 +218,26 @@ export default function RetrospectivePage() {
     }
   }
 
+  // ── AI synthesis ─────────────────────────────────────────────────────────────
+
+  async function handleSynthesize() {
+    if (!retroId || synthesizing) return
+    setSynthesizing(true)
+    try {
+      setSynthesis(await api.ai.synthesizeRetro(retroId))
+    } catch {
+      // axios interceptor toasts
+    } finally {
+      setSynthesizing(false)
+    }
+  }
+
+  async function handleAddSynthesisAction(body: string) {
+    if (!retroId) throw new Error('No retrospective loaded')
+    const created = await api.retrospectives.addItem(retroId, { category: 'action', body })
+    addItem(created)
+  }
+
   if (error) {
     return (
       <div className="h-full flex items-center justify-center bg-slate-100">
@@ -253,12 +278,25 @@ export default function RetrospectivePage() {
             </select>
           </>
         )}
-        {!canWrite && (
-          <span className="ml-auto text-xs text-slate-500 italic">Read-only</span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          <FeatureGate flag="ai">
+            <FeatureGate flag="ai_ceremony_digests">
+              <button
+                onClick={handleSynthesize}
+                disabled={synthesizing || loading || !retroId || items.length === 0}
+                className="text-xs text-indigo-600 hover:text-indigo-700 px-2.5 py-1.5 rounded-md border border-indigo-200 hover:bg-indigo-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {synthesizing ? 'Synthesizing…' : '✨ Synthesize'}
+              </button>
+            </FeatureGate>
+          </FeatureGate>
+          {!canWrite && (
+            <span className="text-xs text-slate-500 italic">Read-only</span>
+          )}
+        </div>
       </div>
 
-      <main className="flex-1 min-h-0 overflow-hidden">
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col">
         {loading ? (
           <div className="h-full flex items-center justify-center text-slate-400 text-sm">Loading…</div>
         ) : !selectedSprintId ? (
@@ -266,6 +304,17 @@ export default function RetrospectivePage() {
             Select a sprint to view its retrospective.
           </div>
         ) : (
+          <>
+          {synthesis && (
+            <div className="flex-shrink-0 px-6 pt-4 max-h-[45%] overflow-y-auto">
+              <RetroSynthesisPanel
+                synthesis={synthesis}
+                canWrite={canWrite}
+                onAddAction={handleAddSynthesisAction}
+                onDismiss={() => setSynthesis(null)}
+              />
+            </div>
+          )}
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -274,7 +323,7 @@ export default function RetrospectivePage() {
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <div className="flex gap-5 px-6 pt-4 pb-6 h-full overflow-x-auto">
+            <div className="flex gap-5 px-6 pt-4 pb-6 flex-1 min-h-0 overflow-x-auto">
               {COLUMNS.map(col => (
                 <RetroColumn
                   key={col.category}
@@ -290,6 +339,7 @@ export default function RetrospectivePage() {
               ))}
             </div>
           </DndContext>
+          </>
         )}
       </main>
     </div>

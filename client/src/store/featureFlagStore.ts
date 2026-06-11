@@ -18,6 +18,10 @@ export type FeatureFlag =
   | 'update_mcp'
   | 'delete_mcp'
   | 'report_mcp'
+  | 'ai_ceremony_digests'
+  | 'ai_writing_assist'
+  | 'ai_planning_assist'
+  | 'ai_project_chat'
 
 export interface Features {
   ai: boolean
@@ -37,6 +41,10 @@ export interface Features {
   update_mcp: boolean
   delete_mcp: boolean
   report_mcp: boolean
+  ai_ceremony_digests: boolean
+  ai_writing_assist: boolean
+  ai_planning_assist: boolean
+  ai_project_chat: boolean
 }
 
 interface FeatureFlagState {
@@ -66,6 +74,10 @@ export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
     update_mcp: false,
     delete_mcp: false,
     report_mcp: false,
+    ai_ceremony_digests: false,
+    ai_writing_assist: false,
+    ai_planning_assist: false,
+    ai_project_chat: false,
   },
   loading: true,
   setFlags: (features) => set({ features, loading: false }),

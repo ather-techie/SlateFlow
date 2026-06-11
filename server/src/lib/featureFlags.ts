@@ -20,8 +20,12 @@ export type FeatureFlag =
   | 'update_mcp'
   | 'delete_mcp'
   | 'report_mcp'
+  | 'ai_ceremony_digests'
+  | 'ai_writing_assist'
+  | 'ai_planning_assist'
+  | 'ai_project_chat'
 
-const KNOWN_FLAGS: FeatureFlag[] = [
+export const KNOWN_FLAGS: FeatureFlag[] = [
   'ai',
   'auto_test_case_generation_ai',
   'auto_story_generation_ai',
@@ -39,6 +43,10 @@ const KNOWN_FLAGS: FeatureFlag[] = [
   'update_mcp',
   'delete_mcp',
   'report_mcp',
+  'ai_ceremony_digests',
+  'ai_writing_assist',
+  'ai_planning_assist',
+  'ai_project_chat',
 ]
 
 interface OverrideRow {

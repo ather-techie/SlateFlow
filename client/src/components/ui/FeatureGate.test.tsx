@@ -25,6 +25,10 @@ describe('FeatureGate', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       },
     })
   })

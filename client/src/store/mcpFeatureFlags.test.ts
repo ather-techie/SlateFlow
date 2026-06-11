@@ -23,6 +23,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       },
       loading: true,
     })
@@ -102,6 +106,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -128,6 +136,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -154,6 +166,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: true,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -180,6 +196,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: true,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -206,6 +226,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: true,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -234,6 +258,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -261,6 +289,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: true,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -288,6 +320,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: true,
         delete_mcp: true,
         report_mcp: true,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -382,6 +418,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: true,
         delete_mcp: true,
         report_mcp: true,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -411,6 +451,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: true,
         delete_mcp: true,
         report_mcp: true,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -441,6 +485,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
       expect(features).toBeDefined()
     })
@@ -477,6 +525,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(enabledFeatures)
@@ -512,6 +564,10 @@ describe('MCP Feature Flags', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(initialFeatures)

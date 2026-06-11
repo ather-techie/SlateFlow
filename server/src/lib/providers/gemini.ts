@@ -1,4 +1,5 @@
 import type { AIProvider, CompletionOptions, Message } from '../ai.js'
+import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage } from '../ai.js'
 import { sseLines } from '../sseLines.js'
 
 type GeminiPart = { text: string }
@@ -56,12 +57,15 @@ export class GeminiProvider implements AIProvider {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`)
 
-    const json = await res.json() as {
+    const json = await readProviderJson<{
       candidates: Array<{ content: { parts: GeminiPart[] } }>
-    }
+      usageMetadata?: { promptTokenCount: number; candidatesTokenCount: number }
+    }>(res, 'Gemini')
+    logUsage('gemini', { input: json.usageMetadata?.promptTokenCount, output: json.usageMetadata?.candidatesTokenCount })
     const text = json.candidates[0]?.content?.parts[0]?.text
     if (!text) throw new Error('Empty response from Gemini')
     return text
@@ -76,6 +80,7 @@ export class GeminiProvider implements AIProvider {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`)
 

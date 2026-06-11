@@ -5,6 +5,9 @@ import type { Card, Feature, Label, Lane, Sprint } from '../types'
 import { api } from '../api/index'
 import { LABEL_PALETTE, PRIORITIES, PRIORITY_LABELS } from '../utils/cardModal'
 import { useFeatureFlagStore } from '../store/featureFlagStore'
+import { FeatureGate } from './ui/FeatureGate'
+import SuggestAssigneePopover from './CardModal/SuggestAssigneePopover'
+import SuggestEstimatePopover from './CardModal/SuggestEstimatePopover'
 // Tab components — each manages its own data fetching and state
 import CardDescriptionTab from './CardModal/CardDescriptionTab'
 import CardCommentsTab from './CardModal/CardCommentsTab'
@@ -230,7 +233,20 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Story Points</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Story Points</label>
+                <FeatureGate flag="ai">
+                  <FeatureGate flag="ai_planning_assist">
+                    <SuggestEstimatePopover
+                      cardId={card.id}
+                      onApply={points => {
+                        setStoryPoints(String(points))
+                        saveField({ story_points: points })
+                      }}
+                    />
+                  </FeatureGate>
+                </FeatureGate>
+              </div>
               <input
                 type="number"
                 min={1}
@@ -244,7 +260,20 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Assignee</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Assignee</label>
+                <FeatureGate flag="ai">
+                  <FeatureGate flag="ai_planning_assist">
+                    <SuggestAssigneePopover
+                      cardId={card.id}
+                      onApply={s => {
+                        setAssignee(s.assignee)
+                        saveField({ assignee: s.assignee })
+                      }}
+                    />
+                  </FeatureGate>
+                </FeatureGate>
+              </div>
               <input
                 value={assignee}
                 onChange={e => setAssignee(e.target.value)}

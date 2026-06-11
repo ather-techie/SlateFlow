@@ -52,6 +52,58 @@ export type ParsedIntent =
 
 export type NLAllowedType = 'epic' | 'feature' | 'story' | 'task' | 'project' | 'sprint' | 'calendar'
 
+export interface AiDigest {
+  digest: string | null
+  generated_at: string | null
+}
+
+export interface RetroSynthesis {
+  themes: Array<{ title: string; category: 'went_well' | 'to_improve'; item_ids: number[] }>
+  suggested_actions: Array<{ body: string }>
+  previous_actions_review: Array<{ body: string; status: 'addressed' | 'partially' | 'not_addressed' | 'unknown'; evidence: string }>
+}
+
+export interface AcceptanceCriterion {
+  given: string
+  when: string
+  then: string
+}
+
+export interface CommentThreadSummary {
+  summary: string
+  decisions: string[]
+  open_questions: string[]
+}
+
+export interface AssigneeSuggestion {
+  user_id: number
+  assignee: string
+  confidence: 'high' | 'medium' | 'low'
+  reason: string
+}
+
+export interface EstimateSuggestion {
+  points: number
+  confidence: 'high' | 'medium' | 'low'
+  rationale: string
+  comparables: Array<{ card_id: number; title: string; points: number }>
+}
+
+export interface SprintPlan {
+  recommended_points: number
+  rationale: string
+  proposed: Array<{ card_id: number; title: string; points: number | null; reason: string }>
+  risks: string[]
+}
+
+export interface BacklogGrooming {
+  duplicates: Array<{ card_ids: number[]; reason: string }>
+  vague: Array<{ card_id: number; issue: string; suggested_description: string }>
+  priority_order: number[]
+  stale: Array<{ card_id: number; title: string; last_activity_days: number }>
+  notes: string
+}
+
 export const http = axios.create({ baseURL: '/api', withCredentials: true })
 
 http.interceptors.response.use(
@@ -264,6 +316,31 @@ export const api = {
       http.post(`/ai/cards/${cardId}/generate-test-cases`).then(r => r.data),
     generateStories: (featureId: number) =>
       http.post(`/ai/features/${featureId}/generate-stories`).then(r => r.data),
+    // ceremony digests (flag: ai_ceremony_digests)
+    getSprintDigest: (sprintId: number) =>
+      unwrap<AiDigest>(http.get(`/ai/sprints/${sprintId}/digest`)),
+    generateSprintDigest: (sprintId: number) =>
+      unwrap<AiDigest>(http.post(`/ai/sprints/${sprintId}/digest`)),
+    getStandupDigest: (projectId: number) =>
+      unwrap<AiDigest>(http.get(`/ai/projects/${projectId}/standup-digest`)),
+    generateStandupDigest: (projectId: number, data?: { hours?: number; stale_days?: number }) =>
+      unwrap<AiDigest>(http.post(`/ai/projects/${projectId}/standup-digest`, data ?? {})),
+    synthesizeRetro: (retroId: number) =>
+      unwrap<RetroSynthesis>(http.post(`/ai/retrospectives/${retroId}/synthesize`)),
+    // writing assist (flag: ai_writing_assist)
+    generateAcceptanceCriteria: (cardId: number) =>
+      unwrap<{ criteria: AcceptanceCriterion[] }>(http.post(`/ai/cards/${cardId}/generate-acceptance-criteria`)),
+    summarizeComments: (cardId: number) =>
+      unwrap<CommentThreadSummary>(http.post(`/ai/cards/${cardId}/summarize-comments`)),
+    // planning assist (flag: ai_planning_assist)
+    suggestAssignee: (cardId: number) =>
+      unwrap<{ suggestions: AssigneeSuggestion[] }>(http.post(`/ai/cards/${cardId}/suggest-assignee`)),
+    suggestEstimate: (cardId: number) =>
+      unwrap<EstimateSuggestion>(http.post(`/ai/cards/${cardId}/suggest-estimate`)),
+    planSprint: (projectId: number, sprintId: number) =>
+      unwrap<SprintPlan>(http.post(`/ai/projects/${projectId}/plan-sprint`, { sprint_id: sprintId })),
+    groomBacklog: (projectId: number) =>
+      unwrap<BacklogGrooming>(http.post(`/ai/projects/${projectId}/groom-backlog`)),
   },
   cardLinks: {
     list: (cardId: number) => unwrap<CardLink[]>(http.get(`/cards/${cardId}/links`)),

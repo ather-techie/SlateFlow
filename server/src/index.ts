@@ -134,6 +134,18 @@ app.notFound((c) => c.json({ data: null, error: 'not found' }, 404))
 
 const port = Number(process.env.PORT) || 3000
 
+// Surface AI misconfiguration at boot instead of on the first AI request.
+{
+  const { isEnabled } = await import('./lib/featureFlags.js')
+  if (await isEnabled('ai')) {
+    if (!process.env.AI_PROVIDER) {
+      console.warn('[ai] the "ai" feature is enabled but AI_PROVIDER is unset — AI endpoints will fail until configured')
+    } else if (process.env.AI_PROVIDER !== 'ollama' && !process.env.AI_API_KEY) {
+      console.warn(`[ai] AI_PROVIDER="${process.env.AI_PROVIDER}" is set but AI_API_KEY is missing — AI endpoints will fail until configured`)
+    }
+  }
+}
+
 // Bun: export default { port, fetch } is picked up automatically
 // Node.js / tsx: use @hono/node-server
 if (!process.versions.bun) {

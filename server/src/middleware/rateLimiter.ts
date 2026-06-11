@@ -10,9 +10,14 @@ const rateLimitStore = new Map<string, RateLimitEntry>()
 
 export function createRateLimiter(maxRequests: number, windowMs: number) {
   return async (c: Context, next: Next) => {
-    const ip = c.req.header('x-forwarded-for') || c.env?.remoteAddr || '127.0.0.1'
+    // Key on the authenticated user when available so teams behind one
+    // NAT/proxy don't share a single quota; fall back to IP pre-auth.
+    const user = c.get('user') as { id?: number } | undefined
+    const key = user?.id
+      ? `user_${user.id}`
+      : c.req.header('x-forwarded-for') || c.env?.remoteAddr || '127.0.0.1'
     const now = Date.now()
-    const entry = rateLimitStore.get(ip)
+    const entry = rateLimitStore.get(key)
 
     if (entry && entry.resetAt > now) {
       if (entry.count >= maxRequests) {
@@ -20,7 +25,7 @@ export function createRateLimiter(maxRequests: number, windowMs: number) {
       }
       entry.count++
     } else {
-      rateLimitStore.set(ip, { count: 1, resetAt: now + windowMs })
+      rateLimitStore.set(key, { count: 1, resetAt: now + windowMs })
     }
 
     // Cleanup old entries every 1000 requests

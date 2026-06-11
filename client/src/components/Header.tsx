@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../api/index'
 import type { Project, Sprint } from '../types'
+import { FeatureGate } from './ui/FeatureGate'
+import { ChatPanelContext } from './Chat/chatPanelContext'
 
 interface Props {
   project: Project
@@ -17,6 +19,7 @@ function fmt(dateStr: string) {
 export default function Header({ project, sprints, selectedSprintId, onSprintChange }: Props) {
   const navigate = useNavigate()
   const location = useLocation()
+  const chatPanel = useContext(ChatPanelContext)
   const [projects, setProjects] = useState<Project[]>([])
 
   useEffect(() => {
@@ -123,9 +126,31 @@ export default function Header({ project, sprints, selectedSprintId, onSprintCha
         </>
       )}
 
-      <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-        live
+      <div className="ml-auto flex items-center gap-4">
+        {chatPanel && (
+          <FeatureGate flag="ai">
+            <FeatureGate flag="ai_project_chat">
+              <button
+                onClick={() => chatPanel.setOpen(!chatPanel.open)}
+                aria-label="Ask your project"
+                title="Ask your project"
+                className={`p-1.5 rounded-lg transition-colors ${
+                  chatPanel.open
+                    ? 'text-indigo-300 bg-slate-800'
+                    : 'text-slate-400 hover:text-indigo-300 hover:bg-slate-800'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+              </button>
+            </FeatureGate>
+          </FeatureGate>
+        )}
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+          live
+        </div>
       </div>
     </header>
   )

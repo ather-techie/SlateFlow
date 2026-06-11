@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { ok, err } from '../lib/response.js'
 import { requireSuperAdmin } from '../middleware/requireRole.js'
-import { getAllFlags, setFlag, isEnabled, type FeatureFlag } from '../lib/featureFlags.js'
+import { getAllFlags, setFlag, isEnabled, KNOWN_FLAGS, type FeatureFlag } from '../lib/featureFlags.js'
 import { google } from '../lib/oauth/google.js'
 import { github } from '../lib/oauth/github.js'
 
@@ -17,8 +17,7 @@ adminSettings.get('/admin/feature-overrides', async (c) => {
   )
   const overrideMap = new Map(rows.map((r) => [r.flag, r.enabled]))
 
-  const flags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications', 'card_attachments', 'read_mcp', 'create_mcp', 'update_mcp', 'delete_mcp', 'report_mcp']
-  const result = await Promise.all(flags.map(async (flag) => {
+  const result = await Promise.all(KNOWN_FLAGS.map(async (flag) => {
     const envKey = `FEATURE_${flag.toUpperCase()}`
     const envEnabled = process.env[envKey] === 'true'
     const dbRow = overrideMap.get(flag)
@@ -44,8 +43,7 @@ const PatchBody = z.object({ enabled: z.boolean() })
 
 adminSettings.patch('/admin/feature-overrides/:flag', async (c) => {
   const flag = c.req.param('flag') as FeatureFlag
-  const knownFlags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications', 'card_attachments', 'read_mcp', 'create_mcp', 'update_mcp', 'delete_mcp', 'report_mcp']
-  if (!knownFlags.includes(flag)) return err(c, 'unknown feature flag', 404)
+  if (!KNOWN_FLAGS.includes(flag)) return err(c, 'unknown feature flag', 404)
 
   const body = await c.req.json().catch(() => null)
   const parsed = PatchBody.safeParse(body)
@@ -60,8 +58,7 @@ adminSettings.patch('/admin/feature-overrides/:flag', async (c) => {
 
 adminSettings.delete('/admin/feature-overrides/:flag', async (c) => {
   const flag = c.req.param('flag') as FeatureFlag
-  const knownFlags: FeatureFlag[] = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications', 'card_attachments', 'read_mcp', 'create_mcp', 'update_mcp', 'delete_mcp', 'report_mcp']
-  if (!knownFlags.includes(flag)) return err(c, 'unknown feature flag', 404)
+  if (!KNOWN_FLAGS.includes(flag)) return err(c, 'unknown feature flag', 404)
 
   const { db } = await import('../db/index.js')
   await db.run('DELETE FROM feature_overrides WHERE flag = ?', flag)

@@ -5,6 +5,8 @@ import type { BacklogCard, Card, Epic, Feature, Lane, Project, Sprint, Task } fr
 import CardModal from '../components/CardModal'
 import Header from '../components/Header'
 import PriorityBadge from '../components/ui/PriorityBadge'
+import { FeatureGate } from '../components/ui/FeatureGate'
+import GroomingPanel from '../components/Backlog/GroomingPanel'
 
 type TypeFilter = 'all' | 'epics' | 'features' | 'stories' | 'tasks'
 
@@ -234,6 +236,7 @@ export default function BacklogPage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showGrooming, setShowGrooming] = useState(false)
   const [activeCard, setActiveCard] = useState<BacklogCard | null>(null)
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [epics, setEpics] = useState<Epic[]>([])
@@ -359,17 +362,33 @@ export default function BacklogPage() {
                   : `${cards.length} stor${cards.length !== 1 ? 'ies' : 'y'} not assigned to any sprint`}
               </p>
             </div>
-            {(typeFilter === 'all' || typeFilter === 'stories') && (
-              <button
-                onClick={() => setShowAddForm(v => !v)}
-                className="flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                New Story
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <FeatureGate flag="ai">
+                <FeatureGate flag="ai_planning_assist">
+                  <button
+                    onClick={() => setShowGrooming(v => !v)}
+                    className="flex items-center gap-1.5 text-sm bg-violet-50 text-violet-700 border border-violet-200 px-3 py-1.5 rounded-lg hover:bg-violet-100 transition-colors"
+                    title="Let AI review the backlog for duplicates, vague and stale cards"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    Groom with AI
+                  </button>
+                </FeatureGate>
+              </FeatureGate>
+              {(typeFilter === 'all' || typeFilter === 'stories') && (
+                <button
+                  onClick={() => setShowAddForm(v => !v)}
+                  className="flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  New Story
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Type filter tabs */}
@@ -400,6 +419,18 @@ export default function BacklogPage() {
               </button>
             ))}
           </div>
+
+          {showGrooming && (
+            <FeatureGate flag="ai">
+              <FeatureGate flag="ai_planning_assist">
+                <GroomingPanel
+                  projectId={pid}
+                  cards={cards}
+                  onClose={() => setShowGrooming(false)}
+                />
+              </FeatureGate>
+            </FeatureGate>
+          )}
 
           {showAddForm && lanes.length > 0 && (
             <div className="mb-6">

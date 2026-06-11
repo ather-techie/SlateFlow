@@ -83,7 +83,8 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `projectStore.ts` | `projects`, `currentProject`; `setCurrentProject`, `fetchProjects()` |
 | `boardStore.ts` | `lanes`, `cards`, `testCaseSummary`, `taskSummary`, `linkCount`; mutations: `moveCard`, `addCard`, `updateCard`, `deleteCard`, summary setters, `setLinkCount` |
 | `retroStore.ts` | `retroId`, `items`; mutations: `setRetro`, `addItem`, `updateItem`, `removeItem`, `setItems`, `clear` (mutations only apply when the incoming item belongs to the active retro) |
-| `featureFlagStore.ts` | `features` (`ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`), `loading`; `setFlags(...)`, `isEnabled(flag)` |
+| `featureFlagStore.ts` | `features` (all 21 flags incl. `ai`, `ai_ceremony_digests`, `ai_writing_assist`, `ai_planning_assist`, `ai_project_chat`, auth/integration/MCP flags), `loading`; `setFlags(...)`, `isEnabled(flag)`. NOTE: several test files (`App.tsx` fallback, `featureFlagStore.test.ts`, `mcpFeatureFlags.test.ts`, `FeatureGate.test.tsx`, `LoginPage.test.tsx`) build full `Features` literals — adding a flag means updating those too |
+| `chatStore.ts` | `messagesByProject` (per-project chat history, in-memory), `streamingProjectId`, `error`; `sendMessage(projectId, text)` (streams the assistant reply via `api/stream.ts`), `stop()`, `clear(projectId)` |
 
 ## API clients
 
@@ -95,6 +96,13 @@ One canonical client: [src/api/index.ts](src/api/index.ts) — axios namespace (
 - `api.ai.parseItem(data)` — `(input: string, context?: { projectId?, epicId?, laneId?, allowedTypes? }) => Promise<ParsedIntent>` — parses natural-language input into a work item
 - `type ParsedIntent = { type, payload } | { type: "unknown", reason }` — discriminated union returned by the `/api/ai/parse-item` endpoint; `type` is one of `"epic"`, `"feature"`, `"story"`, `"task"`, `"project"`, `"sprint"`, `"calendar"`, or `"unknown"`; each type carries different fields in `payload` (e.g., epic/feature/story have priority + assignee, sprint has dates + goal, task has assignee only)
 - `type NLAllowedType = "epic" | "feature" | "story" | "task" | "project" | "sprint" | "calendar"` — work item types the parser can infer
+
+- `api.ai.getSprintDigest/generateSprintDigest(sprintId)`, `api.ai.getStandupDigest/generateStandupDigest(projectId, opts?)` — ceremony digests (`AiDigest` type); `api.ai.synthesizeRetro(retroId)` → `RetroSynthesis`
+- `api.ai.generateAcceptanceCriteria(cardId)` → `{ criteria: AcceptanceCriterion[] }`; `api.ai.summarizeComments(cardId)` → `CommentThreadSummary`
+- `api.ai.suggestAssignee(cardId)`, `api.ai.suggestEstimate(cardId)`, `api.ai.planSprint(projectId, sprintId)` → `SprintPlan`, `api.ai.groomBacklog(projectId)` → `BacklogGrooming`
+- **Streaming:** `api/stream.ts` exports `postSSE(url, body, callbacks, signal?)` — raw fetch + ReadableStream consumption of POST SSE endpoints (axios buffers; EventSource is GET-only). Used by `chatStore` for `POST /ai/projects/:id/chat`.
+
+**AI UI surfaces (all behind nested `<FeatureGate flag="ai">` + group flag):** `Reports/SprintDigestPanel` (ReportsPage), `Board/StandupDigestPanel` (BoardPage slide-over), `Retro/RetroSynthesisPanel` (RetrospectivePage), `CardModal/AcceptanceCriteriaGenerator` (description tab), `CardModal/CommentSummaryCard` (comments tab, ≥5 comments), `CardModal/SuggestAssigneePopover` + `SuggestEstimatePopover` (modal sidebar), `Sprints/SprintPlanModal` (planned sprints), `Backlog/GroomingPanel` (BacklogPage), `Chat/ProjectChatPanel` (right slide-over mounted in Layout, toggled from Header via `Chat/chatPanelContext`).
 
 **Card Links methods exported from `api/index.ts`:**
 - `api.cardLinks.list(cardId)` — fetches all linked PRs/MRs for a card

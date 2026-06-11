@@ -4,6 +4,7 @@
 import { sharedSchemas, sharedResponses } from './shared.js'
 import { testcasesPaths, testcasesSchemas } from './domains/testcases.js'
 import { attachmentsPaths, attachmentsSchemas } from './domains/attachments.js'
+import { aiPaths, aiSchemas } from './domains/ai.js'
 
 // Placeholder imports for remaining domains (to be filled in)
 // import { authPaths } from './domains/auth.js'
@@ -47,7 +48,7 @@ export const openApiSpec = {
     { name: 'Epic Access', description: 'Epic-level role management' },
     { name: 'Notifications', description: 'In-app notifications and mentions' },
     { name: 'Admin', description: 'Feature flag overrides and holiday management (super_admin)' },
-    { name: 'AI', description: 'AI-powered features: summarization, story/test case generation, natural language parsing' },
+    { name: 'AI', description: 'AI-powered features: summarization, story/test case generation, natural language parsing, ceremony digests, writing assist, planning assist, and project chat. All routes require the master `ai` flag; grouped routes also require their group flag (`ai_ceremony_digests`, `ai_writing_assist`, `ai_planning_assist`, `ai_project_chat`). Rate limit: 30 requests/min per user.' },
     { name: 'Retrospectives', description: 'Sprint retrospectives (requires FEATURE_RETROSPECTIVE)' },
     { name: 'Calendar', description: 'Calendar events, vacations, and holidays (requires FEATURE_CALENDAR)' },
     { name: 'Card Links', description: 'GitHub/GitLab PR/MR links (requires FEATURE_GITHUB_INTEGRATION or FEATURE_GITLAB_INTEGRATION)' },
@@ -58,6 +59,7 @@ export const openApiSpec = {
   paths: {
     ...testcasesPaths,
     ...attachmentsPaths,
+    ...aiPaths,
     // Remaining domain paths will be merged here
   },
   components: {
@@ -76,6 +78,7 @@ export const openApiSpec = {
       ...sharedSchemas,
       ...testcasesSchemas,
       ...attachmentsSchemas,
+      ...aiSchemas,
     },
   },
 } as const

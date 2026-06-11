@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db/index.js'
 import { ok, err, parseId } from '../lib/response.js'
+import { getSprintPointTotals, getProjectCycleTime, getSprintCapacity } from '../lib/reportData.js'
 
 const reports = new Hono()
 
@@ -41,16 +42,7 @@ reports.get('/projects/:id/velocity', async (c) => {
       }
     }
 
-    const [totalPts, completedPts, totalStories, completedStories] = await Promise.all([
-      db.get<{ pts: number }>(`SELECT COALESCE(SUM(story_points), 0) as pts FROM cards WHERE sprint_id = ?`, sprint.id),
-      db.get<{ pts: number }>(`SELECT COALESCE(SUM(c.story_points), 0) as pts
-        FROM cards c JOIN swim_lanes sl ON sl.id = c.swim_lane_id
-        WHERE c.sprint_id = ? AND sl.is_done_col = 1`, sprint.id),
-      db.get<{ n: number }>(`SELECT COUNT(*) as n FROM cards WHERE sprint_id = ?`, sprint.id),
-      db.get<{ n: number }>(`SELECT COUNT(*) as n FROM cards c
-        JOIN swim_lanes sl ON sl.id = c.swim_lane_id
-        WHERE c.sprint_id = ? AND sl.is_done_col = 1`, sprint.id),
-    ])
+    const totals = await getSprintPointTotals(sprint.id)
 
     return {
       sprint_id:          sprint.id,
@@ -58,10 +50,7 @@ reports.get('/projects/:id/velocity', async (c) => {
       status:             sprint.status,
       start_date:         sprint.start_date,
       end_date:           sprint.end_date,
-      total_points:       totalPts?.pts ?? 0,
-      completed_points:   completedPts?.pts ?? 0,
-      total_stories:      totalStories?.n ?? 0,
-      completed_stories:  completedStories?.n ?? 0,
+      ...totals,
     }
   }))
 
@@ -75,88 +64,7 @@ reports.get('/projects/:id/cycle-time', async (c) => {
   const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
   if (!project) return err(c, 'project not found', 404)
 
-  const lanes = await db.all<{ id: number; name: string }>(
-    'SELECT id, name FROM swim_lanes WHERE project_id = ? ORDER BY position',
-    projectId,
-  )
-
-  if (lanes.length === 0) return ok(c, [])
-
-  const [moves, creates] = await Promise.all([
-    db.all<{ card_id: number; meta: string; created_at: string }>(
-      `SELECT al.card_id, al.meta, al.created_at
-       FROM activity_log al
-       JOIN cards c ON c.id = al.card_id
-       LEFT JOIN swim_lanes sl ON sl.id = c.swim_lane_id
-       WHERE al.action = 'move'
-         AND (sl.project_id = ? OR c.swim_lane_id IS NULL)
-         AND (
-           SELECT sl2.project_id FROM swim_lanes sl2
-           WHERE sl2.id = JSON_EXTRACT(al.meta, '$.to_lane_id')
-         ) = ?
-       ORDER BY al.card_id, al.created_at`,
-      projectId, projectId,
-    ),
-    db.all<{ card_id: number; meta: string; created_at: string }>(
-      `SELECT al.card_id, al.meta, al.created_at
-       FROM activity_log al
-       JOIN cards c ON c.id = al.card_id
-       LEFT JOIN swim_lanes sl ON sl.id = c.swim_lane_id
-       WHERE al.action = 'create'
-         AND JSON_EXTRACT(al.meta, '$.swim_lane_id') IS NOT NULL
-         AND (
-           SELECT sl2.project_id FROM swim_lanes sl2
-           WHERE sl2.id = JSON_EXTRACT(al.meta, '$.swim_lane_id')
-         ) = ?
-       ORDER BY al.card_id, al.created_at`,
-      projectId,
-    ),
-  ])
-
-  const durationsByLane: Record<number, number[]> = {}
-  const cardEvents: Record<number, { lane_id: number; entered_at: string }[]> = {}
-
-  for (const ev of creates) {
-    try {
-      const meta = JSON.parse(ev.meta) as { swim_lane_id?: number }
-      if (!meta.swim_lane_id) continue
-      if (!cardEvents[ev.card_id]) cardEvents[ev.card_id] = []
-      cardEvents[ev.card_id].push({ lane_id: meta.swim_lane_id, entered_at: ev.created_at })
-    } catch { /* ignore malformed */ }
-  }
-
-  for (const mv of moves) {
-    try {
-      const meta = JSON.parse(mv.meta) as { to_lane_id?: number }
-      if (!meta.to_lane_id) continue
-      if (!cardEvents[mv.card_id]) cardEvents[mv.card_id] = []
-      cardEvents[mv.card_id].push({ lane_id: meta.to_lane_id, entered_at: mv.created_at })
-    } catch { /* ignore malformed */ }
-  }
-
-  for (const [, events] of Object.entries(cardEvents)) {
-    events.sort((a, b) => a.entered_at.localeCompare(b.entered_at))
-    for (let i = 0; i < events.length - 1; i++) {
-      const laneId = events[i].lane_id
-      const enterMs = new Date(events[i].entered_at.includes('Z') ? events[i].entered_at : events[i].entered_at + 'Z').getTime()
-      const exitMs  = new Date(events[i + 1].entered_at.includes('Z') ? events[i + 1].entered_at : events[i + 1].entered_at + 'Z').getTime()
-      const days = (exitMs - enterMs) / (1000 * 60 * 60 * 24)
-      if (days >= 0) {
-        if (!durationsByLane[laneId]) durationsByLane[laneId] = []
-        durationsByLane[laneId].push(days)
-      }
-    }
-  }
-
-  const result = lanes.map(lane => {
-    const durations = durationsByLane[lane.id] ?? []
-    const avg_days = durations.length > 0
-      ? Math.round((durations.reduce((s, d) => s + d, 0) / durations.length) * 10) / 10
-      : null
-    return { lane_id: lane.id, lane_name: lane.name, avg_days, sample_size: durations.length }
-  })
-
-  return ok(c, result)
+  return ok(c, await getProjectCycleTime(projectId))
 })
 
 reports.get('/projects/:id/capacity', async (c) => {
@@ -174,30 +82,7 @@ reports.get('/projects/:id/capacity', async (c) => {
   const sprint = await db.get('SELECT id FROM sprints WHERE id = ? AND project_id = ?', sprintId, projectId)
   if (!sprint) return err(c, 'sprint not found', 404)
 
-  const rows = await db.all<{ assignee: string; story_count: number; story_points: number; capacity: number | null; skills: string }>(
-    `SELECT COALESCE(u.display_name, c.assignee, 'Unassigned') as assignee,
-            COUNT(*) as story_count,
-            COALESCE(SUM(c.story_points), 0) as story_points,
-            pa.capacity,
-            pa.skills
-     FROM cards c
-     LEFT JOIN users u ON u.id = c.assignee_id
-     LEFT JOIN project_access pa ON pa.user_id = c.assignee_id AND pa.project_id = ?
-     WHERE c.sprint_id = ?
-     GROUP BY COALESCE(u.display_name, c.assignee, 'Unassigned'), pa.capacity, pa.skills
-     ORDER BY story_points DESC, story_count DESC`,
-    projectId, sprintId,
-  )
-
-  // Parse skills JSON in response
-  const result = rows.map(row => ({
-    ...row,
-    skills: (() => {
-      try { return JSON.parse(row.skills ?? '[]') } catch { return [] }
-    })(),
-  }))
-
-  return ok(c, result)
+  return ok(c, await getSprintCapacity(projectId, sprintId))
 })
 
 function escapeCsvField(val: unknown): string {

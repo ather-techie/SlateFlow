@@ -1,4 +1,5 @@
 import type { AIProvider, CompletionOptions, Message } from '../ai.js'
+import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage } from '../ai.js'
 import { sseLines } from '../sseLines.js'
 
 type ProviderVariant = 'openai' | 'azure' | 'ollama'
@@ -56,10 +57,15 @@ export class OpenAICompatProvider implements AIProvider {
         stream: false,
         messages,
       }),
+      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`OpenAI-compat error ${res.status}: ${await res.text()}`)
 
-    const json = await res.json() as { choices: Array<{ message: { content: string } }> }
+    const json = await readProviderJson<{
+      choices: Array<{ message: { content: string } }>
+      usage?: { prompt_tokens: number; completion_tokens: number }
+    }>(res, 'OpenAI-compat')
+    logUsage('openai-compat', { input: json.usage?.prompt_tokens, output: json.usage?.completion_tokens })
     const text = json.choices[0]?.message?.content
     if (!text) throw new Error('Empty response from OpenAI-compatible provider')
     return text
@@ -76,6 +82,7 @@ export class OpenAICompatProvider implements AIProvider {
         stream: true,
         messages: messages.map(m => ({ role: m.role, content: m.content })),
       }),
+      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`OpenAI-compat error ${res.status}: ${await res.text()}`)
 

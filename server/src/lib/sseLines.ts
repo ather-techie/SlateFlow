@@ -1,5 +1,6 @@
 export async function* sseLines(response: Response): AsyncGenerator<string> {
-  const reader = response.body!.getReader()
+  if (!response.body) throw new Error('SSE response has no body')
+  const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
   try {

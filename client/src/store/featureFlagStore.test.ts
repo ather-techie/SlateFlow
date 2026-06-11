@@ -23,6 +23,10 @@ describe('useFeatureFlagStore', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       },
       loading: true,
     })
@@ -48,6 +52,10 @@ describe('useFeatureFlagStore', () => {
         update_mcp: true,
         delete_mcp: true,
         report_mcp: true,
+        ai_ceremony_digests: true,
+        ai_writing_assist: true,
+        ai_planning_assist: true,
+        ai_project_chat: true,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -76,6 +84,10 @@ describe('useFeatureFlagStore', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(newFeatures)
@@ -103,6 +115,10 @@ describe('useFeatureFlagStore', () => {
         update_mcp: false,
         delete_mcp: false,
         report_mcp: false,
+        ai_ceremony_digests: false,
+        ai_writing_assist: false,
+        ai_planning_assist: false,
+        ai_project_chat: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)

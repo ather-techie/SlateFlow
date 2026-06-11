@@ -6,6 +6,8 @@ import { useAuthStore } from '../store/authStore'
 import { useServerSentEvents } from '../hooks/useServerSentEvents'
 import { FeatureGate } from './ui/FeatureGate'
 import { ProfileSettingsModal } from './ProfileSettingsModal'
+import ProjectChatPanel from './Chat/ProjectChatPanel'
+import { ChatPanelContext } from './Chat/chatPanelContext'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -274,6 +276,9 @@ export default function Layout() {
   const [hasFailedTests, setHasFailedTests] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Chat panel open state lives here so it persists across route changes;
+  // Header toggles it via ChatPanelContext.
+  const [chatOpen, setChatOpen] = useState(false)
 
   useEffect(() => {
     if (!projectId) { setHasFailedTests(false); return }
@@ -300,6 +305,7 @@ export default function Layout() {
   }
 
   return (
+    <ChatPanelContext.Provider value={{ open: chatOpen, setOpen: setChatOpen }}>
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <aside
@@ -435,6 +441,19 @@ export default function Layout() {
           api.auth.me().catch(() => {})
         }}
       />
+
+      {/* Project chat slide-over */}
+      {projectId && chatOpen && (
+        <FeatureGate flag="ai">
+          <FeatureGate flag="ai_project_chat">
+            <ProjectChatPanel
+              projectId={parseInt(projectId, 10)}
+              onClose={() => setChatOpen(false)}
+            />
+          </FeatureGate>
+        </FeatureGate>
+      )}
     </div>
+    </ChatPanelContext.Provider>
   )
 }

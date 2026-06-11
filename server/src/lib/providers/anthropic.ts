@@ -1,4 +1,5 @@
 import type { AIProvider, CompletionOptions, Message } from '../ai.js'
+import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage } from '../ai.js'
 import { sseLines } from '../sseLines.js'
 
 export class AnthropicProvider implements AIProvider {
@@ -32,9 +33,14 @@ export class AnthropicProvider implements AIProvider {
         ...(options?.systemPrompt ? { system: options.systemPrompt } : {}),
         messages: [{ role: 'user', content: prompt }],
       }),
+      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`Anthropic error ${res.status}: ${await res.text()}`)
-    const json = await res.json() as { content: Array<{ type: string; text: string }> }
+    const json = await readProviderJson<{
+      content: Array<{ type: string; text: string }>
+      usage?: { input_tokens: number; output_tokens: number }
+    }>(res, 'Anthropic')
+    logUsage('anthropic', { input: json.usage?.input_tokens, output: json.usage?.output_tokens })
     const text = json.content.find(b => b.type === 'text')?.text
     if (!text) throw new Error('Empty response from Anthropic')
     return text
@@ -57,6 +63,7 @@ export class AnthropicProvider implements AIProvider {
           .filter(m => m.role !== 'system')
           .map(m => ({ role: m.role, content: m.content })),
       }),
+      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`Anthropic error ${res.status}: ${await res.text()}`)
 

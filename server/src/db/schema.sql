@@ -409,3 +409,17 @@ CREATE INDEX IF NOT EXISTS idx_swim_lanes_project ON swim_lanes(project_id);
 CREATE INDEX IF NOT EXISTS idx_test_cases_suite  ON test_cases(suite_id);
 CREATE INDEX IF NOT EXISTS idx_test_cases_card   ON test_cases(card_id);
 CREATE INDEX IF NOT EXISTS idx_test_runs_case    ON test_runs(test_case_id);
+
+-- AI-generated digests (sprint health, daily standup). Point-in-time documents
+-- users refer back to; also gives the standup email job an idempotency record.
+CREATE TABLE IF NOT EXISTS ai_digests (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind       TEXT    NOT NULL CHECK (kind IN ('sprint_health','standup')),
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  sprint_id  INTEGER REFERENCES sprints(id) ON DELETE CASCADE,
+  content    TEXT    NOT NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_digests_lookup ON ai_digests(kind, project_id, sprint_id, created_at DESC);

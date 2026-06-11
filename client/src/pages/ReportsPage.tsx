@@ -14,6 +14,8 @@ import {
 import { api } from '../api/index'
 import type { CycleTimeEntry, Project, Sprint, VelocityEntry } from '../types'
 import Header from '../components/Header'
+import { FeatureGate } from '../components/ui/FeatureGate'
+import SprintDigestPanel from '../components/Reports/SprintDigestPanel'
 
 // ── Section wrapper ───────────────────────────────────────────────────────────
 
@@ -216,6 +218,8 @@ export default function ReportsPage() {
       .finally(() => setLoading(false))
   }, [pid])
 
+  const digestSprint = sprints.find(s => s.status === 'active') ?? sprints[0] ?? null
+
   if (loading) {
     return (
       <div className="flex flex-col h-screen bg-slate-100">
@@ -259,6 +263,12 @@ export default function ReportsPage() {
           >
             <CycleTimeChart data={cycleTime} />
           </Section>
+
+          <FeatureGate flag="ai">
+            <FeatureGate flag="ai_ceremony_digests">
+              {digestSprint && <SprintDigestPanel sprintId={digestSprint.id} />}
+            </FeatureGate>
+          </FeatureGate>
 
           <Section
             title="Export"

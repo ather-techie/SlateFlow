@@ -94,12 +94,20 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 
 - [x] **Natural language card creation** — create cards by typing plain English commands (parse across board, epics, sprints, calendar)
 - [x] **AI story generation from features** — generates 3–7 user story outlines from a feature's title and description with preview + selective creation (feature-flagged)
-- [ ] **AI sprint planning** — suggest backlog items to pull into the next sprint based on velocity history
+- [x] **AI sprint planning** — proposes a sprint scope from backlog priority, dependencies, historical velocity, and member capacity/vacations; per-story checkbox apply (gated by `ai_planning_assist`)
+- [x] **AI Sprint Health Digest** — stakeholder-ready markdown status report from velocity/cycle-time/capacity/stalled-card data; persisted per sprint with regenerate (gated by `ai_ceremony_digests`)
+- [x] **AI Daily Standup Digest** — what moved / blocked / watchouts from the last 24h of activity, available from the Board; persisted per project (gated by `ai_ceremony_digests`)
+- [x] **AI-generated sprint retrospective summaries** — clusters retro items into themes, drafts one-click action items, reviews previous retro follow-through (gated by `ai_ceremony_digests`)
+- [x] **Acceptance criteria generation** — editable Given/When/Then preview appended to the story description (gated by `ai_writing_assist`)
+- [x] **Comment thread summarization** — recap, decisions, and open questions for long card discussions (gated by `ai_writing_assist`)
+- [x] **Smart assignee & story-point suggestions** — skill/load/vacation-aware assignee picks and comparable-based estimates in the card modal (gated by `ai_planning_assist`)
+- [x] **Duplicate detection** — backlog grooming assistant flags likely duplicates, vague stories with suggested rewrites, stale items, and a suggested priority order (gated by `ai_planning_assist`)
+- [x] **Ask Your Project chat** — streaming, RBAC-filtered project Q&A grounded in live board data (gated by `ai_project_chat`)
 - [ ] **Auto-generate subtasks** from a card title or description
 - [ ] **Smart labels** — AI suggests tags based on card content
 - [ ] **Risk detection** — flag cards likely to be blocked or delayed based on patterns
-- [ ] **AI-generated sprint retrospective summaries** — AI-generated recap of completed sprints
-- [ ] **Duplicate detection** — warn when a new card looks like an existing one
+- [ ] **Scheduled standup digest emails** — daily email of the standup digest to project members (builds on `ai_ceremony_digests` + `email_notifications`)
+- [ ] **Persisted chat sessions & agentic tool-use grounding** — chat history table and a tool-calling upgrade path for Ask Your Project
 - [x] **MCP server** — expose SlateFlow as a Model Context Protocol (MCP) server so AI assistants (Claude, Cursor, Copilot, etc.) can read and manage cards, sprints, epics, projects, test cases, and reports directly via standardized tools; gated by five independent flags (`read_mcp`, `create_mcp`, `update_mcp`, `delete_mcp`, `report_mcp`); auth via per-user tokens
 
 ---

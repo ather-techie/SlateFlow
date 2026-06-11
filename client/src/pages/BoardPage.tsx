@@ -22,6 +22,7 @@ import CardContent from '../components/CardContent'
 import CardModal from '../components/CardModal'
 import BoardSkeleton from '../components/ui/BoardSkeleton'
 import ManageLanesModal from '../components/Board/ManageLanesModal'
+import StandupDigestPanel from '../components/Board/StandupDigestPanel'
 import { FeatureGate } from '../components/ui/FeatureGate'
 import { NLItemInput } from '../components/NLItemInput'
 
@@ -42,6 +43,7 @@ export default function BoardPage() {
   const [error, setError] = useState<string | null>(null)
   const [showManageLanes, setShowManageLanes] = useState(false)
   const [showNewSprint, setShowNewSprint] = useState(false)
+  const [showStandup, setShowStandup] = useState(false)
   const [epics, setEpics] = useState<Epic[]>([])
   const [features, setFeatures] = useState<Feature[]>([])
   const [selectedEpicId, setSelectedEpicId] = useState<number | null>(null)
@@ -369,6 +371,17 @@ export default function BoardPage() {
               }}
             />
           </FeatureGate>
+          <FeatureGate flag="ai">
+            <FeatureGate flag="ai_ceremony_digests">
+              <button
+                onClick={() => setShowStandup(v => !v)}
+                aria-label="Toggle standup digest panel"
+                className="text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors font-medium"
+              >
+                Standup
+              </button>
+            </FeatureGate>
+          </FeatureGate>
           <button
             onClick={() => setShowManageLanes(true)}
             className="text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors font-medium"
@@ -425,6 +438,15 @@ export default function BoardPage() {
           </DndContext>
         )}
       </main>
+
+      {/* Standup digest slide-over */}
+      <FeatureGate flag="ai">
+        <FeatureGate flag="ai_ceremony_digests">
+          {showStandup && (
+            <StandupDigestPanel projectId={pid} onClose={() => setShowStandup(false)} />
+          )}
+        </FeatureGate>
+      </FeatureGate>
 
       {/* Card detail modal */}
       {selectedCard && (

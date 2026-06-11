@@ -17,6 +17,7 @@ import Header from '../components/Header'
 import PriorityBadge from '../components/ui/PriorityBadge'
 import { FeatureGate } from '../components/ui/FeatureGate'
 import { NLItemInput } from '../components/NLItemInput'
+import SprintPlanModal from '../components/Sprints/SprintPlanModal'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -368,13 +369,15 @@ interface SprintCardProps {
   sprint: Sprint
   columns: Column[]
   projectId: number
+  refreshToken: number
   onComplete: (id: number) => void
   onActivate: (id: number) => void
   onEdit: (sprint: Sprint) => void
   onDelete: (id: number) => void
+  onPlan: (sprint: Sprint) => void
 }
 
-function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit, onDelete }: SprintCardProps) {
+function SprintCard({ sprint, columns, projectId, refreshToken, onComplete, onActivate, onEdit, onDelete, onPlan }: SprintCardProps) {
   const [cards, setCards] = useState<Card[]>([])
   const [loadingCards, setLoadingCards] = useState(true)
   const [completing, setCompleting] = useState(false)
@@ -386,7 +389,7 @@ function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit
       .cards.listBySprint(sprint.id)
       .then(setCards)
       .finally(() => setLoadingCards(false))
-  }, [sprint.id])
+  }, [sprint.id, refreshToken])
 
   const lastColumnId = useMemo(() => {
     if (columns.length === 0) return null
@@ -474,6 +477,19 @@ function SprintCard({ sprint, columns, projectId, onComplete, onActivate, onEdit
         )}
 
         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+          {sprint.status === 'planned' && (
+            <FeatureGate flag="ai">
+              <FeatureGate flag="ai_planning_assist">
+                <button
+                  onClick={e => { e.stopPropagation(); onPlan(sprint) }}
+                  className="px-3 py-1 text-xs font-medium bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-lg transition-colors"
+                  title="Let AI propose stories for this sprint"
+                >
+                  Plan with AI
+                </button>
+              </FeatureGate>
+            </FeatureGate>
+          )}
           {sprint.status === 'planned' && (
             <button
               onClick={e => { e.stopPropagation(); handleActivate() }}
@@ -643,6 +659,8 @@ export default function SprintsPage() {
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null)
+  const [planningSprint, setPlanningSprint] = useState<Sprint | null>(null)
+  const [cardsVersion, setCardsVersion] = useState(0)
 
   useEffect(() => {
     setLoading(true)
@@ -770,10 +788,12 @@ export default function SprintsPage() {
                   sprint={sprint}
                   columns={columns}
                   projectId={pid}
+                  refreshToken={cardsVersion}
                   onComplete={handleComplete}
                   onActivate={handleActivate}
                   onEdit={setEditingSprint}
                   onDelete={handleDelete}
+                  onPlan={setPlanningSprint}
                 />
               ))}
             </div>
@@ -786,6 +806,16 @@ export default function SprintsPage() {
           sprint={editingSprint}
           onSave={handleSaved}
           onClose={() => setEditingSprint(null)}
+        />
+      )}
+
+      {planningSprint && (
+        <SprintPlanModal
+          projectId={pid}
+          sprintId={planningSprint.id}
+          sprintName={planningSprint.name}
+          onApplied={() => setCardsVersion(v => v + 1)}
+          onClose={() => setPlanningSprint(null)}
         />
       )}
     </div>
