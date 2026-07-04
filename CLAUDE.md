@@ -63,49 +63,10 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 | `JWT_SECRET` | `dev-secret-change-in-production` (dev only) | Signs auth tokens. **Required in production** — the server refuses to start without it when `NODE_ENV=production`. |
 | `DATABASE_PATH` | `server/slateflow.db` | SQLite file path; Docker sets to `/data/slateflow.db` |
 | `PORT` | `3000` | Server listen port |
-| `FEATURE_AI` | `false` | Enterprise gate — `true` enables all AI endpoints and UI surfaces |
-| `FEATURE_AUTO_TEST_CASE_GENERATION_AI` | `false` | Enables test case generation from user stories (`POST /api/ai/cards/:id/generate-test-cases`) |
-| `FEATURE_AUTO_STORY_GENERATION_AI` | `false` | Enables story generation from feature title/description (`POST /api/ai/features/:id/generate-stories`) |
-| `FEATURE_AI_CEREMONY_DIGESTS` | `false` | Enables Sprint Health Digest, Daily Standup Digest, and Retrospective Synthesizer (`/api/ai/sprints/:id/digest`, `/api/ai/projects/:id/standup-digest`, `/api/ai/retrospectives/:id/synthesize`) |
-| `FEATURE_AI_WRITING_ASSIST` | `false` | Enables Acceptance Criteria generation and comment-thread summarization (`/api/ai/cards/:id/generate-acceptance-criteria`, `/api/ai/cards/:id/summarize-comments`) |
-| `FEATURE_AI_PLANNING_ASSIST` | `false` | Enables assignee/estimate suggestions, sprint planning, and backlog grooming (`/api/ai/cards/:id/suggest-assignee`, `/suggest-estimate`, `/api/ai/projects/:id/plan-sprint`, `/groom-backlog`) |
-| `FEATURE_AI_PROJECT_CHAT` | `false` | Enables the streaming "Ask Your Project" chat (`POST /api/ai/projects/:id/chat`, SSE response) |
-| `FEATURE_AI_USAGE_REPORTING` | `false` | Enables the AI Token Usage report on the Reports page (`GET /api/projects/:id/ai-usage`), also requires `ai` |
-| `FEATURE_RETROSPECTIVE` | `false` | Enables the per-sprint Retrospective Board (sidebar nav + `/api/sprints/:id/retrospective` and item endpoints) |
-| `FEATURE_CALENDAR` | `false` | Enables the Calendar surface (sidebar nav + `/api/projects/:id/calendar` plus event/vacation/holiday CRUD) |
-| `FEATURE_AUTH_PASSWORD` | `true` (seeded on first boot) | Email/password login (`POST /api/auth/login`). Set to `false` to require all users to authenticate via OAuth/SSO |
-| `FEATURE_AUTH_GOOGLE` | `false` | Enables Google OAuth login (`/api/auth/google/start` + callback). Requires `OAUTH_GOOGLE_*` |
-| `FEATURE_AUTH_GITHUB` | `false` | Enables GitHub OAuth login (`/api/auth/github/start` + callback). Requires `OAUTH_GITHUB_*` |
-| `OAUTH_REDIRECT_BASE_URL` | `http://localhost:3000` | Public origin used to build OAuth callback URLs |
-| `OAUTH_FRONTEND_URL` | _(unset)_ | Origin to redirect to after successful OAuth login. Unset = redirect to `/` on the API origin (same-origin deploys). Set when frontend and API are on different origins |
-| `OAUTH_GOOGLE_CLIENT_ID` | _(none)_ | From Google Cloud Console (OAuth 2.0 Client ID) |
-| `OAUTH_GOOGLE_CLIENT_SECRET` | _(none)_ | |
-| `OAUTH_GITHUB_CLIENT_ID` | _(none)_ | From a GitHub OAuth App |
-| `OAUTH_GITHUB_CLIENT_SECRET` | _(none)_ | |
-| `AI_PROVIDER` | _(none)_ | `claude` \| `gemini` \| `openai` \| `azure` \| `ollama` |
-| `AI_MODEL` | provider default | Override the default model |
-| `AI_API_KEY` | _(none)_ | Provider API key (not required for Ollama) |
-| `AI_BASE_URL` | provider default | For `azure`: full deployment endpoint URL incl. `?api-version=…`; for others: base URL override |
-| `FEATURE_GITHUB_INTEGRATION` | `false` | Enterprise gate — `true` enables GitHub link routes and UI surfaces |
-| `FEATURE_GITLAB_INTEGRATION` | `false` | Enterprise gate — `true` enables GitLab MR link routes and UI surfaces |
-| `GITHUB_WEBHOOK_SECRET` | _(none)_ | HMAC-SHA256 secret; must match the secret configured in the GitHub webhook |
-| `GITHUB_TOKEN` | _(none)_ | Optional GitHub PAT; used to fetch PR/commit metadata from private repos |
-| `GITLAB_WEBHOOK_SECRET` | _(none)_ | Must match the secret token configured in the GitLab webhook settings |
-| `GITLAB_TOKEN` | _(none)_ | Optional GitLab PAT for private repo metadata lookups |
-| `FEATURE_EMAIL_NOTIFICATIONS` | `false` | Enables email notifications for mentions, assignments, and due dates |
-| `SMTP_HOST` | _(none)_ | SMTP server hostname; email sending requires this to be set |
-| `SMTP_PORT` | `587` | SMTP server port |
-| `SMTP_SECURE` | `false` | Set to `true` for TLS on port 465; `false` for STARTTLS on 587 |
-| `SMTP_USER` | _(none)_ | SMTP authentication username |
-| `SMTP_PASS` | _(none)_ | SMTP authentication password |
-| `SMTP_FROM` | `SlateFlow <noreply@example.com>` | From address for outbound notification emails |
-| `FEATURE_CARD_ATTACHMENTS` | `false` | Enables file uploads and attachments on story cards (`POST/GET/DELETE /api/cards/:id/attachments`, `/api/attachments/:id`) |
-| `UPLOADS_DIR` | `./uploads` | Directory for storing uploaded files; relative to server CWD (repo root in dev, `/data/uploads` in Docker) |
-| `FEATURE_READ_MCP` | `false` | Enables read-only MCP tools (list/get operations on work items, tests, calendar) via `/mcp` with per-user tokens |
-| `FEATURE_CREATE_MCP` | `false` | Enables MCP create tools (POST operations) |
-| `FEATURE_UPDATE_MCP` | `false` | Enables MCP update/move tools (PATCH operations) |
-| `FEATURE_DELETE_MCP` | `false` | Enables MCP delete tools (safety gate separate from update) |
-| `FEATURE_REPORT_MCP` | `false` | Enables MCP reporting tools (velocity, cycle time, capacity, dashboard metrics) |
+
+All `FEATURE_*` flags (22 of them) plus their dependent config (`OAUTH_*`, `AI_*`, `SMTP_*`, `GITHUB_*`, `GITLAB_*`, `UPLOADS_DIR`) are documented in **[docs/feature-flags.md](docs/feature-flags.md)**.
+
+See [server/CLAUDE.md](server/CLAUDE.md#mcp-server) for the MCP server's transport, RBAC, and default-filtering design decisions.
 
 ## Authentication & RBAC
 
@@ -184,7 +145,7 @@ resolved flag               → server: requireFeature('ai') middleware
 
 `GET /api/config` (public) exposes the resolved flags so the client can gate UI without hard-coding. `PATCH /api/admin/feature-overrides/:flag` (super_admin) toggles the runtime override. The env var is the authoritative ceiling for self-hosted deployments.
 
-Twenty-two flags are currently registered: `ai`, `auto_test_case_generation_ai`, `auto_story_generation_ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`, `card_attachments`, `read_mcp`, `create_mcp`, `update_mcp`, `delete_mcp`, `report_mcp`, `ai_ceremony_digests`, `ai_writing_assist`, `ai_planning_assist`, `ai_project_chat`, `ai_usage_reporting`. When adding a new flag, update **all three** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + exported `KNOWN_FLAGS` — [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) imports it, no separate list there), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state — note several client test files build full `Features` literals and must gain the new key too), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
+Twenty-two flags are currently registered — see **[docs/feature-flags.md](docs/feature-flags.md)** for the full list, their env vars/defaults, and dependent config. That doc also has the "adding a new flag" sync-point checklist (`server/src/lib/featureFlags.ts`, `client/src/store/featureFlagStore.ts`, and the env var table) — follow it whenever you add one.
 
 ## AI Providers
 
@@ -256,6 +217,8 @@ DELETE on any default item returns `409`. Backfill on startup fills any missing 
 - [client/CLAUDE.md](client/CLAUDE.md) — pages, components, stores, DnD, FeatureGate, fetch↔axios state
 - [server/CLAUDE.md](server/CLAUDE.md) — Hono routes, response envelope, RBAC helpers, schema cheat sheet, AI providers
 - [docs/api.md](docs/api.md) — full REST API with curl examples
+- [docs/mcp.md](docs/mcp.md) — MCP server setup and full 29-tool reference
+- [docs/feature-flags.md](docs/feature-flags.md) — full reference for all 22 feature flags, env vars, and dependent config
 
 ## OpenAPI Documentation
 

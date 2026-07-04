@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 import { createHash } from 'crypto'
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { db } from '../db/index.js'
 import { err } from '../lib/response.js'
+import { createMcpServer, type McpUser } from '../lib/mcpServer.js'
 
 const mcp = new Hono()
 
@@ -24,8 +26,8 @@ async function validateMcpToken(c: any, next: any) {
     return err(c, 'invalid token', 401)
   }
 
-  const user = await db.get(
-    `SELECT id, email, role FROM users WHERE id = ? AND is_active = 1`,
+  const user = await db.get<McpUser>(
+    `SELECT id, email, role, display_name FROM users WHERE id = ? AND is_active = 1`,
     row.user_id
   )
 
@@ -42,16 +44,36 @@ async function validateMcpToken(c: any, next: any) {
 
 mcp.use('*', validateMcpToken)
 
-// Stub endpoints for MCP transport
-// In production, use StreamableHTTPServerTransport from @modelcontextprotocol/sdk
+// Stateless mode: every request gets a fresh Server + transport pair closing
+// over the authenticated user, so callTool() always sees the real caller and
+// tool calls stay independent, per-request RBAC-checked operations with no
+// session lifecycle to manage.
 mcp.post('/', async (c) => {
-  // TODO: implement JSON-RPC message handling via MCP transport
-  return c.json({ error: 'MCP transport not yet fully implemented' }, 501)
+  const user = c.get('user') as McpUser
+  const server = createMcpServer(user)
+  // enableJsonResponse: true makes handleRequest() resolve only once the JSON-RPC
+  // response is fully computed, instead of returning a live SSE stream — required
+  // here since we close the transport/server immediately in `finally` below and a
+  // still-open SSE stream would be torn down before its data reached the client.
+  const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })
+  await server.connect(transport)
+  try {
+    return await transport.handleRequest(c.req.raw)
+  } finally {
+    await transport.close()
+    await server.close()
+  }
 })
 
+// Stateless mode has no server-initiated stream, so there's nothing for a
+// GET to return.
 mcp.get('/', async (c) => {
-  // TODO: implement SSE stream for server → client messages
-  return err(c, 'MCP SSE stream not yet implemented', 501)
+  return err(c, 'method not allowed: this MCP server is stateless and does not support server-initiated streams', 405)
+})
+
+// Stateless mode issues no session id, so there is no session to tear down.
+mcp.delete('/', async (c) => {
+  return c.body(null, 204)
 })
 
 export default mcp

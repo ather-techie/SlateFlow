@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 vi.mock('../db/index.js', () => ({
   db: { get: vi.fn(), all: vi.fn(), run: vi.fn() },
@@ -256,6 +256,104 @@ describe('getProvider', () => {
 
       await expect(getProvider()).rejects.toThrow()
     })
+  })
+})
+
+describe('fetchWithRetry', () => {
+  const originalFetch = global.fetch
+
+  afterEach(() => {
+    global.fetch = originalFetch
+    vi.useRealTimers()
+  })
+
+  function jsonResponse(status: number, headers: Record<string, string> = {}): Response {
+    return new Response('{}', { status, headers })
+  }
+
+  it('returns immediately on a 200 response without retrying', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200))
+    global.fetch = fetchMock as unknown as typeof fetch
+    const { fetchWithRetry } = await import('./ai.js')
+
+    const res = await fetchWithRetry('https://example.test', { method: 'POST' }, 1000)
+
+    expect(res.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries on a 503 and succeeds on a later attempt', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(503))
+      .mockResolvedValueOnce(jsonResponse(200))
+    global.fetch = fetchMock as unknown as typeof fetch
+    const { fetchWithRetry } = await import('./ai.js')
+
+    const promise = fetchWithRetry('https://example.test', { method: 'POST' }, 1000)
+    await vi.runAllTimersAsync()
+    const res = await promise
+
+    expect(res.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('honors Retry-After header for delay', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(429, { 'retry-after': '1' }))
+      .mockResolvedValueOnce(jsonResponse(200))
+    global.fetch = fetchMock as unknown as typeof fetch
+    const { fetchWithRetry } = await import('./ai.js')
+
+    const promise = fetchWithRetry('https://example.test', { method: 'POST' }, 1000)
+    await vi.advanceTimersByTimeAsync(999)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(2)
+    const res = await promise
+
+    expect(res.status).toBe(200)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a non-retryable status like 400', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(400))
+    global.fetch = fetchMock as unknown as typeof fetch
+    const { fetchWithRetry } = await import('./ai.js')
+
+    const res = await fetchWithRetry('https://example.test', { method: 'POST' }, 1000)
+
+    expect(res.status).toBe(400)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns the last response after exhausting retries on persistent 503s', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(503))
+    global.fetch = fetchMock as unknown as typeof fetch
+    const { fetchWithRetry } = await import('./ai.js')
+
+    const promise = fetchWithRetry('https://example.test', { method: 'POST' }, 1000)
+    await vi.runAllTimersAsync()
+    const res = await promise
+
+    expect(res.status).toBe(503)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('retries on a thrown network error and eventually throws after exhausting retries', async () => {
+    vi.useFakeTimers()
+    const networkError = new TypeError('fetch failed')
+    const fetchMock = vi.fn().mockRejectedValue(networkError)
+    global.fetch = fetchMock as unknown as typeof fetch
+    const { fetchWithRetry } = await import('./ai.js')
+
+    const promise = fetchWithRetry('https://example.test', { method: 'POST' }, 1000)
+    const assertion = expect(promise).rejects.toBe(networkError)
+    await vi.runAllTimersAsync()
+    await assertion
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 })
 

@@ -12,7 +12,7 @@
 
 SlateFlow is a self-hosted, AI-powered agile project management platform built for modern engineering teams. Delivered as a single-container solution, it combines a drag-and-drop Kanban board with a complete agile hierarchy (Project → Sprint → Epic → Feature → Story → Task), sprint planning with burndown tracking, retrospective boards, roadmap planning, velocity/cycle-time/capacity reports, test case management, and real-time collaboration using Server-Sent Events.
 
-SlateFlow also supports enterprise-grade RBAC at global, project, and epic levels, while integrating with leading AI platforms and models including Anthropic Claude, Google Gemini, OpenAI OpenAI, Microsoft Azure OpenAI, and Ollama Ollama for features like AI-powered card summarization and workflow enhancement. Built with SQLite, Hono, and React inside a single Docker image, it requires no external services, making it a lightweight yet powerful alternative to tools like Jira and Azure DevOps.
+SlateFlow also supports enterprise-grade RBAC at global, project, and epic levels, while integrating with leading AI platforms and models including Anthropic Claude, Google Gemini, OpenAI, Microsoft Azure OpenAI, and Ollama for features like AI-powered card summarization and workflow enhancement. Built with SQLite, Hono, and React inside a single Docker image, it requires no external services, making it a lightweight yet powerful alternative to tools like Jira and Azure DevOps.
 
 ## Table of Contents
 
@@ -21,6 +21,7 @@ SlateFlow also supports enterprise-grade RBAC at global, project, and epic level
 - [Quick Start](#quick-start)
 - [Docker Quick Start](#docker-quick-start)
 - [MCP Setup](#mcp-setup)
+- [Feature Flags](#feature-flags)
 - [Scripts](#scripts)
 - [Stack](#stack)
 - [Contributing](#contributing)
@@ -149,78 +150,28 @@ If port 3000 is already in use, see [CONTRIBUTING.md](CONTRIBUTING.md#freeing-po
 
 ## MCP Setup
 
-SlateFlow ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server so an AI assistant like Claude can query and manage your project data directly. This section walks through the intended setup end to end, using Claude as the example client.
+SlateFlow ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server exposing 29 tools — list/search/get, create, update, delete, and reporting — across projects, sprints, epics, features, story cards, test cases, and calendar entries, so an AI assistant like Claude can query and manage your project data directly. Access is scoped to the calling user's RBAC and gated by five independent flags (`FEATURE_READ_MCP`, `FEATURE_CREATE_MCP`, `FEATURE_UPDATE_MCP`, `FEATURE_DELETE_MCP`, `FEATURE_REPORT_MCP`) plus per-user Bearer tokens.
 
-> ⚠️ **Status:** the `/mcp` transport is under active development. Feature flags, token generation, and token auth are fully functional today, but tool execution currently returns a placeholder response — see [ROADMAP.md](ROADMAP.md) for progress. The steps below document the intended configuration so it's ready to go once the transport lands.
+See **[docs/mcp.md](docs/mcp.md)** for the full setup walkthrough (enabling flags, generating a token, configuring Claude Code/Desktop) and the complete tool reference.
 
-### 1. Enable the flags you need
+## Feature Flags
 
-MCP access is split into five independent flags so you can grant exactly the level of access you want:
+Every optional and enterprise surface — AI, Retrospective Board, Calendar, card attachments, email notifications, GitHub/GitLab integration, and MCP — is off by default and controlled by a `FEATURE_*` env var, with a runtime override a `super_admin` can flip from **Admin → Feature Flags** without a restart. The env var is always the hard ceiling: a deployment can lock a surface off regardless of the runtime toggle.
 
-`FEATURE_READ_MCP` · `FEATURE_CREATE_MCP` · `FEATURE_UPDATE_MCP` · `FEATURE_DELETE_MCP` · `FEATURE_REPORT_MCP`
+The flags that matter most when standing up a deployment:
 
-Set the ones you want to `true` in `.env` (see the [env var table in CLAUDE.md](CLAUDE.md) for details), or have a `super_admin` toggle them at runtime from **Admin → Feature Flags** without a restart.
-
-### 2. Generate a personal access token
-
-Each user authenticates to MCP with their own named token (there's no dedicated UI for this yet, so create one via the API while logged in):
-
-```bash
-curl -X POST http://localhost:3000/api/mcp/tokens \
-  -H "Content-Type: application/json" \
-  -b "sf_token=<your session cookie>" \
-  -d '{"name": "My Claude Desktop"}'
-```
-
-Response (`data` field, wrapped in SlateFlow's standard envelope):
-
-```json
-{
-  "id": 1,
-  "token": "sf_mcp_<32-hex-chars>",
-  "name": "My Claude Desktop",
-  "created_at": "2026-07-04T00:00:00.000Z",
-  "message": "Token created. This is the only time it will be displayed. Store it safely."
-}
-```
-
-**The raw token is shown once** — copy it immediately. `GET /api/mcp/tokens` lists your tokens afterward (name and timestamps only, no raw value); `DELETE /api/mcp/tokens/:id` revokes one.
-
-### 3. Point Claude at the server
-
-**Claude Code** — add an entry to a project's `.mcp.json` (same file/format this repo already uses for its own `playwright` and `github` MCP servers, see [.mcp.json](.mcp.json)):
-
-```json
-{
-  "mcpServers": {
-    "slateflow": {
-      "type": "http",
-      "url": "http://localhost:3000/mcp",
-      "headers": {
-        "Authorization": "Bearer sf_mcp_<your-token>"
-      }
-    }
-  }
-}
-```
-
-**Claude Desktop** — add the same shape to `claude_desktop_config.json` under `mcpServers`.
-
-For a Docker or production deployment, swap the `url` for your public origin (e.g. `https://slateflow.example.com/mcp`). Keep the raw token out of source control — use a local, untracked config file or substitute it from an environment variable.
-
-### Available tools
-
-Once wired up, tools become available per the flags you enabled:
-
-| Flag | Tools |
+| Flag | What it turns on |
 |---|---|
-| `read_mcp` | `list_projects`, `list_sprints`, `list_epics`, `list_features`, `search_cards`, `get_card`, `list_test_suites`, `list_test_cases`, `get_test_case`, `get_calendar` |
-| `create_mcp` | `create_card`, `create_sprint`, `create_test_case`, `record_test_run`, `create_calendar_event` |
-| `update_mcp` | `update_card`, `move_card`, `update_sprint`, `update_test_case`, `update_calendar_event` |
-| `delete_mcp` | `delete_card`, `delete_sprint`, `delete_test_case`, `delete_calendar_event` |
-| `report_mcp` | `get_velocity_report`, `get_cycle_time_report`, `get_capacity_report`, `get_dashboard_stats`, `get_dashboard_projects` |
+| `FEATURE_AI` | AI-powered summarization, generation, and chat features (see [Features](#features) above) |
+| `FEATURE_RETROSPECTIVE` | Per-sprint Retrospective Board |
+| `FEATURE_CALENDAR` | Calendar (sprints/epics/features, holidays, events, vacations) |
+| `FEATURE_CARD_ATTACHMENTS` | File uploads on story cards |
+| `FEATURE_EMAIL_NOTIFICATIONS` | SMTP email notifications for mentions, assignments, due dates |
+| `FEATURE_GITHUB_INTEGRATION` / `FEATURE_GITLAB_INTEGRATION` | PR/MR/issue link attachments and merge webhooks |
+| `FEATURE_AUTH_GOOGLE` / `FEATURE_AUTH_GITHUB` | OAuth login methods |
+| `FEATURE_READ_MCP` / `FEATURE_CREATE_MCP` / `FEATURE_UPDATE_MCP` / `FEATURE_DELETE_MCP` / `FEATURE_REPORT_MCP` | MCP server tool access (see [MCP Setup](#mcp-setup) above) |
 
-All tool calls respect the calling user's RBAC — an MCP token can never do more than the user it belongs to could do in the UI.
+22 flags are registered in total, several of them sub-flags that further scope a feature (e.g. individual AI capabilities). See **[docs/feature-flags.md](docs/feature-flags.md)** for the complete list, every env var and default, and the config each one depends on (OAuth credentials, SMTP settings, AI provider keys, etc.).
 
 ## Scripts
 

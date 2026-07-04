@@ -1,5 +1,5 @@
 import type { AIProvider, CompletionOptions, Message } from '../ai.js'
-import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage } from '../ai.js'
+import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage, fetchWithRetry } from '../ai.js'
 import { sseLines } from '../sseLines.js'
 
 type ProviderVariant = 'openai' | 'azure' | 'ollama'
@@ -47,7 +47,7 @@ export class OpenAICompatProvider implements AIProvider {
     if (options?.systemPrompt) messages.push({ role: 'system', content: options.systemPrompt })
     messages.push({ role: 'user', content: prompt })
 
-    const res = await fetch(this.endpoint, {
+    const res = await fetchWithRetry(this.endpoint, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({
@@ -57,8 +57,7 @@ export class OpenAICompatProvider implements AIProvider {
         stream: false,
         messages,
       }),
-      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
-    })
+    }, COMPLETE_TIMEOUT_MS)
     if (!res.ok) throw new Error(`OpenAI-compat error ${res.status}: ${await res.text()}`)
 
     const json = await readProviderJson<{
@@ -72,7 +71,7 @@ export class OpenAICompatProvider implements AIProvider {
   }
 
   async *stream(messages: Message[], options?: CompletionOptions): AsyncGenerator<string> {
-    const res = await fetch(this.endpoint, {
+    const res = await fetchWithRetry(this.endpoint, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({
@@ -83,8 +82,7 @@ export class OpenAICompatProvider implements AIProvider {
         stream_options: { include_usage: true },
         messages: messages.map(m => ({ role: m.role, content: m.content })),
       }),
-      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
-    })
+    }, STREAM_TIMEOUT_MS)
     if (!res.ok) throw new Error(`OpenAI-compat error ${res.status}: ${await res.text()}`)
 
     let inputTokens: number | undefined

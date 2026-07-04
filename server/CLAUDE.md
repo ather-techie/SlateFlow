@@ -40,6 +40,26 @@ Mount order in [src/index.ts](src/index.ts) is load-bearing:
 
 When adding a new public route, register it BEFORE the `requireAuth` line. Otherwise it will silently 401.
 
+## MCP Server
+
+`/mcp` (mounted before `requireAuth` in `index.ts` — see [routes/mcp.ts](src/routes/mcp.ts)) exposes 29 tools over the Model Context Protocol via `@modelcontextprotocol/sdk`, authenticated by per-user Bearer tokens issued through `POST /api/mcp/tokens` ([routes/mcpTokens.ts](src/routes/mcpTokens.ts)). Tool schemas, RBAC, and all 29 implementations live in [lib/mcpServer.ts](src/lib/mcpServer.ts).
+
+**Transport:** `WebStandardStreamableHTTPServerTransport` (from `@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js`) in **stateless mode** (`sessionIdGenerator: undefined`) — not the Node-flavored `StreamableHTTPServerTransport` (wants raw req/res) and not the deprecated `SSEServerTransport`. Every `POST /mcp` request constructs a fresh `Server` + transport pair and calls `transport.handleRequest(c.req.raw)`, returning the `Response` straight to Hono. This is intentional, not a placeholder: MCP tool calls here are independent, per-call RBAC-checked operations with no session lifecycle to manage, and the SDK itself throws if a stateless transport is reused across requests. `GET /mcp` returns 405 (no server-initiated stream in stateless mode); `DELETE /mcp` returns 204 (no session to tear down).
+
+**`enableJsonResponse: true` is required**, not optional — the route closes the transport/server in a `finally` block immediately after `handleRequest()` resolves. Without `enableJsonResponse`, the transport defaults to returning a live SSE stream whose body hasn't finished flushing when that `finally` fires, so the client hangs waiting for a response that never arrives. With it, `handleRequest()`'s promise only resolves once the JSON-RPC response is fully computed, so it's safe to close synchronously afterward.
+
+**User threading:** `createMcpServer(user: McpUser)` takes the authenticated user (set by `validateMcpToken`, which selects `id, email, role, display_name` from `users`) and closes over it when registering the `CallToolRequestSchema` handler, so `callTool` always receives the real caller — never construct `createMcpServer()` without a real user.
+
+**RBAC — stricter than REST by design:** MCP write tools (`create_card`, `update_card`, `move_card`, `delete_card`, `create_test_case`, `update_test_case`, `delete_test_case`, `record_test_run`, `create_sprint`, `update_sprint`, `delete_sprint`) enforce `canWrite`/epic-`canWrite` checks that their equivalent REST routes today do **not** have. This is intentional: MCP calls are typically issued by an LLM agent rather than a human clicking through UI affordances that already implicitly scope access, so the extra explicit gate is deliberate defense-in-depth for this entry point. Do not "fix" this by removing the check to match REST parity — if REST routes later gain the same checks, keep both, don't delete the MCP-side one.
+
+**Default-item filtering diverges from REST:** `list_epics` / `list_features` MCP tools filter out `is_default = 1` rows even though the REST list routes (`epics.ts`, `features.ts`) return them. This matches the "Default Items Visibility" convention (see root CLAUDE.md) and the tools' documented contracts — REST list endpoints stay as-is; do not change them to match.
+
+**`get_card` includes `tasks`:** unlike REST's `GET /cards/:id`, the MCP `get_card` tool additionally returns a `tasks` array (`SELECT * FROM tasks WHERE story_id = ? ORDER BY position, id`). This is a deliberate MCP-only enrichment for agent consumers that want full task-level detail in one call.
+
+**Feature flags:** `read_mcp` / `create_mcp` / `update_mcp` / `delete_mcp` / `report_mcp` gate the five tool buckets (see root CLAUDE.md's feature-flags table). The four calendar tools (`get_calendar`, `create_calendar_event`, `update_calendar_event`, `delete_calendar_event`) require **both** their bucket flag and `calendar` — checked centrally in `callTool()`'s dispatcher via a `CALENDAR_TOOLS` set, not duplicated per-handler.
+
+**Adding a new tool:** define its `Tool` schema in the `tools` array, add a zod schema to `TOOL_SCHEMAS` if it takes input, add its name to `TOOL_FLAG_BUCKET`, write the handler function in the matching section of `mcpServer.ts`, register it in `handlers`, and reuse existing route/lib logic verbatim — never duplicate SQL that already exists in `routes/*.ts` or `lib/*.ts`.
+
 ## API surface
 
 | File | Exposed paths |
@@ -178,7 +198,7 @@ Env vars come from the repo-root `.env` file via [loadEnv.ts](src/loadEnv.ts), w
 | `azure` | `lib/providers/openaicompat.ts` | `gpt-4o` (set `AI_BASE_URL` to full deployment URL) |
 | `ollama` | `lib/providers/openaicompat.ts` | `llama3` |
 
-Every streaming provider parses SSE via [lib/sseLines.ts](src/lib/sseLines.ts). When adding a new provider, conform to the `AIProvider` interface (`complete` + `stream`) and reuse `sseLines`. Providers must also: set `signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS | STREAM_TIMEOUT_MS)` on every fetch, parse responses via `readProviderJson()` (clean error on malformed JSON), and report token counts via `logUsage()` — all exported from `lib/ai.ts`. `logUsage()` is `async` and, when called with a `usageContext` (`userId`, `projectId`, `endpoint`), persists a row to the `ai_usage` table in addition to its `console.log` — every route calling `provider.complete()`/`.stream()` should pass `usageContext` in `options` so usage shows up in the AI Token Usage report.
+Every streaming provider parses SSE via [lib/sseLines.ts](src/lib/sseLines.ts). When adding a new provider, conform to the `AIProvider` interface (`complete` + `stream`) and reuse `sseLines`. Providers must also: issue every request via `fetchWithRetry(url, init, COMPLETE_TIMEOUT_MS | STREAM_TIMEOUT_MS)` instead of raw `fetch` (it retries transient network errors and 429/500/502/503/504 responses with exponential backoff honoring `Retry-After`, and creates a fresh `AbortSignal.timeout` per attempt — do not pass your own `signal`), parse responses via `readProviderJson()` (clean error on malformed JSON), and report token counts via `logUsage()` — all exported from `lib/ai.ts`. `logUsage()` is `async` and, when called with a `usageContext` (`userId`, `projectId`, `endpoint`), persists a row to the `ai_usage` table in addition to its `console.log` — every route calling `provider.complete()`/`.stream()` should pass `usageContext` in `options` so usage shows up in the AI Token Usage report.
 
 ### AI route helpers
 

@@ -1,5 +1,5 @@
 import type { AIProvider, CompletionOptions, Message } from '../ai.js'
-import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage } from '../ai.js'
+import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage, fetchWithRetry } from '../ai.js'
 import { sseLines } from '../sseLines.js'
 
 type GeminiPart = { text: string }
@@ -53,12 +53,11 @@ export class GeminiProvider implements AIProvider {
     const url = `${this.baseURL}/${model}:generateContent?key=${this.apiKey}`
     const body = this.buildBody([{ role: 'user', content: prompt }], options)
 
-    const res = await fetch(url, {
+    const res = await fetchWithRetry(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
-    })
+    }, COMPLETE_TIMEOUT_MS)
     if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`)
 
     const json = await readProviderJson<{
@@ -76,12 +75,11 @@ export class GeminiProvider implements AIProvider {
     const url = `${this.baseURL}/${model}:streamGenerateContent?alt=sse&key=${this.apiKey}`
     const body = this.buildBody(messages, options)
 
-    const res = await fetch(url, {
+    const res = await fetchWithRetry(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
-    })
+    }, STREAM_TIMEOUT_MS)
     if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`)
 
     let inputTokens: number | undefined

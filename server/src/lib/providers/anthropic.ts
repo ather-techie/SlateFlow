@@ -1,5 +1,5 @@
 import type { AIProvider, CompletionOptions, Message } from '../ai.js'
-import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage } from '../ai.js'
+import { COMPLETE_TIMEOUT_MS, STREAM_TIMEOUT_MS, readProviderJson, logUsage, fetchWithRetry } from '../ai.js'
 import { sseLines } from '../sseLines.js'
 
 export class AnthropicProvider implements AIProvider {
@@ -24,7 +24,7 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async complete(prompt: string, options?: CompletionOptions): Promise<string> {
-    const res = await fetch(`${this.baseURL}/v1/messages`, {
+    const res = await fetchWithRetry(`${this.baseURL}/v1/messages`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({
@@ -33,8 +33,7 @@ export class AnthropicProvider implements AIProvider {
         ...(options?.systemPrompt ? { system: options.systemPrompt } : {}),
         messages: [{ role: 'user', content: prompt }],
       }),
-      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
-    })
+    }, COMPLETE_TIMEOUT_MS)
     if (!res.ok) throw new Error(`Anthropic error ${res.status}: ${await res.text()}`)
     const json = await readProviderJson<{
       content: Array<{ type: string; text: string }>
@@ -51,7 +50,7 @@ export class AnthropicProvider implements AIProvider {
       options?.systemPrompt ??
       messages.find(m => m.role === 'system')?.content
 
-    const res = await fetch(`${this.baseURL}/v1/messages`, {
+    const res = await fetchWithRetry(`${this.baseURL}/v1/messages`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({
@@ -63,8 +62,7 @@ export class AnthropicProvider implements AIProvider {
           .filter(m => m.role !== 'system')
           .map(m => ({ role: m.role, content: m.content })),
       }),
-      signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
-    })
+    }, STREAM_TIMEOUT_MS)
     if (!res.ok) throw new Error(`Anthropic error ${res.status}: ${await res.text()}`)
 
     let inputTokens: number | undefined
