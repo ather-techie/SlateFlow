@@ -37,7 +37,7 @@ export interface CardLink {
   id: number
   card_id: number
   provider: 'github' | 'gitlab'
-  type: 'pr' | 'mr' | 'commit'
+  type: 'pr' | 'mr' | 'commit' | 'issue'
   repo_url: string
   number: number | null
   sha: string | null

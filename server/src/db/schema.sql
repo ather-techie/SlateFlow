@@ -423,3 +423,18 @@ CREATE TABLE IF NOT EXISTS ai_digests (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_digests_lookup ON ai_digests(kind, project_id, sprint_id, created_at DESC);
+
+-- Per-call AI token usage, persisted so /reports can chart consumption over time.
+CREATE TABLE IF NOT EXISTS ai_usage (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id    INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  user_id       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  provider      TEXT    NOT NULL,
+  model         TEXT,
+  endpoint      TEXT    NOT NULL,
+  input_tokens  INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_usage_project_date ON ai_usage(project_id, created_at);

@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
+vi.mock('../db/index.js', () => ({
+  db: { get: vi.fn(), all: vi.fn(), run: vi.fn() },
+}))
+
 vi.mock('./providers/anthropic.js', () => ({
   AnthropicProvider: vi.fn().mockImplementation(() => ({
     complete: vi.fn(),
@@ -252,6 +256,61 @@ describe('getProvider', () => {
 
       await expect(getProvider()).rejects.toThrow()
     })
+  })
+})
+
+describe('logUsage', () => {
+  it('does nothing when neither input nor output tokens are defined', async () => {
+    const { db } = await import('../db/index.js')
+    const { logUsage } = await import('./ai.js')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await logUsage('anthropic', 'claude-sonnet-4-6', {})
+
+    expect(logSpy).not.toHaveBeenCalled()
+    expect(db.run).not.toHaveBeenCalled()
+    logSpy.mockRestore()
+  })
+
+  it('logs to console but skips the DB insert when no context is passed', async () => {
+    const { db } = await import('../db/index.js')
+    const { logUsage } = await import('./ai.js')
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await logUsage('anthropic', 'claude-sonnet-4-6', { input: 10, output: 5 })
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('provider=anthropic'))
+    expect(db.run).not.toHaveBeenCalled()
+    logSpy.mockRestore()
+  })
+
+  it('persists a row to ai_usage when context is passed', async () => {
+    const { db } = await import('../db/index.js')
+    const { logUsage } = await import('./ai.js')
+
+    await logUsage(
+      'anthropic',
+      'claude-sonnet-4-6',
+      { input: 100, output: 40 },
+      { userId: 1, projectId: 2, endpoint: '/ai/cards/:id/summarize' },
+    )
+
+    expect(db.run).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO ai_usage'),
+      2, 1, 'anthropic', 'claude-sonnet-4-6', '/ai/cards/:id/summarize', 100, 40,
+    )
+  })
+
+  it('defaults project_id to null when the context has no projectId', async () => {
+    const { db } = await import('../db/index.js')
+    const { logUsage } = await import('./ai.js')
+
+    await logUsage('gemini', undefined, { input: 5, output: 2 }, { endpoint: '/ai/parse-item' })
+
+    expect(db.run).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO ai_usage'),
+      null, null, 'gemini', null, '/ai/parse-item', 5, 2,
+    )
   })
 })
 

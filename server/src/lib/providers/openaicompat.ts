@@ -65,7 +65,7 @@ export class OpenAICompatProvider implements AIProvider {
       choices: Array<{ message: { content: string } }>
       usage?: { prompt_tokens: number; completion_tokens: number }
     }>(res, 'OpenAI-compat')
-    logUsage('openai-compat', { input: json.usage?.prompt_tokens, output: json.usage?.completion_tokens })
+    await logUsage('openai-compat', options?.model ?? this.model, { input: json.usage?.prompt_tokens, output: json.usage?.completion_tokens }, options?.usageContext)
     const text = json.choices[0]?.message?.content
     if (!text) throw new Error('Empty response from OpenAI-compatible provider')
     return text
@@ -80,21 +80,34 @@ export class OpenAICompatProvider implements AIProvider {
         max_tokens: options?.maxTokens ?? 1024,
         temperature: options?.temperature,
         stream: true,
+        stream_options: { include_usage: true },
         messages: messages.map(m => ({ role: m.role, content: m.content })),
       }),
       signal: AbortSignal.timeout(STREAM_TIMEOUT_MS),
     })
     if (!res.ok) throw new Error(`OpenAI-compat error ${res.status}: ${await res.text()}`)
 
-    for await (const data of sseLines(res)) {
-      if (data === '[DONE]') break
-      try {
-        const event = JSON.parse(data) as {
-          choices: Array<{ delta: { content?: string } }>
-        }
-        const text = event.choices[0]?.delta?.content
-        if (text) yield text
-      } catch { /* skip non-JSON lines */ }
+    let inputTokens: number | undefined
+    let outputTokens: number | undefined
+
+    try {
+      for await (const data of sseLines(res)) {
+        if (data === '[DONE]') break
+        try {
+          const event = JSON.parse(data) as {
+            choices: Array<{ delta: { content?: string } }>
+            usage?: { prompt_tokens?: number; completion_tokens?: number }
+          }
+          if (event.usage) {
+            inputTokens = event.usage.prompt_tokens
+            outputTokens = event.usage.completion_tokens
+          }
+          const text = event.choices?.[0]?.delta?.content
+          if (text) yield text
+        } catch { /* skip non-JSON lines */ }
+      }
+    } finally {
+      await logUsage('openai-compat', options?.model ?? this.model, { input: inputTokens, output: outputTokens }, options?.usageContext)
     }
   }
 }

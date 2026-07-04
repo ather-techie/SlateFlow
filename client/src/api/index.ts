@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import type {
   ActivityItem,
   ActivityLog,
+  AiUsageEntry,
   AuthUser,
   CalendarEvent,
   CalendarHoliday,
@@ -474,6 +475,8 @@ export const api = {
     cycleTime: (projectId: number) => unwrap<CycleTimeEntry[]>(http.get(`/projects/${projectId}/cycle-time`)),
     capacity: (projectId: number, sprintId: number) =>
       unwrap<CapacityEntry[]>(http.get(`/projects/${projectId}/capacity`, { params: { sprint_id: sprintId } })),
+    aiUsage: (projectId: number, days?: number) =>
+      unwrap<AiUsageEntry[]>(http.get(`/projects/${projectId}/ai-usage`, { params: days ? { days } : {} })),
     exportUrl: (projectId: number, type: 'backlog' | 'sprint' | 'full', sprintId?: number) => {
       const base = `/api/projects/${projectId}/export/csv?type=${type}`
       return sprintId ? `${base}&sprint_id=${sprintId}` : base

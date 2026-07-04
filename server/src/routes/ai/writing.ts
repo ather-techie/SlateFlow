@@ -20,7 +20,14 @@ interface CardRow {
   title: string
   description: string
   feature_id: number | null
+  project_id: number | null
 }
+
+const CARD_ROW_QUERY = `
+  SELECT c.id, c.title, c.description, c.feature_id, f.project_id
+  FROM cards c LEFT JOIN features f ON f.id = c.feature_id
+  WHERE c.id = ?
+`
 
 const criterionSchema = z.object({
   given: z.string().min(1),
@@ -32,10 +39,7 @@ writing.post('/ai/cards/:id/generate-acceptance-criteria', requireFeature('ai_wr
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid card id', 400)
 
-  const card = await db.get<CardRow>(
-    'SELECT id, title, description, feature_id FROM cards WHERE id = ?',
-    id
-  )
+  const card = await db.get<CardRow>(CARD_ROW_QUERY, id)
   if (!card) return err(c, 'card not found', 404)
 
   const user = c.get('user')
@@ -53,6 +57,7 @@ writing.post('/ai/cards/:id/generate-acceptance-criteria', requireFeature('ai_wr
     const response = await provider.complete(prompt, {
       systemPrompt: GENERATE_ACCEPTANCE_CRITERIA_SYSTEM,
       maxTokens: 1024,
+      usageContext: { userId: user.id, projectId: card.project_id ?? undefined, endpoint: '/ai/cards/:id/generate-acceptance-criteria' },
     })
 
     const items = parseAiJson<unknown[]>(response, 'array')
@@ -81,10 +86,7 @@ writing.post('/ai/cards/:id/summarize-comments', requireFeature('ai_writing_assi
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid card id', 400)
 
-  const card = await db.get<CardRow>(
-    'SELECT id, title, description, feature_id FROM cards WHERE id = ?',
-    id
-  )
+  const card = await db.get<CardRow>(CARD_ROW_QUERY, id)
   if (!card) return err(c, 'card not found', 404)
 
   const user = c.get('user')
@@ -116,6 +118,7 @@ writing.post('/ai/cards/:id/summarize-comments', requireFeature('ai_writing_assi
     const response = await provider.complete(prompt, {
       systemPrompt: SUMMARIZE_COMMENTS_SYSTEM,
       maxTokens: 768,
+      usageContext: { userId: user.id, projectId: card.project_id ?? undefined, endpoint: '/ai/cards/:id/summarize-comments' },
     })
 
     const json = parseAiJson<unknown>(response, 'object')

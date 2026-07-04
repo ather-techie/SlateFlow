@@ -46,6 +46,12 @@ echo "Run folder: $RUN_DIR"
 
 Store `$RUN_DIR` as a variable for cleanup at the end.
 
+**Mandatory artifact rule — all files generated during this run must be created inside the run folder:**
+
+- **Every** screenshot call must pass an explicit `filename` parameter prefixed with the run folder name: `filename: "run-<RUN_ID>/<flow>-<NN>-<description>.png"`. The path is relative to `.playwright-mcp/` (the MCP output dir) — do NOT prefix it with `.playwright-mcp/`.
+- Naming convention: `<flow>-<NN>-<short-description>.png`, e.g. `login-01-form.png`, `users-07-created.png`, `flags-08-toggled.png`.
+- Never call the screenshot tool without `filename` — auto-named files land in `.playwright-mcp/` root, outside the run folder.
+
 Now run the health check script to confirm both servers are up and detect the frontend port:
 
 ```bash
@@ -65,18 +71,20 @@ If the script exits non-zero, stop here and tell the user to run `npm run dev` f
 Use the MCP Playwright tools:
 
 1. `browser_navigate` to `http://localhost:$FRONTEND_PORT/login`
-2. `browser_screenshot` — confirm the login form is visible (email + password fields, sign-in button)
+2. `browser_screenshot` (`filename: "run-<RUN_ID>/login-01-form.png"`) — confirm the login form is visible (email + password fields, sign-in button)
 3. `browser_type` into the email field: `admin@flow.local`
 4. `browser_type` into the password field: `Admin1234!`
 5. `browser_click` on the "Sign in" / submit button
 6. `browser_wait_for_url` to not contain `/login` (should redirect to `/dashboard` or similar)
-7. `browser_screenshot` — confirm the dashboard page rendered
+7. `browser_screenshot` (`filename: "run-<RUN_ID>/login-02-dashboard.png"`) — confirm the dashboard page rendered
 
 If login fails, stop here and report the failure. Otherwise, continue to the requested flows below.
 
 ---
 
 ## Step 4 — Run Requested Flows
+
+**Reminder:** every screenshot in the flows below must use `filename: "run-<RUN_ID>/<flow>-<NN>-<description>.png"` so the file is created directly inside the run folder.
 
 ### Users Flow (if requested)
 
@@ -237,7 +245,7 @@ Embed a representative screenshot from each flow for visual confirmation.
 
 ## Step 6 — Artifact Cleanup
 
-After the report is complete, move all generated files into the run folder:
+Screenshots are already inside `$RUN_DIR` (created there directly via the `filename` parameter). This step is a catch-all sweep for **auto-generated** artifacts the MCP server names itself — console logs (`*.log`), page snapshots (`*.yml`), and any stray screenshot from a missed `filename`:
 
 ```bash
 mv .playwright-mcp/*.log "$RUN_DIR/" 2>/dev/null || true
@@ -246,7 +254,7 @@ mv .playwright-mcp/*.png "$RUN_DIR/" 2>/dev/null || true
 echo "All artifacts saved to $RUN_DIR"
 ```
 
-This keeps each run's screenshots, logs, and snapshots isolated in its own timestamped subfolder, preventing conflicts between concurrent or sequential runs.
+Together with the per-screenshot `filename` rule, this keeps each run's screenshots, logs, and snapshots isolated in its own timestamped subfolder, preventing conflicts between concurrent or sequential runs.
 
 ---
 
@@ -271,4 +279,4 @@ This keeps each run's screenshots, logs, and snapshots isolated in its own times
 - Mutations (users created, flags toggled, lanes added) persist in the dev database (`server/slateflow.db`) — reset anytime with `/seed-db`
 - Screenshots are embedded as base64; in the report, call out any visual anomalies (missing fields, broken buttons, layout breaks)
 - If any flow fails, report the failure clearly and suggest next debugging steps
-- **Artifacts:** All screenshots (`*.png`), console logs (`*.log`), and page snapshots (`*.yml`) from this run are automatically moved into `.playwright-mcp/run-<timestamp>/` at the end — concurrent and sequential runs stay isolated
+- **Artifacts:** Screenshots are written directly into `.playwright-mcp/run-<timestamp>/` during the run (via the `filename` parameter on every screenshot call); console logs (`*.log`) and page snapshots (`*.yml`) are swept into the same folder at the end — concurrent and sequential runs stay isolated

@@ -70,6 +70,7 @@ The dev server loads `.env` at the repo root on startup via `dotenv` ([server/sr
 | `FEATURE_AI_WRITING_ASSIST` | `false` | Enables Acceptance Criteria generation and comment-thread summarization (`/api/ai/cards/:id/generate-acceptance-criteria`, `/api/ai/cards/:id/summarize-comments`) |
 | `FEATURE_AI_PLANNING_ASSIST` | `false` | Enables assignee/estimate suggestions, sprint planning, and backlog grooming (`/api/ai/cards/:id/suggest-assignee`, `/suggest-estimate`, `/api/ai/projects/:id/plan-sprint`, `/groom-backlog`) |
 | `FEATURE_AI_PROJECT_CHAT` | `false` | Enables the streaming "Ask Your Project" chat (`POST /api/ai/projects/:id/chat`, SSE response) |
+| `FEATURE_AI_USAGE_REPORTING` | `false` | Enables the AI Token Usage report on the Reports page (`GET /api/projects/:id/ai-usage`), also requires `ai` |
 | `FEATURE_RETROSPECTIVE` | `false` | Enables the per-sprint Retrospective Board (sidebar nav + `/api/sprints/:id/retrospective` and item endpoints) |
 | `FEATURE_CALENDAR` | `false` | Enables the Calendar surface (sidebar nav + `/api/projects/:id/calendar` plus event/vacation/holiday CRUD) |
 | `FEATURE_AUTH_PASSWORD` | `true` (seeded on first boot) | Email/password login (`POST /api/auth/login`). Set to `false` to require all users to authenticate via OAuth/SSO |
@@ -183,7 +184,7 @@ resolved flag               → server: requireFeature('ai') middleware
 
 `GET /api/config` (public) exposes the resolved flags so the client can gate UI without hard-coding. `PATCH /api/admin/feature-overrides/:flag` (super_admin) toggles the runtime override. The env var is the authoritative ceiling for self-hosted deployments.
 
-Twenty-one flags are currently registered: `ai`, `auto_test_case_generation_ai`, `auto_story_generation_ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`, `card_attachments`, `read_mcp`, `create_mcp`, `update_mcp`, `delete_mcp`, `report_mcp`, `ai_ceremony_digests`, `ai_writing_assist`, `ai_planning_assist`, `ai_project_chat`. When adding a new flag, update **all three** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + exported `KNOWN_FLAGS` — [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) imports it, no separate list there), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state — note several client test files build full `Features` literals and must gain the new key too), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
+Twenty-two flags are currently registered: `ai`, `auto_test_case_generation_ai`, `auto_story_generation_ai`, `retrospective`, `calendar`, `auth_password`, `auth_google`, `auth_github`, `github_integration`, `gitlab_integration`, `email_notifications`, `card_attachments`, `read_mcp`, `create_mcp`, `update_mcp`, `delete_mcp`, `report_mcp`, `ai_ceremony_digests`, `ai_writing_assist`, `ai_planning_assist`, `ai_project_chat`, `ai_usage_reporting`. When adding a new flag, update **all three** of these sync points: [server/src/lib/featureFlags.ts](server/src/lib/featureFlags.ts) (`FeatureFlag` union + exported `KNOWN_FLAGS` — [server/src/routes/adminSettings.ts](server/src/routes/adminSettings.ts) imports it, no separate list there), [client/src/store/featureFlagStore.ts](client/src/store/featureFlagStore.ts) (union + `Features` interface + default state — note several client test files build full `Features` literals and must gain the new key too), and the env-var table above. If the flag should default to *on*, also seed a `feature_overrides` row on first boot in [server/src/db/index.ts](server/src/db/index.ts) (see `auth_password`).
 
 ## AI Providers
 
@@ -197,7 +198,7 @@ All providers talk directly to their APIs over native `fetch` (no vendor SDKs). 
 | `azure` | `gpt-4o` | `api-key` header — set `AI_BASE_URL` to the full deployment endpoint incl. `?api-version=…` |
 | `ollama` | `llama3` | `Authorization: Bearer ollama`; default base `http://localhost:11434` |
 
-`lib/sseLines.ts` is the shared SSE line reader used by every streaming provider. All provider fetches carry hard timeouts (`AbortSignal.timeout`), and token usage is logged per call. Sixteen AI endpoints are implemented, all under the master `ai` flag plus a per-group sub-flag, rate-limited per user:
+`lib/sseLines.ts` is the shared SSE line reader used by every streaming provider. All provider fetches carry hard timeouts (`AbortSignal.timeout`), and token usage is logged per call (both `complete()` and streaming `stream()` calls) via `logUsage()`, which also persists a row to the `ai_usage` table when the caller passes a `usageContext` (`userId`, `projectId`, `endpoint`). Sixteen AI endpoints are implemented, all under the master `ai` flag plus a per-group sub-flag, rate-limited per user:
 
 Base (`ai` only):
 - `POST /api/ai/cards/:id/summarize` — 2–3 sentence story summary
@@ -224,6 +225,10 @@ Project chat (`ai_project_chat`):
 - `POST /api/ai/projects/:id/chat` — **streaming SSE** project Q&A grounded in an RBAC-filtered context bundle ([server/src/lib/projectChatContext.ts](server/src/lib/projectChatContext.ts)); the only AI route that does not return the `{data,error}` envelope
 
 Every JSON-returning endpoint validates model output with zod and filters hallucinated ids/names against the DB before responding.
+
+## AI Token Usage Tracking
+
+Every AI provider call persists a row to the `ai_usage` table (`project_id`, `user_id`, `provider`, `model`, `endpoint`, `input_tokens`, `output_tokens`, `created_at`) via `logUsage()` in [server/src/lib/ai.ts](server/src/lib/ai.ts). `GET /api/projects/:id/ai-usage` (gated by `ai` + `ai_usage_reporting`) aggregates these into daily totals via `getAiTokenUsage()` in [server/src/lib/reportData.ts](server/src/lib/reportData.ts), rendered as the "AI Token Usage" chart on the Reports page alongside Velocity and Cycle Time. `project_id` is nullable — routes that aren't project-scoped when the call is made (e.g. `POST /api/ai/parse-item` before an item exists) log usage without a project and won't appear in any project's report.
 
 ## Real-time (SSE)
 

@@ -24,6 +24,7 @@ export type FeatureFlag =
   | 'ai_writing_assist'
   | 'ai_planning_assist'
   | 'ai_project_chat'
+  | 'ai_usage_reporting'
 
 export const KNOWN_FLAGS: FeatureFlag[] = [
   'ai',
@@ -47,6 +48,7 @@ export const KNOWN_FLAGS: FeatureFlag[] = [
   'ai_writing_assist',
   'ai_planning_assist',
   'ai_project_chat',
+  'ai_usage_reporting',
 ]
 
 interface OverrideRow {

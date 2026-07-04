@@ -27,6 +27,7 @@ describe('useFeatureFlagStore', () => {
         ai_writing_assist: false,
         ai_planning_assist: false,
         ai_project_chat: false,
+        ai_usage_reporting: false,
       },
       loading: true,
     })
@@ -56,6 +57,7 @@ describe('useFeatureFlagStore', () => {
         ai_writing_assist: true,
         ai_planning_assist: true,
         ai_project_chat: true,
+        ai_usage_reporting: true,
       }
 
       useFeatureFlagStore.getState().setFlags(features)
@@ -88,6 +90,7 @@ describe('useFeatureFlagStore', () => {
         ai_writing_assist: false,
         ai_planning_assist: false,
         ai_project_chat: false,
+        ai_usage_reporting: false,
       }
 
       useFeatureFlagStore.getState().setFlags(newFeatures)
@@ -119,6 +122,7 @@ describe('useFeatureFlagStore', () => {
         ai_writing_assist: false,
         ai_planning_assist: false,
         ai_project_chat: false,
+        ai_usage_reporting: false,
       }
 
       useFeatureFlagStore.getState().setFlags(features)

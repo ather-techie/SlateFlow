@@ -24,3 +24,9 @@ export interface CapacityEntry {
   capacity: number | null
   skills?: string[]
 }
+
+export interface AiUsageEntry {
+  date: string
+  input_tokens: number
+  output_tokens: number
+}

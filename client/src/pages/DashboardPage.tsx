@@ -304,8 +304,10 @@ function ProjectCard({
   onDelete: () => void
 }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all relative overflow-hidden group/card">
-      <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: project.color }} />
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all relative group/card">
+      <div className="absolute inset-0 rounded-xl overflow-hidden pointer-events-none">
+        <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: project.color }} />
+      </div>
 
       <div className="pl-5 pr-4 pt-4 pb-4">
         <div className="flex items-start justify-between gap-2 mb-1">

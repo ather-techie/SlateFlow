@@ -116,13 +116,14 @@ digests.post('/ai/sprints/:id/digest', requireFeature('ai_ceremony_digests'), as
   })
 
   try {
+    const user = c.get('user')
     const provider = await getProvider()
     const digest = await provider.complete(prompt, {
       systemPrompt: SPRINT_DIGEST_SYSTEM,
       maxTokens: 1024,
+      usageContext: { userId: user.id, projectId: sprint.project_id, endpoint: '/ai/sprints/:id/digest' },
     })
 
-    const user = c.get('user')
     await db.run(
       `INSERT INTO ai_digests (kind, project_id, sprint_id, content, created_by) VALUES (?, ?, ?, ?, ?)`,
       'sprint_health', sprint.project_id, id, digest, user.id,
@@ -226,13 +227,14 @@ digests.post('/ai/projects/:id/standup-digest', requireFeature('ai_ceremony_dige
   })
 
   try {
+    const user = c.get('user')
     const provider = await getProvider()
     const digest = await provider.complete(prompt, {
       systemPrompt: STANDUP_DIGEST_SYSTEM,
       maxTokens: 1024,
+      usageContext: { userId: user.id, projectId: id, endpoint: '/ai/projects/:id/standup-digest' },
     })
 
-    const user = c.get('user')
     await db.run(
       `INSERT INTO ai_digests (kind, project_id, sprint_id, content, created_by) VALUES (?, ?, ?, ?, ?)`,
       'standup', id, null, digest, user.id,
@@ -308,6 +310,7 @@ digests.post('/ai/retrospectives/:id/synthesize', requireFeature('ai_ceremony_di
     const response = await provider.complete(prompt, {
       systemPrompt: RETRO_SYNTHESIZE_SYSTEM,
       maxTokens: 2048,
+      usageContext: { userId: c.get('user').id, projectId: retro.project_id, endpoint: '/ai/retrospectives/:id/synthesize' },
     })
 
     const json = parseAiJson<unknown>(response, 'object')

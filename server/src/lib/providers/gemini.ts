@@ -65,7 +65,7 @@ export class GeminiProvider implements AIProvider {
       candidates: Array<{ content: { parts: GeminiPart[] } }>
       usageMetadata?: { promptTokenCount: number; candidatesTokenCount: number }
     }>(res, 'Gemini')
-    logUsage('gemini', { input: json.usageMetadata?.promptTokenCount, output: json.usageMetadata?.candidatesTokenCount })
+    await logUsage('gemini', model, { input: json.usageMetadata?.promptTokenCount, output: json.usageMetadata?.candidatesTokenCount }, options?.usageContext)
     const text = json.candidates[0]?.content?.parts[0]?.text
     if (!text) throw new Error('Empty response from Gemini')
     return text
@@ -84,19 +84,31 @@ export class GeminiProvider implements AIProvider {
     })
     if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text()}`)
 
-    for await (const data of sseLines(res)) {
-      try {
-        const event = JSON.parse(data) as {
-          candidates: Array<{
-            content: { parts: GeminiPart[] }
-            finishReason?: string
-          }>
-        }
-        const candidate = event.candidates?.[0]
-        const text = candidate?.content?.parts[0]?.text
-        if (text) yield text
-        if (candidate?.finishReason) break
-      } catch { /* skip non-JSON lines */ }
+    let inputTokens: number | undefined
+    let outputTokens: number | undefined
+
+    try {
+      for await (const data of sseLines(res)) {
+        try {
+          const event = JSON.parse(data) as {
+            candidates: Array<{
+              content: { parts: GeminiPart[] }
+              finishReason?: string
+            }>
+            usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number }
+          }
+          if (event.usageMetadata) {
+            inputTokens = event.usageMetadata.promptTokenCount
+            outputTokens = event.usageMetadata.candidatesTokenCount
+          }
+          const candidate = event.candidates?.[0]
+          const text = candidate?.content?.parts[0]?.text
+          if (text) yield text
+          if (candidate?.finishReason) break
+        } catch { /* skip non-JSON lines */ }
+      }
+    } finally {
+      await logUsage('gemini', model, { input: inputTokens, output: outputTokens }, options?.usageContext)
     }
   }
 }

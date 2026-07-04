@@ -76,17 +76,12 @@ describe('GET /cards/:id/comments', () => {
   })
 
   it('returns 200 with empty array when no comments exist', async () => {
-    vi.mocked(db.get)
-      .mockResolvedValueOnce({ id: 1 }) // card exists
-      .mockResolvedValueOnce({ total: 0 }) // COUNT query
+    vi.mocked(db.get).mockResolvedValueOnce({ id: 1 }) // card exists
     vi.mocked(db.all).mockResolvedValueOnce([])
     const res = await makeApp().request('/cards/1/comments')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.items).toEqual([])
-    expect(body.data.total).toBe(0)
-    expect(body.data.limit).toBe(50)
-    expect(body.data.offset).toBe(0)
+    expect(body.data).toEqual([])
   })
 
   it('returns 200 with comments ordered by created_at', async () => {
@@ -94,26 +89,12 @@ describe('GET /cards/:id/comments', () => {
       { id: 1, card_id: 1, author: 'Admin', author_id: 1, body: 'First', created_at: '2024-01-01' },
       { id: 2, card_id: 1, author: 'User', author_id: 2, body: 'Second', created_at: '2024-01-02' },
     ]
-    vi.mocked(db.get)
-      .mockResolvedValueOnce({ id: 1 }) // card exists
-      .mockResolvedValueOnce({ total: 2 }) // COUNT query
+    vi.mocked(db.get).mockResolvedValueOnce({ id: 1 }) // card exists
     vi.mocked(db.all).mockResolvedValueOnce(mockComments)
     const res = await makeApp().request('/cards/1/comments')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.items).toEqual(mockComments)
-    expect(body.data.total).toBe(2)
-  })
-
-  it('respects limit and offset query params', async () => {
-    vi.mocked(db.get)
-      .mockResolvedValueOnce({ id: 1 })
-      .mockResolvedValueOnce({ total: 100 })
-    vi.mocked(db.all).mockResolvedValueOnce([])
-    await makeApp().request('/cards/1/comments?limit=5&offset=10')
-    const allCall = vi.mocked(db.all).mock.calls[0]
-    expect(allCall[0]).toContain('LIMIT')
-    expect(allCall[0]).toContain('OFFSET')
+    expect(body.data).toEqual(mockComments)
   })
 })
 

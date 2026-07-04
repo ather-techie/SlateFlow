@@ -1,18 +1,37 @@
-import { describe, it, expect } from 'vitest'
-import type { Card } from '../../types/board'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import toast from 'react-hot-toast'
+import CardIntegrationsTab from './CardIntegrationsTab'
+import { api } from '../../api/index'
+import { useBoardStore } from '../../store/boardStore'
+import { useFeatureFlagStore } from '../../store/featureFlagStore'
+import type { Card, CardLink } from '../../types'
 
-// CardIntegrationsTab is a stub component (TODO: Extract GitHub/GitLab link management).
-// Component rendering tests require @testing-library/react which is not configured in this project.
-// This file verifies the component interface and type safety.
+vi.mock('../../api/index', () => ({
+  api: {
+    cardLinks: {
+      list: vi.fn(),
+      add: vi.fn(),
+      remove: vi.fn(),
+    },
+  },
+}))
+
+vi.mock('react-hot-toast', () => ({
+  default: { success: vi.fn(), error: vi.fn() },
+}))
+
+const mockedApi = vi.mocked(api, true)
 
 const mockCard: Card = {
   id: 1,
   column_id: null,
-  swim_lane_id: null,
+  swim_lane_id: 1,
   sprint_id: 1,
-  feature_id: 1,
+  feature_id: null,
   title: 'Test Card',
-  description: 'Test description',
+  description: '',
   priority: 'p1',
   story_points: 5,
   assignee: null,
@@ -23,18 +42,64 @@ const mockCard: Card = {
   updated_at: '2024-01-01T00:00:00Z',
 }
 
-describe('CardIntegrationsTab', () => {
-  describe('component interface', () => {
-    it('accepts card and projectId props', () => {
-      expect(mockCard).toBeDefined()
-      expect(mockCard.id).toBe(1)
-    })
+const githubPr: CardLink = {
+  id: 1, card_id: 1, provider: 'github', type: 'pr', repo_url: 'https://github.com/o/r',
+  number: 42, sha: null, title: 'Fix the bug', url: 'https://github.com/o/r/pull/42', state: 'open', merged_at: null, created_by: 1, created_at: '2024-01-01',
+}
 
-    it('stub component awaits implementation', () => {
-      // This component is a placeholder pending feature implementation
-      // Gated by github_integration and gitlab_integration flags
-      // See CardModal.old.tsx lines ~1500-1550 for reference implementation
-      expect(true).toBe(true)
+describe('CardIntegrationsTab', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    useBoardStore.setState({ lanes: [], cards: [], testCaseSummary: {}, taskSummary: {}, linkCount: {} })
+    useFeatureFlagStore.setState((state) => ({ loading: false, features: { ...state.features, github_integration: true, gitlab_integration: false } }))
+  })
+
+  it('renders linked GitHub PRs and syncs link count', async () => {
+    mockedApi.cardLinks.list.mockResolvedValue([githubPr])
+    render(<CardIntegrationsTab card={mockCard} projectId={1} />)
+    expect(await screen.findByText('Fix the bug')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(useBoardStore.getState().linkCount[1]).toBe(1)
+    })
+  })
+
+  it('shows empty state when no links exist', async () => {
+    mockedApi.cardLinks.list.mockResolvedValue([])
+    render(<CardIntegrationsTab card={mockCard} projectId={1} />)
+    expect(await screen.findByText('No GitHub PRs linked.')).toBeInTheDocument()
+  })
+
+  it('does not render the GitLab section when the flag is off', async () => {
+    mockedApi.cardLinks.list.mockResolvedValue([])
+    render(<CardIntegrationsTab card={mockCard} projectId={1} />)
+    await screen.findByText('No GitHub PRs linked.')
+    expect(screen.queryByText(/GitLab/)).not.toBeInTheDocument()
+  })
+
+  it('adds a new link', async () => {
+    mockedApi.cardLinks.list.mockResolvedValue([])
+    mockedApi.cardLinks.add.mockResolvedValue(githubPr)
+    const user = userEvent.setup()
+    render(<CardIntegrationsTab card={mockCard} projectId={1} />)
+    await screen.findByText('No GitHub PRs linked.')
+    await user.click(screen.getByText('+ Link a PR / MR / Commit / Issue'))
+    await user.type(screen.getByPlaceholderText(/Paste a GitHub PR/), githubPr.url)
+    await user.click(screen.getByText('Add'))
+    await waitFor(() => {
+      expect(mockedApi.cardLinks.add).toHaveBeenCalledWith(1, { url: githubPr.url })
+    })
+    expect(toast.success).toHaveBeenCalled()
+  })
+
+  it('removes a link', async () => {
+    mockedApi.cardLinks.list.mockResolvedValue([githubPr])
+    mockedApi.cardLinks.remove.mockResolvedValue({ id: githubPr.id })
+    const user = userEvent.setup()
+    render(<CardIntegrationsTab card={mockCard} projectId={1} />)
+    await screen.findByText('Fix the bug')
+    await user.click(screen.getByTitle('Remove'))
+    await waitFor(() => {
+      expect(mockedApi.cardLinks.remove).toHaveBeenCalledWith(1, githubPr.id)
     })
   })
 })

@@ -819,6 +819,16 @@ curl -b cookies.txt 'http://localhost:3000/api/projects/1/capacity?sprint_id=2'
 ```
 `sprint_id` is required. Returns one row per assignee in the sprint: `{ assignee, story_count, story_points }`, ordered by points DESC. Stories without an assignee are bucketed as `"Unassigned"`.
 
+### AI token usage (per day)
+```bash
+curl -b cookies.txt 'http://localhost:3000/api/projects/1/ai-usage?days=30'
+```
+Gated by the `ai` and `ai_usage_reporting` feature flags (404 if either is off). `days` defaults to 30. Returns one row per day with usage, oldest first:
+```json
+{ "date": "2026-06-15", "input_tokens": 4200, "output_tokens": 1100 }
+```
+Sourced from the `ai_usage` table, populated by every AI provider call (both `complete()` and streaming `stream()` calls) via `logUsage()`.
+
 ### CSV export
 ```bash
 # All non-default epics + features + stories in the project (default)

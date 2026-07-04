@@ -19,20 +19,8 @@ comments.get('/cards/:id/comments', async (c) => {
   const card = await db.get('SELECT id FROM cards WHERE id = ?', cardId)
   if (!card) return err(c, 'card not found', 404)
 
-  const limit = Math.min(parseInt(c.req.query('limit') || '50', 10), 500) || 50
-  const offset = Math.max(parseInt(c.req.query('offset') || '0', 10), 0) || 0
-
-  const countRow = await db.get<{ total: number }>(
-    'SELECT COUNT(*) as total FROM comments WHERE card_id = ?',
-    cardId
-  )
-  const total = countRow?.total ?? 0
-
-  const rows = await db.all(
-    'SELECT * FROM comments WHERE card_id = ? ORDER BY created_at ASC LIMIT ? OFFSET ?',
-    cardId, limit, offset
-  )
-  return ok(c, { items: rows, total, limit, offset })
+  const rows = await db.all('SELECT * FROM comments WHERE card_id = ? ORDER BY created_at ASC', cardId)
+  return ok(c, rows)
 })
 
 comments.post('/cards/:id/comments', async (c) => {

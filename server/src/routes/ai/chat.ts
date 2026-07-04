@@ -59,7 +59,8 @@ chat.post('/ai/projects/:id/chat', requireFeature('ai_project_chat'), async (c) 
   return streamSSE(c, async (stream) => {
     try {
       const provider = await getProvider()
-      for await (const text of provider.stream(messages, { maxTokens: 1024 })) {
+      const usageContext = { userId: user.id, projectId: id, endpoint: '/ai/projects/:id/chat' }
+      for await (const text of provider.stream(messages, { maxTokens: 1024, usageContext })) {
         if (c.req.raw.signal.aborted) return
         // JSON-encode so newlines survive SSE framing.
         await stream.writeSSE({ event: 'token', data: JSON.stringify({ text }) })

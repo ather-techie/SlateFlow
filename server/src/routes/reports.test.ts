@@ -9,7 +9,12 @@ vi.mock('../db/index.js', () => ({
   },
 }))
 
+vi.mock('../lib/featureFlags.js', () => ({
+  isEnabled: vi.fn(),
+}))
+
 import { db } from '../db/index.js'
+import { isEnabled } from '../lib/featureFlags.js'
 import reports from './reports'
 
 const ADMIN = { id: 1, role: 'super_admin', email: 'admin@test.com', display_name: 'Admin' }
@@ -25,6 +30,7 @@ function makeApp(user = ADMIN) {
 
 beforeEach(() => {
   vi.resetAllMocks()
+  vi.mocked(isEnabled).mockResolvedValue(true)
 })
 
 // ─── GET /projects/:id/velocity ───────────────────────────────────────────────
@@ -261,6 +267,70 @@ describe('GET /projects/:id/capacity', () => {
     vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
     const res = await makeApp().request('/projects/1/capacity?sprint_id=abc')
     expect(res.status).toBe(400)
+  })
+})
+
+// ─── GET /projects/:id/ai-usage ───────────────────────────────────────────────
+
+describe('GET /projects/:id/ai-usage', () => {
+  it('returns 404 when the ai flag is off', async () => {
+    vi.mocked(isEnabled).mockImplementation(async (flag) => flag !== 'ai')
+
+    const res = await makeApp().request('/projects/1/ai-usage')
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 404 when the ai_usage_reporting flag is off', async () => {
+    vi.mocked(isEnabled).mockImplementation(async (flag) => flag !== 'ai_usage_reporting')
+
+    const res = await makeApp().request('/projects/1/ai-usage')
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 400 for non-numeric project id', async () => {
+    const res = await makeApp().request('/projects/abc/ai-usage')
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 404 when project not found', async () => {
+    vi.mocked(db.get).mockResolvedValueOnce(undefined)
+    const res = await makeApp().request('/projects/99/ai-usage')
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 200 with empty array when no usage rows exist', async () => {
+    vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+    vi.mocked(db.all).mockResolvedValueOnce([])
+
+    const res = await makeApp().request('/projects/1/ai-usage')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toEqual([])
+  })
+
+  it('returns 200 with daily usage totals', async () => {
+    const mockUsage = [
+      { date: '2026-07-01', input_tokens: 100, output_tokens: 40 },
+      { date: '2026-07-02', input_tokens: 200, output_tokens: 80 },
+    ]
+    vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+    vi.mocked(db.all).mockResolvedValueOnce(mockUsage)
+
+    const res = await makeApp().request('/projects/1/ai-usage')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toEqual(mockUsage)
+  })
+
+  it('defaults to 30 days and passes a custom days query param through', async () => {
+    vi.mocked(db.get).mockResolvedValueOnce({ id: 1 })
+    vi.mocked(db.all).mockResolvedValueOnce([])
+
+    await makeApp().request('/projects/1/ai-usage?days=7')
+    expect(vi.mocked(db.all)).toHaveBeenCalledWith(
+      expect.stringContaining('FROM ai_usage'),
+      1, '-7 days',
+    )
   })
 })
 

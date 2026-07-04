@@ -64,7 +64,7 @@ export default function CardModal({ card, projectId, lanes, sprints, onClose, on
   const labelPickerRef = useRef<HTMLDivElement>(null)
 
   const visibleTabs = (Object.keys(TAB_LABELS) as Tab[]).filter(tab => {
-    if (tab === 'integrations') return isEnabled('github_integration')
+    if (tab === 'integrations') return isEnabled('github_integration') || isEnabled('gitlab_integration')
     if (tab === 'attachments') return isEnabled('card_attachments')
     return true
   })

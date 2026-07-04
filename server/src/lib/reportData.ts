@@ -154,3 +154,22 @@ export async function getSprintCapacity(projectId: number, sprintId: number): Pr
     })(),
   }))
 }
+
+export interface DailyAiUsage {
+  date: string
+  input_tokens: number
+  output_tokens: number
+}
+
+export async function getAiTokenUsage(projectId: number, days = 30): Promise<DailyAiUsage[]> {
+  return db.all<DailyAiUsage>(
+    `SELECT date(created_at) as date,
+            COALESCE(SUM(input_tokens), 0) as input_tokens,
+            COALESCE(SUM(output_tokens), 0) as output_tokens
+     FROM ai_usage
+     WHERE project_id = ? AND created_at >= datetime('now', ?)
+     GROUP BY date(created_at)
+     ORDER BY date`,
+    projectId, `-${days} days`,
+  )
+}

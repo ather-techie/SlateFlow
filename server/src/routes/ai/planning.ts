@@ -112,6 +112,7 @@ planning.post('/ai/cards/:id/suggest-assignee', requireFeature('ai_planning_assi
     const response = await provider.complete(prompt, {
       systemPrompt: SUGGEST_ASSIGNEE_SYSTEM,
       maxTokens: 512,
+      usageContext: { userId: user.id, projectId, endpoint: '/ai/cards/:id/suggest-assignee' },
     })
 
     const json = parseAiJson<unknown>(response, 'object')
@@ -227,6 +228,7 @@ planning.post('/ai/projects/:id/plan-sprint', requireFeature('ai_planning_assist
     const response = await provider.complete(prompt, {
       systemPrompt: PLAN_SPRINT_SYSTEM,
       maxTokens: 4096,
+      usageContext: { userId: c.get('user').id, projectId: id, endpoint: '/ai/projects/:id/plan-sprint' },
     })
 
     const json = parseAiJson<unknown>(response, 'object')
@@ -323,6 +325,7 @@ planning.post('/ai/cards/:id/suggest-estimate', requireFeature('ai_planning_assi
     const response = await provider.complete(prompt, {
       systemPrompt: interpolate(SUGGEST_ESTIMATE_SYSTEM_TEMPLATE, { scale }),
       maxTokens: 1024,
+      usageContext: { userId: user.id, projectId, endpoint: '/ai/cards/:id/suggest-estimate' },
     })
 
     const json = parseAiJson<unknown>(response, 'object')
@@ -386,6 +389,7 @@ planning.post('/ai/projects/:id/groom-backlog', requireFeature('ai_planning_assi
     const response = await provider.complete(prompt, {
       systemPrompt: GROOM_BACKLOG_SYSTEM,
       maxTokens: 4096,
+      usageContext: { userId: c.get('user').id, projectId: id, endpoint: '/ai/projects/:id/groom-backlog' },
     })
 
     const json = parseAiJson<unknown>(response, 'object')

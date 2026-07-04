@@ -17,6 +17,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - Capacity planning (story points per assignee) with committed capacity vs. actual display
 - User skills (app-level and project-level)
 - Velocity chart & cycle time reporting with average velocity
+- AI token usage reporting (daily input/output tokens per project, feature-flagged)
 - CSV export
 - Labels & threaded comments
 - AI card summarisation (Claude, Gemini, OpenAI, Azure OpenAI, Ollama)
@@ -103,6 +104,7 @@ A community-driven roadmap for SlateFlow — the lightweight, self-hostable agil
 - [x] **Smart assignee & story-point suggestions** — skill/load/vacation-aware assignee picks and comparable-based estimates in the card modal (gated by `ai_planning_assist`)
 - [x] **Duplicate detection** — backlog grooming assistant flags likely duplicates, vague stories with suggested rewrites, stale items, and a suggested priority order (gated by `ai_planning_assist`)
 - [x] **Ask Your Project chat** — streaming, RBAC-filtered project Q&A grounded in live board data (gated by `ai_project_chat`)
+- [x] **AI Token Usage report** — daily input/output token consumption chart per project on the Reports page, sourced from every AI provider call (gated by `ai_usage_reporting`)
 - [ ] **Auto-generate subtasks** from a card title or description
 - [ ] **Smart labels** — AI suggests tags based on card content
 - [ ] **Risk detection** — flag cards likely to be blocked or delayed based on patterns

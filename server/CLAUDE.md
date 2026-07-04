@@ -61,7 +61,7 @@ When adding a new public route, register it BEFORE the `requireAuth` line. Other
 | `routes/testcases.ts` | Test suites + cases + runs; bulk status + reorder |
 | `routes/dependencies.ts` | `GET/POST /cards/:id/dependencies`, `DELETE /dependencies/:id` (story blocks/blocked-by graph) |
 | `routes/roadmap.ts` | `GET /projects/:id/roadmap` (epics + nested features with date ranges) |
-| `routes/reports.ts` | `GET /projects/:id/velocity`, `/cycle-time`, `/capacity?sprint_id=`, `/export/csv?type=&sprint_id=` |
+| `routes/reports.ts` | `GET /projects/:id/velocity`, `/cycle-time`, `/capacity?sprint_id=`, `/ai-usage?days=` (flags `ai` + `ai_usage_reporting`), `/export/csv?type=&sprint_id=` |
 | `routes/users.ts` | Super Admin: CRUD + soft-delete + `/users/search?q=` |
 | `routes/projectAccess.ts` | Grant/revoke/update project-scoped roles; POST enforces super_admin-only for `project_admin` assignment; PATCH blocks users from changing own role; DELETE blocks removal of project_admins by non-super_admins and self-removal |
 | `routes/epicAccess.ts` | `GET/POST /epics/:id/access`, `PATCH/DELETE /epics/:epicId/access/:userId` (epic-level RBAC) |
@@ -124,6 +124,7 @@ Single SQLite file at `DATABASE_PATH` (default `./slateflow.db`). Schema lives i
 | `retrospective_items` | id | `retrospective_id` FK + `category` (went_well/to_improve/action) + `body` + `position` + `author_id` |
 | `calendar_entries` | id | `kind` (holiday/event/vacation), nullable `project_id` (events only) and `user_id` (vacations only), `start_date`, `end_date`, `color`, `country` (nullable, for holidays), `state_province` (nullable, for holidays), `created_by` |
 | `ai_digests` | id | `kind` (sprint_health/standup), `project_id` FK (CASCADE), nullable `sprint_id` FK (CASCADE), `content` (markdown), `created_by` FK → users; latest row per (kind, project, sprint) is what GET digest endpoints return |
+| `ai_usage` | id | nullable `project_id` FK (CASCADE), nullable `user_id` FK (SET NULL), `provider`, nullable `model`, `endpoint`, `input_tokens`, `output_tokens`; one row per AI provider call, written by `logUsage()`; aggregated by `GET /projects/:id/ai-usage` |
 
 Indexes: `notifications(user_id, is_read, created_at DESC)`, `epic_access(user_id, epic_id)`, `project_access(user_id, project_id)`, `story_dependencies(blocker_id, blocked_id)`.
 
@@ -177,7 +178,7 @@ Env vars come from the repo-root `.env` file via [loadEnv.ts](src/loadEnv.ts), w
 | `azure` | `lib/providers/openaicompat.ts` | `gpt-4o` (set `AI_BASE_URL` to full deployment URL) |
 | `ollama` | `lib/providers/openaicompat.ts` | `llama3` |
 
-Every streaming provider parses SSE via [lib/sseLines.ts](src/lib/sseLines.ts). When adding a new provider, conform to the `AIProvider` interface (`complete` + `stream`) and reuse `sseLines`. Providers must also: set `signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS | STREAM_TIMEOUT_MS)` on every fetch, parse responses via `readProviderJson()` (clean error on malformed JSON), and report token counts via `logUsage()` — all exported from `lib/ai.ts`.
+Every streaming provider parses SSE via [lib/sseLines.ts](src/lib/sseLines.ts). When adding a new provider, conform to the `AIProvider` interface (`complete` + `stream`) and reuse `sseLines`. Providers must also: set `signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS | STREAM_TIMEOUT_MS)` on every fetch, parse responses via `readProviderJson()` (clean error on malformed JSON), and report token counts via `logUsage()` — all exported from `lib/ai.ts`. `logUsage()` is `async` and, when called with a `usageContext` (`userId`, `projectId`, `endpoint`), persists a row to the `ai_usage` table in addition to its `console.log` — every route calling `provider.complete()`/`.stream()` should pass `usageContext` in `options` so usage shows up in the AI Token Usage report.
 
 ### AI route helpers
 

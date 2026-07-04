@@ -20,6 +20,7 @@ SlateFlow also supports enterprise-grade RBAC at global, project, and epic level
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [Docker Quick Start](#docker-quick-start)
+- [MCP Setup](#mcp-setup)
 - [Scripts](#scripts)
 - [Stack](#stack)
 - [Contributing](#contributing)
@@ -98,6 +99,7 @@ SlateFlow also supports enterprise-grade RBAC at global, project, and epic level
 - **Velocity chart** — story points completed per sprint, trend over time, with average velocity calculation; velocity snapshots for completed sprints
 - **Cycle time / lead time** — how long cards spend in each lane
 - **Capacity report** — per-assignee workload with team skills and committed capacity
+- **AI token usage** — daily input/output token consumption chart per project, sourced from every AI provider call (gated by `FEATURE_AI_USAGE_REPORTING`)
 - **CSV export** — backlog, sprint report, or full project snapshot as CSV
 
 ## Quick Start
@@ -144,6 +146,81 @@ docker-compose build         # rebuild after source changes
 ```
 
 If port 3000 is already in use, see [CONTRIBUTING.md](CONTRIBUTING.md#freeing-port-3000) for PowerShell and Bash recipes to free it.
+
+## MCP Setup
+
+SlateFlow ships an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server so an AI assistant like Claude can query and manage your project data directly. This section walks through the intended setup end to end, using Claude as the example client.
+
+> ⚠️ **Status:** the `/mcp` transport is under active development. Feature flags, token generation, and token auth are fully functional today, but tool execution currently returns a placeholder response — see [ROADMAP.md](ROADMAP.md) for progress. The steps below document the intended configuration so it's ready to go once the transport lands.
+
+### 1. Enable the flags you need
+
+MCP access is split into five independent flags so you can grant exactly the level of access you want:
+
+`FEATURE_READ_MCP` · `FEATURE_CREATE_MCP` · `FEATURE_UPDATE_MCP` · `FEATURE_DELETE_MCP` · `FEATURE_REPORT_MCP`
+
+Set the ones you want to `true` in `.env` (see the [env var table in CLAUDE.md](CLAUDE.md) for details), or have a `super_admin` toggle them at runtime from **Admin → Feature Flags** without a restart.
+
+### 2. Generate a personal access token
+
+Each user authenticates to MCP with their own named token (there's no dedicated UI for this yet, so create one via the API while logged in):
+
+```bash
+curl -X POST http://localhost:3000/api/mcp/tokens \
+  -H "Content-Type: application/json" \
+  -b "sf_token=<your session cookie>" \
+  -d '{"name": "My Claude Desktop"}'
+```
+
+Response (`data` field, wrapped in SlateFlow's standard envelope):
+
+```json
+{
+  "id": 1,
+  "token": "sf_mcp_<32-hex-chars>",
+  "name": "My Claude Desktop",
+  "created_at": "2026-07-04T00:00:00.000Z",
+  "message": "Token created. This is the only time it will be displayed. Store it safely."
+}
+```
+
+**The raw token is shown once** — copy it immediately. `GET /api/mcp/tokens` lists your tokens afterward (name and timestamps only, no raw value); `DELETE /api/mcp/tokens/:id` revokes one.
+
+### 3. Point Claude at the server
+
+**Claude Code** — add an entry to a project's `.mcp.json` (same file/format this repo already uses for its own `playwright` and `github` MCP servers, see [.mcp.json](.mcp.json)):
+
+```json
+{
+  "mcpServers": {
+    "slateflow": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer sf_mcp_<your-token>"
+      }
+    }
+  }
+}
+```
+
+**Claude Desktop** — add the same shape to `claude_desktop_config.json` under `mcpServers`.
+
+For a Docker or production deployment, swap the `url` for your public origin (e.g. `https://slateflow.example.com/mcp`). Keep the raw token out of source control — use a local, untracked config file or substitute it from an environment variable.
+
+### Available tools
+
+Once wired up, tools become available per the flags you enabled:
+
+| Flag | Tools |
+|---|---|
+| `read_mcp` | `list_projects`, `list_sprints`, `list_epics`, `list_features`, `search_cards`, `get_card`, `list_test_suites`, `list_test_cases`, `get_test_case`, `get_calendar` |
+| `create_mcp` | `create_card`, `create_sprint`, `create_test_case`, `record_test_run`, `create_calendar_event` |
+| `update_mcp` | `update_card`, `move_card`, `update_sprint`, `update_test_case`, `update_calendar_event` |
+| `delete_mcp` | `delete_card`, `delete_sprint`, `delete_test_case`, `delete_calendar_event` |
+| `report_mcp` | `get_velocity_report`, `get_cycle_time_report`, `get_capacity_report`, `get_dashboard_stats`, `get_dashboard_projects` |
+
+All tool calls respect the calling user's RBAC — an MCP token can never do more than the user it belongs to could do in the UI.
 
 ## Scripts
 

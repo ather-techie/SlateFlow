@@ -40,7 +40,7 @@ export class AnthropicProvider implements AIProvider {
       content: Array<{ type: string; text: string }>
       usage?: { input_tokens: number; output_tokens: number }
     }>(res, 'Anthropic')
-    logUsage('anthropic', { input: json.usage?.input_tokens, output: json.usage?.output_tokens })
+    await logUsage('anthropic', options?.model ?? this.model, { input: json.usage?.input_tokens, output: json.usage?.output_tokens }, options?.usageContext)
     const text = json.content.find(b => b.type === 'text')?.text
     if (!text) throw new Error('Empty response from Anthropic')
     return text
@@ -67,17 +67,33 @@ export class AnthropicProvider implements AIProvider {
     })
     if (!res.ok) throw new Error(`Anthropic error ${res.status}: ${await res.text()}`)
 
-    for await (const data of sseLines(res)) {
-      try {
-        const event = JSON.parse(data) as {
-          type: string
-          delta?: { type: string; text: string }
-        }
-        if (event.type === 'message_stop') break
-        if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
-          yield event.delta.text
-        }
-      } catch { /* skip non-JSON comment lines */ }
+    let inputTokens: number | undefined
+    let outputTokens: number | undefined
+
+    try {
+      for await (const data of sseLines(res)) {
+        try {
+          const event = JSON.parse(data) as {
+            type: string
+            delta?: { type: string; text: string }
+            message?: { usage?: { input_tokens?: number; output_tokens?: number } }
+            usage?: { output_tokens?: number }
+          }
+          if (event.type === 'message_start') {
+            inputTokens = event.message?.usage?.input_tokens
+            outputTokens = event.message?.usage?.output_tokens
+          }
+          if (event.type === 'message_delta' && event.usage?.output_tokens !== undefined) {
+            outputTokens = event.usage.output_tokens
+          }
+          if (event.type === 'message_stop') break
+          if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+            yield event.delta.text
+          }
+        } catch { /* skip non-JSON comment lines */ }
+      }
+    } finally {
+      await logUsage('anthropic', options?.model ?? this.model, { input: inputTokens, output: outputTokens }, options?.usageContext)
     }
   }
 }

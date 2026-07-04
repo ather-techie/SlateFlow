@@ -8,3 +8,4 @@ dist/
 *.sqlite
 *.tsbuildinfo
 .DS_Store
+.playwright-mcp/

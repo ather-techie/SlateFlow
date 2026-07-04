@@ -27,6 +27,7 @@ describe('MCP Feature Flags', () => {
         ai_writing_assist: false,
         ai_planning_assist: false,
         ai_project_chat: false,
+        ai_usage_reporting: false,
       },
       loading: true,
     })

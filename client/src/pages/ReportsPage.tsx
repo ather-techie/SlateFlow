@@ -12,7 +12,7 @@ import {
   Legend,
 } from 'recharts'
 import { api } from '../api/index'
-import type { CycleTimeEntry, Project, Sprint, VelocityEntry } from '../types'
+import type { AiUsageEntry, CycleTimeEntry, Project, Sprint, VelocityEntry } from '../types'
 import Header from '../components/Header'
 import { FeatureGate } from '../components/ui/FeatureGate'
 import SprintDigestPanel from '../components/Reports/SprintDigestPanel'
@@ -115,6 +115,44 @@ function CycleTimeChart({ data }: { data: CycleTimeEntry[] }) {
   )
 }
 
+// ── AI token usage chart ─────────────────────────────────────────────────────
+
+function AiUsageChart({ data }: { data: AiUsageEntry[] }) {
+  if (data.length === 0) {
+    return <p className="text-sm text-slate-400 text-center py-8">No AI usage yet in the last 30 days.</p>
+  }
+
+  const chartData = data.map(d => ({
+    name: d.date.slice(5),
+    'Input Tokens': d.input_tokens,
+    'Output Tokens': d.output_tokens,
+  }))
+
+  const totalTokens = data.reduce((sum, d) => sum + d.input_tokens + d.output_tokens, 0)
+
+  return (
+    <div>
+      <div className="mb-4">
+        <span className="text-sm text-slate-600">Total tokens (last 30 days): </span>
+        <span className="inline-block text-sm font-semibold text-indigo-700 bg-indigo-50 rounded-full px-3 py-0.5 ml-1">
+          {totalTokens.toLocaleString()}
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+          <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Bar dataKey="Input Tokens" stackId="tokens" fill="#e2e8f0" />
+          <Bar dataKey="Output Tokens" stackId="tokens" fill="#6366f1" radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
 // ── Export section ────────────────────────────────────────────────────────────
 
 function ExportSection({ projectId, sprints }: { projectId: number; sprints: Sprint[] }) {
@@ -197,6 +235,7 @@ export default function ReportsPage() {
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [velocity, setVelocity] = useState<VelocityEntry[]>([])
   const [cycleTime, setCycleTime] = useState<CycleTimeEntry[]>([])
+  const [aiUsage, setAiUsage] = useState<AiUsageEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -207,12 +246,14 @@ export default function ReportsPage() {
       api.sprints.list(pid),
       api.reports.velocity(pid),
       api.reports.cycleTime(pid),
+      api.reports.aiUsage(pid).catch(() => []),
     ])
-      .then(([proj, sps, vel, ct]) => {
+      .then(([proj, sps, vel, ct, usage]) => {
         setProject(proj)
         setSprints(sps.filter(s => !s.is_default))
         setVelocity(vel)
         setCycleTime(ct)
+        setAiUsage(usage)
       })
       .catch(e => setError(e instanceof Error ? e.message : 'Failed to load reports'))
       .finally(() => setLoading(false))
@@ -263,6 +304,17 @@ export default function ReportsPage() {
           >
             <CycleTimeChart data={cycleTime} />
           </Section>
+
+          <FeatureGate flag="ai">
+            <FeatureGate flag="ai_usage_reporting">
+              <Section
+                title="AI Token Usage"
+                subtitle="Input vs. output tokens consumed per day"
+              >
+                <AiUsageChart data={aiUsage} />
+              </Section>
+            </FeatureGate>
+          </FeatureGate>
 
           <FeatureGate flag="ai">
             <FeatureGate flag="ai_ceremony_digests">

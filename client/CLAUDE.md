@@ -49,8 +49,8 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `SprintsPage` | Re-exports from `components/`; sprint list with progress bars + recharts burndown; activate/complete |
 | `TestSuitePage` | 3-pane: suite navigator / test case table with bulk actions / detail panel; CSV export |
 | `RoadmapPage` | Gantt-style timeline; epic rows with collapsible feature sub-rows; date editor popover |
-| `ReportsPage` | Velocity chart, cycle-time chart, capacity per assignee, CSV export buttons (backlog/sprint/full) |
-| `AdminPage` | Super-admin only; **Users**, **Holidays** (global, gated by `calendar` flag), and **Settings** (feature flag toggles) tabs |
+| `ReportsPage` | Velocity chart, cycle-time chart, AI token usage chart (gated by `ai` + `ai_usage_reporting`), capacity per assignee, CSV export buttons (backlog/sprint/full) |
+| `AdminPage` | Super-admin only; **Users**, **Holidays** (global, gated by `calendar` flag), and **Feature Flags** (grouped, searchable flag toggles) tabs |
 | `ProjectAdminPage` | Project-scoped admin (accessible to `project_admin` and `super_admin`); **Members** (grant/update/revoke project-level roles with restrictions: project_admins can't change own role/remove self, can't manage other project_admins; search-and-add modal filters out super_admins and existing members), **Settings** (edit project name/description/color), **Lanes** (swim lane CRUD with inline rename, done-col toggle, reorder, delete) |
 | `RetrospectivePage` | Per-sprint retro with three fixed columns (Went well / To improve / Action items) and `@dnd-kit` reorder. Gated by `retrospective` flag |
 | `CalendarPage` | Month view of sprints, epics, features + holidays/events/vacations. Prev/next/today nav; `+` on a day or button to add an entry. Gated by `calendar` flag |
@@ -73,7 +73,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 - `NLItemInput` — universal natural-language work item creation (gated by `FEATURE_AI`). Props: `allowedTypes` (array of types the parser can return), `context` (projectId/epicId/laneId), `lanes` (for story lane picker), `cards` (for task parent picker), `onCreated` (refresh callback). State machine: idle → input → loading → preview → confirming. Editable fields appear based on inferred type (priority/assignee for epics/features/stories, dates for sprints/calendar, parent selectors as needed). Wrapped in `<FeatureGate flag="ai">` at every mount site: BoardPage, EpicsPage, SprintsPage, CalendarPage, DashboardPage
 - `ProjectAccessModal` — per-user table of all projects with role dropdowns; saves inline on change
 - `CreateUserModal` (inline in AdminPage) — chains `POST /users` then `POST /projects/:id/access` per assigned project
-- `SettingsTab` (inline in AdminPage) — feature flag toggles; toggle is disabled when the env var is `false` (env is the ceiling)
+- `FeatureFlagsTab` (inline in AdminPage) — feature flag toggles grouped into collapsible categories (AI, MCP, Authentication, Integrations, Collaboration) with a search box filtering by label/flag name/description; toggle is disabled when the env var is `false` (env is the ceiling)
 
 ## Stores ([src/store/](src/store/))
 
@@ -83,7 +83,7 @@ Scoped guidance for Claude Code when editing under `client/`. For repo-wide cont
 | `projectStore.ts` | `projects`, `currentProject`; `setCurrentProject`, `fetchProjects()` |
 | `boardStore.ts` | `lanes`, `cards`, `testCaseSummary`, `taskSummary`, `linkCount`; mutations: `moveCard`, `addCard`, `updateCard`, `deleteCard`, summary setters, `setLinkCount` |
 | `retroStore.ts` | `retroId`, `items`; mutations: `setRetro`, `addItem`, `updateItem`, `removeItem`, `setItems`, `clear` (mutations only apply when the incoming item belongs to the active retro) |
-| `featureFlagStore.ts` | `features` (all 21 flags incl. `ai`, `ai_ceremony_digests`, `ai_writing_assist`, `ai_planning_assist`, `ai_project_chat`, auth/integration/MCP flags), `loading`; `setFlags(...)`, `isEnabled(flag)`. NOTE: several test files (`App.tsx` fallback, `featureFlagStore.test.ts`, `mcpFeatureFlags.test.ts`, `FeatureGate.test.tsx`, `LoginPage.test.tsx`) build full `Features` literals — adding a flag means updating those too |
+| `featureFlagStore.ts` | `features` (all 22 flags incl. `ai`, `ai_ceremony_digests`, `ai_writing_assist`, `ai_planning_assist`, `ai_project_chat`, `ai_usage_reporting`, auth/integration/MCP flags), `loading`; `setFlags(...)`, `isEnabled(flag)`. NOTE: several test files (`App.tsx` fallback, `featureFlagStore.test.ts`, `mcpFeatureFlags.test.ts`, `FeatureGate.test.tsx`, `LoginPage.test.tsx`) build full `Features` literals — adding a flag means updating those too |
 | `chatStore.ts` | `messagesByProject` (per-project chat history, in-memory), `streamingProjectId`, `error`; `sendMessage(projectId, text)` (streams the assistant reply via `api/stream.ts`), `stop()`, `clear(projectId)` |
 
 ## API clients

@@ -214,7 +214,7 @@ describe('isEnabled', () => {
 })
 
 describe('getAllFlags', () => {
-  it('returns an object with all 21 known flags', async () => {
+  it('returns an object with all 22 known flags', async () => {
     const allFlags = [
       'ai',
       'auto_test_case_generation_ai',
@@ -237,6 +237,7 @@ describe('getAllFlags', () => {
       'ai_writing_assist',
       'ai_planning_assist',
       'ai_project_chat',
+      'ai_usage_reporting',
     ]
 
     vi.mocked(db.get).mockResolvedValue(undefined)
@@ -271,6 +272,7 @@ describe('getAllFlags', () => {
       'ai_writing_assist',
       'ai_planning_assist',
       'ai_project_chat',
+      'ai_usage_reporting',
     ]
 
     vi.mocked(db.get).mockResolvedValue(undefined)
@@ -291,9 +293,9 @@ describe('getAllFlags', () => {
 
     await getAllFlags()
 
-    // DB.get should be called once per flag (21 times)
-    // Each call checks the DB, so we expect 21 calls total
-    expect(vi.mocked(db.get).mock.calls.length).toBe(21)
+    // DB.get should be called once per flag (22 times)
+    // Each call checks the DB, so we expect 22 calls total
+    expect(vi.mocked(db.get).mock.calls.length).toBe(22)
   })
 
   it('returns record with correct flag values mixed true and false', async () => {
@@ -403,6 +405,7 @@ describe('setFlag', () => {
       'ai_writing_assist',
       'ai_planning_assist',
       'ai_project_chat',
+      'ai_usage_reporting',
     ]
 
     for (const flag of flags) {

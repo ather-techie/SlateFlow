@@ -75,7 +75,7 @@ describe('adminSettings routes', () => {
       const res = await makeApp().request('/admin/feature-overrides')
       expect(res.status).toBe(200)
       const json = await res.json()
-      expect(json.data).toHaveLength(21)
+      expect(json.data).toHaveLength(22)
     })
 
     it('includes env_enabled status', async () => {
@@ -273,9 +273,9 @@ describe('adminSettings routes', () => {
   })
 
   describe('validation: known flags', () => {
-    it('lists all 21 known feature flags', () => {
-      const flags = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications', 'card_attachments', 'read_mcp', 'create_mcp', 'update_mcp', 'delete_mcp', 'report_mcp', 'ai_ceremony_digests', 'ai_writing_assist', 'ai_planning_assist', 'ai_project_chat']
-      expect(flags).toHaveLength(21)
+    it('lists all 22 known feature flags', () => {
+      const flags = ['ai', 'auto_test_case_generation_ai', 'auto_story_generation_ai', 'retrospective', 'calendar', 'auth_password', 'auth_google', 'auth_github', 'github_integration', 'gitlab_integration', 'email_notifications', 'card_attachments', 'read_mcp', 'create_mcp', 'update_mcp', 'delete_mcp', 'report_mcp', 'ai_ceremony_digests', 'ai_writing_assist', 'ai_planning_assist', 'ai_project_chat', 'ai_usage_reporting']
+      expect(flags).toHaveLength(22)
     })
   })
 })

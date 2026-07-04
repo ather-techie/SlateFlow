@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import { db } from '../db/index.js'
 import { ok, err, parseId } from '../lib/response.js'
-import { getSprintPointTotals, getProjectCycleTime, getSprintCapacity } from '../lib/reportData.js'
+import { getSprintPointTotals, getProjectCycleTime, getSprintCapacity, getAiTokenUsage } from '../lib/reportData.js'
+import { requireFeature } from '../middleware/requireRole.js'
 
 const reports = new Hono()
 
@@ -83,6 +84,19 @@ reports.get('/projects/:id/capacity', async (c) => {
   if (!sprint) return err(c, 'sprint not found', 404)
 
   return ok(c, await getSprintCapacity(projectId, sprintId))
+})
+
+reports.get('/projects/:id/ai-usage', requireFeature('ai'), requireFeature('ai_usage_reporting'), async (c) => {
+  const projectId = parseId(c.req.param('id'))
+  if (!projectId) return err(c, 'invalid id', 400)
+
+  const project = await db.get('SELECT id FROM projects WHERE id = ?', projectId)
+  if (!project) return err(c, 'project not found', 404)
+
+  const daysRaw = c.req.query('days')
+  const days = daysRaw ? parseInt(daysRaw, 10) : 30
+
+  return ok(c, await getAiTokenUsage(projectId, Number.isFinite(days) ? days : 30))
 })
 
 function escapeCsvField(val: unknown): string {

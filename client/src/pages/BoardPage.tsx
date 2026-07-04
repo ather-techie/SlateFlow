@@ -80,7 +80,7 @@ export default function BoardPage() {
   // ── SSE: Live card updates ───────────────────────────────────────────────────
   useBoardCardEvents(pid, (card, type, cardId) => {
     if (type === 'created') {
-      setAllCards(prev => [...prev, card])
+      setAllCards(prev => (prev.some(c => c.id === card.id) ? prev : [...prev, card]))
     } else if (type === 'updated' || type === 'moved') {
       setAllCards(prev => prev.map(c => (c.id === card.id ? card : c)))
     } else if (type === 'deleted') {
@@ -248,7 +248,10 @@ export default function BoardPage() {
     setAllCards(prev => [...prev, optimistic])
     try {
       const created = await api.createLaneCard(laneId, { title, priority, assignee: assignee ?? null, sprint_id: selectedSprintId ?? undefined })
-      setAllCards(prev => prev.map(c => (c.id === tempId ? created : c)))
+      setAllCards(prev => {
+        const withoutTemp = prev.filter(c => c.id !== tempId)
+        return withoutTemp.some(c => c.id === created.id) ? withoutTemp : [...withoutTemp, created]
+      })
     } catch {
       setAllCards(prev => prev.filter(c => c.id !== tempId))
     }

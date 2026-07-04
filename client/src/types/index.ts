@@ -52,6 +52,7 @@ export type {
   VelocityEntry,
   CycleTimeEntry,
   CapacityEntry,
+  AiUsageEntry,
 } from './reports'
 
 export type {

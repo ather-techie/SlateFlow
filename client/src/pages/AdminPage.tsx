@@ -10,7 +10,7 @@ import ProjectAccessModal from '../components/ProjectAccessModal'
 import { FeatureGate } from '../components/ui/FeatureGate'
 import EntryFormModal, { type EntryEditing } from '../components/Calendar/EntryFormModal'
 
-type Tab = 'users' | 'settings' | 'holidays'
+type Tab = 'users' | 'flags' | 'holidays'
 
 type ProjectAssignment = { project_id: number; role: 'project_admin' | 'contributor' | 'reader' }
 
@@ -587,7 +587,7 @@ function EditSkillsModal({ user, onClose, onUpdated }: {
   )
 }
 
-// ─── Settings Tab ─────────────────────────────────────────────────────────────
+// ─── Feature Flags Tab ────────────────────────────────────────────────────────
 
 interface FlagStatus {
   flag: string
@@ -598,9 +598,14 @@ interface FlagStatus {
   configured: boolean | null
 }
 
-function SettingsTab() {
+const FEATURE_CATEGORIES = ['AI', 'MCP', 'Authentication', 'Integrations', 'Collaboration', 'Other'] as const
+type FeatureCategory = typeof FEATURE_CATEGORIES[number]
+
+function FeatureFlagsTab() {
   const [flags, setFlags] = useState<FlagStatus[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [openCategories, setOpenCategories] = useState<Set<FeatureCategory>>(new Set())
   const { setFlags: setStoreFlags } = useFeatureFlagStore()
 
   async function refetchFlags() {
@@ -651,99 +656,243 @@ function SettingsTab() {
 
   if (loading) return <p className="text-slate-400 text-sm">Loading…</p>
 
-  const featureMeta: Record<string, { label: string; description: string }> = {
+  const featureMeta: Record<string, { label: string; description: string; category: FeatureCategory }> = {
     ai: {
       label: 'AI Features',
       description: 'Enable AI-powered features such as card summarization, auto-prioritization, and natural-language search. Requires AI_PROVIDER and AI_API_KEY to be configured.',
+      category: 'AI',
     },
-    retrospective: {
-      label: 'Retrospective Board',
-      description: 'Per-sprint retrospective with three columns (Went well / To improve / Action items). Drag-and-drop notes with live updates across users.',
+    auto_test_case_generation_ai: {
+      label: 'AI Test Case Generation',
+      description: 'Enables test case generation from user stories.',
+      category: 'AI',
     },
-    calendar: {
-      label: 'Calendar',
-      description: 'Month view of sprints, epics, and features alongside user-managed holidays, project events, and vacations.',
+    auto_story_generation_ai: {
+      label: 'AI Story Generation',
+      description: 'Enables story generation from a feature title/description.',
+      category: 'AI',
+    },
+    ai_ceremony_digests: {
+      label: 'AI Ceremony Digests',
+      description: 'Enables the Sprint Health Digest, Daily Standup Digest, and Retrospective Synthesizer.',
+      category: 'AI',
+    },
+    ai_writing_assist: {
+      label: 'AI Writing Assist',
+      description: 'Enables Acceptance Criteria generation and comment-thread summarization.',
+      category: 'AI',
+    },
+    ai_planning_assist: {
+      label: 'AI Planning Assist',
+      description: 'Enables assignee/estimate suggestions, sprint planning, and backlog grooming.',
+      category: 'AI',
+    },
+    ai_project_chat: {
+      label: 'AI Project Chat',
+      description: 'Enables the streaming "Ask Your Project" chat.',
+      category: 'AI',
+    },
+    ai_usage_reporting: {
+      label: 'AI Usage Reporting',
+      description: 'Enables the AI Token Usage report on the Reports page. Also requires AI Features to be enabled.',
+      category: 'AI',
+    },
+    read_mcp: {
+      label: 'MCP Read Tools',
+      description: 'Enables read-only MCP tools (list/get operations on work items, tests, calendar) via per-user tokens.',
+      category: 'MCP',
+    },
+    create_mcp: {
+      label: 'MCP Create Tools',
+      description: 'Enables MCP create tools (POST operations).',
+      category: 'MCP',
+    },
+    update_mcp: {
+      label: 'MCP Update Tools',
+      description: 'Enables MCP update/move tools (PATCH operations).',
+      category: 'MCP',
+    },
+    delete_mcp: {
+      label: 'MCP Delete Tools',
+      description: 'Enables MCP delete tools (safety gate kept separate from update).',
+      category: 'MCP',
+    },
+    report_mcp: {
+      label: 'MCP Reporting Tools',
+      description: 'Enables MCP reporting tools (velocity, cycle time, capacity, dashboard metrics).',
+      category: 'MCP',
     },
     auth_password: {
       label: 'Email/Password Login',
       description: 'Built-in email + password sign-in. Disable to require all users to authenticate via OAuth or SSO.',
+      category: 'Authentication',
     },
     auth_google: {
       label: 'Google Login',
       description: 'Sign-in with Google OAuth. Requires OAUTH_GOOGLE_CLIENT_ID and OAUTH_GOOGLE_CLIENT_SECRET to be configured.',
+      category: 'Authentication',
     },
     auth_github: {
       label: 'GitHub Login',
       description: 'Sign-in with GitHub OAuth. Requires OAUTH_GITHUB_CLIENT_ID and OAUTH_GITHUB_CLIENT_SECRET to be configured.',
+      category: 'Authentication',
+    },
+    github_integration: {
+      label: 'GitHub Integration',
+      description: 'Enables GitHub link routes and UI surfaces (linked PRs/commits/issues on story cards).',
+      category: 'Integrations',
+    },
+    gitlab_integration: {
+      label: 'GitLab Integration',
+      description: 'Enables GitLab MR link routes and UI surfaces on story cards.',
+      category: 'Integrations',
+    },
+    retrospective: {
+      label: 'Retrospective Board',
+      description: 'Per-sprint retrospective with three columns (Went well / To improve / Action items). Drag-and-drop notes with live updates across users.',
+      category: 'Collaboration',
+    },
+    calendar: {
+      label: 'Calendar',
+      description: 'Month view of sprints, epics, and features alongside user-managed holidays, project events, and vacations.',
+      category: 'Collaboration',
+    },
+    card_attachments: {
+      label: 'Card Attachments',
+      description: 'Enables file uploads and attachments on story cards.',
+      category: 'Collaboration',
+    },
+    email_notifications: {
+      label: 'Email Notifications',
+      description: 'Enables email notifications for mentions, assignments, and due dates.',
+      category: 'Collaboration',
     },
   }
+
+  function toggleCategory(category: FeatureCategory) {
+    setOpenCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
+  }
+
+  const query = search.trim().toLowerCase()
+  const visibleFlags = query
+    ? flags.filter(f => {
+        const meta = featureMeta[f.flag] ?? { label: f.flag, description: '', category: 'Other' as FeatureCategory }
+        return (
+          meta.label.toLowerCase().includes(query) ||
+          f.flag.toLowerCase().includes(query) ||
+          meta.description.toLowerCase().includes(query)
+        )
+      })
+    : flags
+
+  const groupedFlags = FEATURE_CATEGORIES.map(category => ({
+    category,
+    flags: visibleFlags.filter(f => (featureMeta[f.flag]?.category ?? 'Other') === category),
+  })).filter(g => g.flags.length > 0)
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-400">
         Enterprise feature flags. Toggle flags here or set the environment variable to force a value.
       </p>
-      {flags.map(f => {
-        const meta = featureMeta[f.flag] ?? { label: f.flag, description: '' }
-        const canToggle = f.can_toggle
-        const isOn = f.resolved
+      <input
+        type="text"
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search feature flags…"
+        className="w-full text-sm bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+      {groupedFlags.length === 0 && (
+        <p className="text-sm text-slate-500">No feature flags match "{search}".</p>
+      )}
+      {groupedFlags.map(({ category, flags: categoryFlags }) => {
+        const isOpen = query.length > 0 || openCategories.has(category)
         return (
-          <div key={f.flag} className="bg-slate-900 border border-slate-700 rounded-xl p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-sm font-semibold text-slate-100">{meta.label}</h3>
-                  <span className={`text-xs px-2 py-0.5 rounded font-mono ${f.env_enabled ? 'bg-green-900/60 text-green-300' : 'bg-slate-700 text-slate-400'}`}>
-                    FEATURE_{f.flag.toUpperCase()}={(f.env_enabled ? 'true' : 'false')}
-                  </span>
-                  {f.db_override !== null && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300">
-                      DB override: {f.db_override ? 'on' : 'off'}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-400">{meta.description}</p>
-                {!canToggle && (
-                  <p className="text-xs text-amber-500 mt-1.5">
-                    FEATURE_{f.flag.toUpperCase()}=false is set in your environment — this flag cannot be enabled here.
-                  </p>
-                )}
-                {canToggle && !f.env_enabled && (
-                  <p className="text-xs text-slate-500 mt-1.5">
-                    FEATURE_{f.flag.toUpperCase()} is not set — this toggle is the active control.
-                  </p>
-                )}
-                {f.configured === false && (
-                  <p className="text-xs text-amber-500 mt-1.5">
-                    OAuth credentials are not set — populate{' '}
-                    <code className="font-mono">OAUTH_{f.flag === 'auth_google' ? 'GOOGLE' : 'GITHUB'}_CLIENT_ID</code> and{' '}
-                    <code className="font-mono">OAUTH_{f.flag === 'auth_google' ? 'GOOGLE' : 'GITHUB'}_CLIENT_SECRET</code>{' '}
-                    in <code className="font-mono">.env</code>, then restart the server.
-                  </p>
-                )}
+          <div key={category} className="border border-slate-800 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleCategory(category)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-900/60 hover:bg-slate-900 text-left transition-colors"
+            >
+              <span className="text-sm font-semibold text-slate-100">{category}</span>
+              <span className="text-xs text-slate-400 flex items-center gap-2">
+                {categoryFlags.length} flag{categoryFlags.length === 1 ? '' : 's'}
+                <span className={`inline-block transition-transform ${isOpen ? 'rotate-90' : ''}`}>›</span>
+              </span>
+            </button>
+            {isOpen && (
+              <div className="p-4 space-y-4 bg-slate-950/40">
+                {categoryFlags.map(f => {
+                  const meta = featureMeta[f.flag] ?? { label: f.flag, description: '', category: 'Other' as FeatureCategory }
+                  const canToggle = f.can_toggle
+                  const isOn = f.resolved
+                  return (
+                    <div key={f.flag} className="bg-slate-900 border border-slate-700 rounded-xl p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-sm font-semibold text-slate-100">{meta.label}</h3>
+                            <span className={`text-xs px-2 py-0.5 rounded font-mono ${f.env_enabled ? 'bg-green-900/60 text-green-300' : 'bg-slate-700 text-slate-400'}`}>
+                              FEATURE_{f.flag.toUpperCase()}={(f.env_enabled ? 'true' : 'false')}
+                            </span>
+                            {f.db_override !== null && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-indigo-900/50 text-indigo-300">
+                                DB override: {f.db_override ? 'on' : 'off'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400">{meta.description}</p>
+                          {!canToggle && (
+                            <p className="text-xs text-amber-500 mt-1.5">
+                              FEATURE_{f.flag.toUpperCase()}=false is set in your environment — this flag cannot be enabled here.
+                            </p>
+                          )}
+                          {canToggle && !f.env_enabled && (
+                            <p className="text-xs text-slate-500 mt-1.5">
+                              FEATURE_{f.flag.toUpperCase()} is not set — this toggle is the active control.
+                            </p>
+                          )}
+                          {f.configured === false && (
+                            <p className="text-xs text-amber-500 mt-1.5">
+                              OAuth credentials are not set — populate{' '}
+                              <code className="font-mono">OAUTH_{f.flag === 'auth_google' ? 'GOOGLE' : 'GITHUB'}_CLIENT_ID</code> and{' '}
+                              <code className="font-mono">OAUTH_{f.flag === 'auth_google' ? 'GOOGLE' : 'GITHUB'}_CLIENT_SECRET</code>{' '}
+                              in <code className="font-mono">.env</code>, then restart the server.
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {f.db_override !== null && (
+                            <button
+                              onClick={() => handleReset(f.flag)}
+                              className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
+                              title="Clear DB override and revert to environment default"
+                            >
+                              Reset
+                            </button>
+                          )}
+                          <button
+                            disabled={!canToggle}
+                            onClick={() => handleToggle(f.flag, !isOn)}
+                            title={canToggle ? undefined : `FEATURE_${f.flag.toUpperCase()}=false prevents enabling this flag`}
+                            className={`relative inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+                              isOn ? 'bg-indigo-600' : 'bg-slate-600'
+                            } ${!canToggle ? 'opacity-40 cursor-not-allowed' : ''}`}
+                          >
+                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isOn ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {f.db_override !== null && (
-                  <button
-                    onClick={() => handleReset(f.flag)}
-                    className="text-xs text-slate-400 hover:text-slate-200 px-2 py-1 rounded border border-slate-700 hover:border-slate-500 transition-colors"
-                    title="Clear DB override and revert to environment default"
-                  >
-                    Reset
-                  </button>
-                )}
-                <button
-                  disabled={!canToggle}
-                  onClick={() => handleToggle(f.flag, !isOn)}
-                  title={canToggle ? undefined : `FEATURE_${f.flag.toUpperCase()}=false prevents enabling this flag`}
-                  className={`relative inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900 ${
-                    isOn ? 'bg-indigo-600' : 'bg-slate-600'
-                  } ${!canToggle ? 'opacity-40 cursor-not-allowed' : ''}`}
-                >
-                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isOn ? 'translate-x-5' : 'translate-x-0'}`} />
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         )
       })}
@@ -921,10 +1070,10 @@ export default function AdminPage() {
             </button>
           </FeatureGate>
           <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'settings' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+            onClick={() => setActiveTab('flags')}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 ${activeTab === 'flags' ? 'border-indigo-500 text-indigo-400' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
           >
-            Settings
+            Feature Flags
           </button>
         </div>
 
@@ -932,7 +1081,7 @@ export default function AdminPage() {
         <FeatureGate flag="calendar">
           {activeTab === 'holidays' && <HolidaysTab />}
         </FeatureGate>
-        {activeTab === 'settings' && <SettingsTab />}
+        {activeTab === 'flags' && <FeatureFlagsTab />}
       </div>
     </div>
   )

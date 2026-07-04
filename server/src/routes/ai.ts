@@ -31,16 +31,20 @@ interface CardRow {
   title: string
   description: string
   feature_id: number | null
+  project_id: number | null
 }
+
+const CARD_ROW_QUERY = `
+  SELECT c.id, c.title, c.description, c.feature_id, f.project_id
+  FROM cards c LEFT JOIN features f ON f.id = c.feature_id
+  WHERE c.id = ?
+`
 
 ai.post('/ai/cards/:id/summarize', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid card id', 400)
 
-  const card = await db.get<CardRow>(
-    'SELECT id, title, description, feature_id FROM cards WHERE id = ?',
-    id
-  )
+  const card = await db.get<CardRow>(CARD_ROW_QUERY, id)
   if (!card) return err(c, 'card not found', 404)
 
   const user = c.get('user')
@@ -58,6 +62,7 @@ ai.post('/ai/cards/:id/summarize', async (c) => {
     const summary = await provider.complete(prompt, {
       systemPrompt: CARD_SUMMARIZE_SYSTEM,
       maxTokens: 256,
+      usageContext: { userId: user.id, projectId: card.project_id ?? undefined, endpoint: '/ai/cards/:id/summarize' },
     })
     return ok(c, { summary })
   } catch (e) {
@@ -107,6 +112,7 @@ ai.post('/ai/parse-item', async (c) => {
     const response = await provider.complete(userPrompt, {
       systemPrompt,
       maxTokens: 1024,
+      usageContext: { userId: c.get('user').id, projectId: context?.projectId, endpoint: '/ai/parse-item' },
     })
     const result = parseAiJson<Record<string, unknown>>(response, 'object')
     if (!result) return err(c, 'AI returned unparseable response', 500)
@@ -132,10 +138,7 @@ ai.post('/ai/cards/:id/generate-test-cases', requireFeature('auto_test_case_gene
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid card id', 400)
 
-  const card = await db.get<CardRow>(
-    'SELECT id, title, description, feature_id FROM cards WHERE id = ?',
-    id
-  )
+  const card = await db.get<CardRow>(CARD_ROW_QUERY, id)
   if (!card) return err(c, 'card not found', 404)
 
   const user = c.get('user')
@@ -153,6 +156,7 @@ ai.post('/ai/cards/:id/generate-test-cases', requireFeature('auto_test_case_gene
     const response = await provider.complete(prompt, {
       systemPrompt: GENERATE_TEST_CASES_SYSTEM,
       maxTokens: 4096,
+      usageContext: { userId: user.id, projectId: card.project_id ?? undefined, endpoint: '/ai/cards/:id/generate-test-cases' },
     })
 
     const items = parseAiJson<unknown[]>(response, 'array')
@@ -181,8 +185,8 @@ ai.post('/ai/features/:id/generate-stories', requireFeature('auto_story_generati
   const id = parseId(c.req.param('id'))
   if (!id) return err(c, 'invalid feature id', 400)
 
-  const feature = await db.get<{ id: number; title: string; description: string; is_default: number; epic_id: number | null }>(
-    'SELECT id, title, description, is_default, epic_id FROM features WHERE id = ?',
+  const feature = await db.get<{ id: number; title: string; description: string; is_default: number; epic_id: number | null; project_id: number | null }>(
+    'SELECT id, title, description, is_default, epic_id, project_id FROM features WHERE id = ?',
     id
   )
   if (!feature) return err(c, 'feature not found', 404)
@@ -203,6 +207,7 @@ ai.post('/ai/features/:id/generate-stories', requireFeature('auto_story_generati
     const response = await provider.complete(prompt, {
       systemPrompt: GENERATE_STORIES_SYSTEM,
       maxTokens: 4096,
+      usageContext: { userId: user.id, projectId: feature.project_id ?? undefined, endpoint: '/ai/features/:id/generate-stories' },
     })
 
     const items = parseAiJson<unknown[]>(response, 'array')

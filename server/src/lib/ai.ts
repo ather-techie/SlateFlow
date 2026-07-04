@@ -1,8 +1,17 @@
+import { db } from '../db/index.js'
+
+export interface UsageContext {
+  userId?: number
+  projectId?: number
+  endpoint: string
+}
+
 export interface CompletionOptions {
   model?: string
   maxTokens?: number
   temperature?: number
   systemPrompt?: string
+  usageContext?: UsageContext
 }
 
 export interface Message {
@@ -28,10 +37,29 @@ export async function readProviderJson<T>(res: Response, providerName: string): 
   }
 }
 
-export function logUsage(provider: string, usage: { input?: number; output?: number }): void {
-  if (usage.input !== undefined || usage.output !== undefined) {
-    console.log(`[ai-usage] provider=${provider} input_tokens=${usage.input ?? '?'} output_tokens=${usage.output ?? '?'}`)
-  }
+export async function logUsage(
+  provider: string,
+  model: string | undefined,
+  usage: { input?: number; output?: number },
+  context?: UsageContext,
+): Promise<void> {
+  if (usage.input === undefined && usage.output === undefined) return
+
+  console.log(`[ai-usage] provider=${provider} input_tokens=${usage.input ?? '?'} output_tokens=${usage.output ?? '?'}`)
+
+  if (!context) return
+
+  await db.run(
+    `INSERT INTO ai_usage (project_id, user_id, provider, model, endpoint, input_tokens, output_tokens)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    context.projectId ?? null,
+    context.userId ?? null,
+    provider,
+    model ?? null,
+    context.endpoint,
+    usage.input ?? 0,
+    usage.output ?? 0,
+  )
 }
 
 let _provider: AIProvider | null = null

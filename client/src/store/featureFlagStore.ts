@@ -22,6 +22,7 @@ export type FeatureFlag =
   | 'ai_writing_assist'
   | 'ai_planning_assist'
   | 'ai_project_chat'
+  | 'ai_usage_reporting'
 
 export interface Features {
   ai: boolean
@@ -45,6 +46,7 @@ export interface Features {
   ai_writing_assist: boolean
   ai_planning_assist: boolean
   ai_project_chat: boolean
+  ai_usage_reporting: boolean
 }
 
 interface FeatureFlagState {
@@ -78,6 +80,7 @@ export const useFeatureFlagStore = create<FeatureFlagState>((set, get) => ({
     ai_writing_assist: false,
     ai_planning_assist: false,
     ai_project_chat: false,
+    ai_usage_reporting: false,
   },
   loading: true,
   setFlags: (features) => set({ features, loading: false }),
